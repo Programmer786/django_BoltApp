@@ -1,0 +1,170 @@
+{% extends "base/base.html" %}
+{% load static %}
+
+{% block start %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="page-title-box d-flex align-items-center justify-content-between">
+                <h4 class="mb-0">Activity Logs</h4>
+                <div class="page-title-right">
+                    <ol class="breadcrumb m-0">
+                        <li class="breadcrumb-item"><a href="/">Dashboard</a></li>
+                        <li class="breadcrumb-item active">Activity Logs</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-history me-2"></i>Recent Activities</h5>
+                    <div>
+                        <span class="badge bg-light text-dark">Total: {{ logs|length }}</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Date Range Filter Form -->
+                    <form method="get" class="mb-4">
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-3">
+                                <label for="start_date" class="form-label">From Date</label>
+                                <input type="date" class="form-control" id="start_date" name="start_date" value="{{ start_date }}">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="end_date" class="form-label">To Date</label>
+                                <input type="date" class="form-control" id="end_date" name="end_date" value="{{ end_date }}">
+                            </div>
+                            <div class="col-md-3">
+                                <button type="submit" class="btn btn-primary me-2">
+                                    <i class="fas fa-filter me-1"></i> Filter
+                                </button>
+                                <a href="{% url 'logs_activity' %}" class="btn btn-outline-warning">
+                                    <i class="fas fa-sync-alt me-1"></i> Reset
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+
+                    <div class="table-responsive">
+                        <table class="table table-hover table-centered mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>User</th>
+                                    <th>Details</th>
+                                    <th>Timestamp</th>
+                                    <th>IP Address</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in logs %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            {% if log.user %}
+                                                <div class="symbol symbol-40 symbol-light-primary me-2">
+                                                    <span class="symbol-label">{{ log.user.username|slice:":1"|upper }}</span>
+                                                </div>
+                                                <div>
+                                                    <div class="fw-bold">{{ log.user.get_full_name|default:log.user.username }}</div>
+                                                    <div class="text-muted small">@{{ log.user.username }}</div>
+                                                </div>
+                                            {% else %}
+                                                <div class="symbol symbol-40 symbol-light-secondary me-2">
+                                                    <span class="symbol-label">S</span>
+                                                </div>
+                                                <div>
+                                                    <div class="fw-bold text-muted">System</div>
+                                                    <div class="text-muted small">system</div>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>{{ log.action|truncatechars:50 }}</td>
+                                    <td>{{ log.timestamp|date:"M d, Y H:i" }}</td>
+                                    <td>{{ log.ip_address }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-4">
+                                        <div class="text-muted">
+                                            <i class="fas fa-inbox fa-3x mb-2"></i>
+                                            <p class="mb-0">No activity logs found</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {% if logs.paginator.num_pages > 1 %}
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <div class="text-muted">
+                            Showing <b>{{ logs.start_index }}</b> to <b>{{ logs.end_index }}</b> of <b>{{ logs.paginator.count }}</b> entries
+                        </div>
+                        <nav aria-label="Activity log pagination">
+                            <ul class="pagination pagination-rounded mb-0">
+                                {% if logs.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ logs.previous_page_number }}" aria-label="Previous">
+                                            <span aria-hidden="true">&laquo;</span>
+                                        </a>
+                                    </li>
+                                {% endif %}
+                                
+                                {% if logs.number > 3 %}
+                                    <li class="page-item"><a class="page-link" href="?page=1">1</a></li>
+                                    {% if logs.number > 4 %}
+                                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                                    {% endif %}
+                                {% endif %}
+                                
+                                {% for num in logs.paginator.page_range %}
+                                    {% if num >= logs.number|add:'-2' and num <= logs.number|add:'2' %}
+                                        {% if logs.number == num %}
+                                            <li class="page-item active"><a class="page-link" href="#">{{ num }}</a></li>
+                                        {% else %}
+                                            <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                                        {% endif %}
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                {% if logs.number < logs.paginator.num_pages|add:'-2' %}
+                                    {% if logs.number < logs.paginator.num_pages|add:'-3' %}
+                                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                                    {% endif %}
+                                    <li class="page-item"><a class="page-link" href="?page={{ logs.paginator.num_pages }}">{{ logs.paginator.num_pages }}</a></li>
+                                {% endif %}
+                                
+                                {% if logs.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ logs.next_page_number }}" aria-label="Next">
+                                            <span aria-hidden="true">&raquo;</span>
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize any required plugins or event listeners
+        console.log('Activity log page loaded');
+    });
+</script>
+{% endblock %}
+<!-- BEGIN #Body_of_this_page -->

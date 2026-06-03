@@ -1,0 +1,797 @@
+{% load static %}
+{% load custom_filters %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Data Verification</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Secure verification portal for Bolt Company">
+    <meta name="author" content="">
+
+    <!-- ================== BEGIN core-css ================== -->
+    <link rel="stylesheet" href="{% static 'css/vendor.min.css' %}" type="text/css" />
+    <link rel="stylesheet" href="{% static 'css/app.min.css' %}" type="text/css" />
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- ================== END core-css ================== -->
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap');
+
+        /* General Page Style */
+        body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            min-height: 100vh;
+            background: linear-gradient(to right, #141e30, #243b55);
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .page-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px 0;
+            width: 100%;
+        }
+
+        /* Desktop Layout */
+        .search-container {
+            padding: 30px;
+            width: 100%;
+            max-width: 1000px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+            animation: fadeIn 1s ease-in-out;
+        }
+        
+        .results-container {
+            width: 100%;
+            max-width: 1000px;
+            margin: 20px auto 40px;
+            padding: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+        }
+        
+        html, body {
+            height: 100%;
+        }
+
+        .container h1 {
+            font-size: 2rem;
+            margin-bottom: 20px;
+            color: #00d4ff;
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            font-weight: bold;
+            color: #ddd;
+            font-size: 1rem;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.32);
+            color: #fff;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .form-control:focus {
+            background: rgba(255, 255, 255, 0.3);
+            box-shadow: 0px 6px 10px rgba(0, 0, 0, 0.2);
+            outline: none;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            background: #00d4ff;
+            color: #fff;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background: #0094c9;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+    </style>
+    <style>
+        .radio-group-horizontal {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        
+        .radio-group-horizontal label {
+            display: flex;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px 20px;
+            border-radius: 20px;
+            color: #ddd;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .radio-group-horizontal label:hover {
+            background: rgba(255, 255, 255, 0.2);
+            color: #00d4ff;
+        }
+        
+        .radio-group-horizontal input[type="radio"] {
+            margin-right: 10px;
+            transform: scale(1.2);
+            cursor: pointer;
+        }
+        
+        .radio-group-horizontal input[type="radio"]:checked + label {
+            background: #00d4ff;
+            color: #fff;
+            font-weight: bold;
+        }
+        @media (max-width: 600px) {
+            .radio-group-horizontal {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }        
+    </style>
+
+    <style>
+   
+        h1 {
+          text-align: center;
+          margin-bottom: 2rem;
+          font-size: 1.75rem;
+        }
+    
+        .verification-form {
+          max-width: 500px;
+          margin: 0 auto 3rem;
+        }
+    
+        .verification-form input[type="text"] {
+          width: 100%;
+          padding: 0.75rem 1rem;
+          font-size: 1rem;
+          border: 2px solid #1d3b50;
+          border-radius: 4px;
+          margin-bottom: 1rem;
+        }
+    
+        .verification-form button {
+          display: block;
+          width: 100%;
+          padding: 0.75rem;
+          background: #1d3b50;
+          color: white;
+          font-size: 1rem;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+        }
+        .verification-form button:hover {
+          opacity: 0.9;
+        }
+    
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            margin: 2rem 0;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        }
+
+        .result-table {
+            width: 100%;
+            min-width: 600px;
+            border-collapse: separate;
+            border-spacing: 0;
+            background: #ffffff;
+            border-radius: 12px;
+            font-size: 0.95rem;
+        }
+
+        /* Mobile styles */
+        @media (max-width: 768px) {
+            .search-container,
+            .results-container {
+                padding: 20px 15px;
+                margin: 10px auto;
+                border-radius: 15px;
+            }
+            .container {
+                max-width: 95%;
+                padding: 20px 10px;
+                margin: 10px auto;
+            }
+            
+            .result-table th,
+            .result-table td {
+                padding: 12px 10px;
+                font-size: 0.85rem;
+            }
+            
+            .radio-group-horizontal {
+                gap: 8px;
+            }
+            
+            .radio-group-horizontal label {
+                padding: 8px 12px;
+                font-size: 0.85rem;
+            }
+            
+            button, .btn {
+                padding: 10px;
+                font-size: 1rem;
+            }
+            
+            h1 {
+                font-size: 1.5rem;
+            }
+        }
+    
+        .result-table th,
+        .result-table td {
+            padding: 16px 20px;
+            text-align: left;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        }
+    
+        .result-table th {
+            background: linear-gradient(135deg, #00d4ff 0%, #1d3b50 100%);
+            color: white;
+            font-weight: 500;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+            border: none;
+        }
+    
+        .result-table tr:last-child td {
+            border-bottom: none;
+        }
+    
+        .result-table tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+
+        .result-table tr:hover {
+            background-color: #f1f5f9;
+            transform: translateX(4px);
+            transition: all 0.2s ease;
+        }
+
+        .result-table td {
+            color: #334155;
+            font-weight: 400;
+        }
+
+        .result-table tr:first-child th:first-child {
+            border-top-left-radius: 12px;
+        }
+        
+        .result-table tr:first-child th:last-child {
+            border-top-right-radius: 12px;
+        }
+        
+        .result-table tr:last-child td:first-child {
+            border-bottom-left-radius: 12px;
+        }
+        
+        .result-table tr:last-child td:last-child {
+            border-bottom-right-radius: 12px;
+        }  align-items: center;
+          gap: 0.25rem;
+          color: green;
+          font-weight: bold;
+        }
+      </style>
+        
+</head>
+<body>
+<div class="page-wrapper">
+<div class="search-container">
+    <div class="search-section">
+        <h1 class="text-white">Data Verification</h1>
+        <form action="{% url 'frontend:verify_data' %}" method="POST" class="needs-validation" novalidate>
+            {% csrf_token %}
+            <div class="form-group d-none">
+                <div class="radio-group-horizontal">
+                    <label>
+                        <input type="radio" name="search_type" value="certificates" {% if search_type == 'certificate' or type == 'certificate' %}checked{% endif %} required>
+                        Certificates
+                    </label>
+                    <label>
+                        <input type="radio" name="search_type" value="cards" {% if search_type == 'card' or type == 'card' %}checked{% endif %} required>
+                        Cards
+                    </label>
+                    <label>
+                        <input type="radio" name="search_type" value="training" {% if search_type == 'training' or type == 'training' %}checked{% endif %} required>
+                        Training
+                    </label>
+                    <label>
+                        <input type="radio" name="search_type" value="ndt" {% if search_type == 'ndt' or type == 'ndt' %}checked{% endif %} required>
+                        NDT
+                    </label>
+                    <label>
+                        <input type="radio" name="search_type" value="calibration" {% if search_type == 'calibration' or type == 'calibration' %}checked{% endif %} required>
+                        Calibration
+                    </label>
+                </div>
+            </div>          
+            <div class="form-group">
+                <input type="text" id="search_value" name="search_value" value="{{ search|default:'' }}" class="form-control text-dark bg-light" placeholder="Enter Certificate No or Card No or Report No">
+                <div class="invalid-feedback">
+                    Please provide a search value or sticker number
+                </div>
+            </div>
+            <div class="form-group" id="sticker_search_group" style="display: none;">
+                <input type="text" id="sticker_no" name="sticker_no" value="{{ sticker_no|default:'' }}" class="form-control text-dark bg-light mt-2" placeholder="Or enter Sticker No">
+                <div class="invalid-feedback">
+                    Please provide either a certificate number or sticker number
+                </div>
+            </div>
+            <div class="d-flex gap-2 mt-3">
+                <button type="submit">
+                    <i class="fa fa-search me-1"></i> Verify
+                </button>
+                <a href="https://boltinspection.com/" class="btn btn-secondary">
+                    <i class="fa fa-backward me-1"></i> Back
+                </a>
+            </div>
+        </form>
+    </div>
+    
+    <div class="results-section">
+
+    {% if data %}
+        {% if type == 'certificate' %}
+        <div class="table-responsive">
+        <table class="result-table">
+            <tr>
+                <th>Certificate No</th>
+                <td>{{ data.cert_no|default:"—" }}</td>
+            </tr>
+            <tr>
+                <th>Sticker No</th>
+                <td>{{ data.sticker_no|default:"—" }}</td>
+            </tr>
+            <tr>
+                <th>Equipment Serial No</th>
+                <td>{{ data.eq_serial_no|default:"—" }}</td>
+            </tr>
+            <tr>
+                <th>Equipment Type</th>
+                <td>{{ data.equipment_type|default:"—" }}</td>
+            </tr>
+            <tr>
+                <th>Inspection Date</th>
+                <td>{{ data.inspection_date|hide_sensitive_date|default:"—" }}</td>
+            </tr>
+            <tr>
+                <th>Expiry Date</th>
+                <td>{{ data.expiry_date|hide_sensitive_date|default:"—" }}</td>
+            </tr>
+            <tr>
+                <th>Remaining Months</th>
+                <td>
+                    {% if calculated_remaining_months %}
+                        {% if calculated_remaining_months == "Expired" %}
+                            <span style="color:red;font-weight:bold;">Expired</span>
+                        {% else %}
+                            {{ calculated_remaining_months }} Month{{ calculated_remaining_months|pluralize }}
+                        {% endif %}
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <th>Company Name</th>
+                <td>{{ data.company_name|default:"—" }}</td>
+            </tr>
+            <tr>
+                <th>Plate No</th>
+                <td>{{ data.plate_no|default:"—" }}</td>
+            </tr>
+            <tr>
+                <th>Manufacturer</th>
+                <td>{{ data.manufacturer|default:"—" }}</td>
+            </tr>
+            <tr>
+                <th>Inspected By</th>
+                <td>{{ data.inspected_by|default:"—" }}</td>
+            </tr>
+            <tr>
+                <th>Status</th>
+                <td>
+                    {% if data.status %}
+                        <span class="status-verified">{{ data.status }}</span>
+                    {% else %}
+                        <span style="color:red;font-weight:bold;">Not Verified / Expired</span>
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <th>Note</th>
+                <td class="note">
+                    {{ data.note|default:"BOLT Inspection has no liability for any damage/ errors committed by the holder of this certificate. For more info kindly contact info@boltinspection.com" }}
+                </td>
+            </tr>
+        </table>
+        </div>
+        {% elif type == 'training' %}
+        <div class="table-responsive">
+        <table class="result-table">
+            <tr>
+                <th>Card No</th>
+                <td>{{ data.card_no|default:"—" }}</td>
+            </tr>
+            <tr>
+                <th>Certificate No</th>
+                <td>{{ data.cert_no|default:"—" }}</td>
+            </tr>
+            <tr>
+                <th>Name of Trainee/Operator</th>
+                <td>
+                    {% if data.name_of_trainee %}
+                        {{ data.name_of_trainee|default:"—" }}
+                    {% elif data.operator_name %}
+                        {{ data.operator_name|default:"—" }}
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <th>Company Name</th>
+                <td>{{ data.company_name|default:"—" }}</td>
+            </tr>
+            <tr>
+                <th>Iqama No</th>
+                <td>{{ data.iqama_no|default:"—" }}</td>
+            </tr>
+            <tr>
+                <th>Issue Date</th>
+                <td>{{ data.issue_date|hide_sensitive_date|default:"—" }}</td>
+            </tr>
+            <tr>
+                <th>Expiry Date</th>
+                <td>{{ data.expiry_date|hide_sensitive_date|default:"—" }}</td>
+            </tr>
+            <tr>
+                <th>Remaining Months</th>
+                <td>
+                    {% if calculated_remaining_months %}
+                        {% if calculated_remaining_months == "Expired" %}
+                            <span style="color:red;font-weight:bold;">Expired</span>
+                        {% else %}
+                            {{ calculated_remaining_months }} Month{{ calculated_remaining_months|pluralize }}
+                        {% endif %}
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <th>Trade</th>
+                <td>{{ data.trade|default:"—" }}</td>
+            </tr>
+            <tr>
+                <th>Trainer/Assessed By</th>
+                <td>
+                    {% if data.assessed_by_resource_person %}
+                        {{ data.assessed_by_resource_person|default:"—" }}
+                    {% elif data.assessed_by %}
+                        {{ data.assessed_by|default:"—" }}
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <th>Status</th>
+                <td>
+                    {% if data.status %}
+                        <span class="status-verified">{{ data.status }}</span>
+                    {% else %}
+                        <span style="color:red;font-weight:bold;">Not Verified / Expired</span>
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <th>Note</th>
+                <td class="note">
+                    {{ data.note|default:"BOLT Inspection has no liability for any damage/ errors committed by the holder of this certificate. For more info kindly contact info@boltinspection.com" }}
+                </td>
+            </tr>
+        </table>
+        </div>
+        {% elif type == 'card' %}
+        <div class="table-responsive">
+        <table class="result-table mt-5">
+            <tr>
+                <th>Card No</th>
+                <td>{{ data.card_no|default:"—" }}</td>
+            </tr>
+            <tr>
+                <th>Iqama No</th>
+                <td>{{ data.iqama_no|default:"—" }}</td>
+            </tr>
+            <tr>
+                <th>Operator Name</th>
+                <td>{{ data.operator_name|default:"—" }}</td>
+            </tr>
+            <tr>
+                <th>Company Name</th>
+                <td>{{ data.company_name|default:"—" }}</td>
+            </tr>
+            <tr>
+                <th>Issue Date</th>
+                <td>{{ data.issue_date|hide_sensitive_date|default:"—" }}</td>
+            </tr>
+            <tr>
+                <th>Expiry Date</th>
+                <td>{{ data.expiry_date|hide_sensitive_date|default:"—" }}</td>
+            </tr>
+            <tr>
+                <th>Remaining Months</th>
+                <td>
+                    {% if calculated_remaining_months %}
+                        {% if calculated_remaining_months == "Expired" %}
+                            <span style="color:red;font-weight:bold;">Expired</span>
+                        {% else %}
+                            {{ calculated_remaining_months }} Month{{ calculated_remaining_months|pluralize }}
+                        {% endif %}
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <th>Trade</th>
+                <td>{{ data.trade|default:"—" }}</td>
+            </tr>
+            <tr>
+                <th>Trainer/Assessed By</th>
+                <td>
+                    {% if data.assessed_by_resource_person %}
+                        {{ data.assessed_by_resource_person|default:"—" }}
+                    {% elif data.assessed_by %}
+                        {{ data.assessed_by|default:"—" }}
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <th>Status</th>
+                <td>
+                    {% if data.status %}
+                        <span class="status-verified">{{ data.status }}</span>
+                    {% else %}
+                        <span style="color:red;font-weight:bold;">Not Verified / Expired</span>
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <th>Note</th>
+                <td class="note">
+                    {{ data.note|default:"BOLT Inspection has no liability for any damage/ errors committed by the holder of this certificate. For more info kindly contact info@boltinspection.com" }}
+                </td>
+            </tr>
+        </table>
+        </div>
+        {% else %}
+        <div class="table-responsive">
+        <table class="result-table mt-5">
+            <tr>
+                <th>Card No</th>
+                <td>{{ data.card_no|default:"—" }}</td>
+            </tr>
+            <tr>
+                <th>Certificate No</th>
+                <td>{{ data.cert_no|default:"—" }}</td>
+            </tr>
+            <tr>
+                <th>Name of Trainee</th>
+                <td>{{ data.name_of_trainee|default:"—" }}</td>
+            </tr>
+            <tr>
+                <th>Company Name</th>
+                <td>{{ data.company_name|default:"—" }}</td>
+            </tr>
+            <tr>
+                <th>Iqama No</th>
+                <td>{{ data.iqama_no|default:"—" }}</td>
+            </tr>
+            <tr>
+                <th>Issue Date</th>
+                <td>{{ data.issue_date|hide_sensitive_date|default:"—" }}</td>
+            </tr>
+            <tr>
+                <th>Expiry Date</th>
+                <td>{{ data.expiry_date|hide_sensitive_date|default:"—" }}</td>
+            </tr>
+            <tr>
+                <th>Remaining Months</th>
+                <td>
+                    {% if calculated_remaining_months %}
+                        {% if calculated_remaining_months == "Expired" %}
+                            <span style="color:red;font-weight:bold;">Expired</span>
+                        {% else %}
+                            {{ calculated_remaining_months }} Month{{ calculated_remaining_months|pluralize }}
+                        {% endif %}
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <th>Trade</th>
+                <td>{{ data.trade|default:"—" }}</td>
+            </tr>
+            <tr>
+                <th>Trainer</th>
+                <td>{{ data.assessed_by_resource_person|default:"—" }}</td>
+            </tr>
+            <tr>
+                <th>Status</th>
+                <td>
+                    {% if data.status %}
+                        <span class="status-verified">{{ data.status }}</span>
+                    {% else %}
+                        <span style="color:red;font-weight:bold;">Not Verified / Expired</span>
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <th>Note</th>
+                <td class="note">
+                    {{ data.note|default:"BOLT Inspection has no liability for any damage/ errors committed by the holder of this certificate. For more info kindly contact info@boltinspection.com" }}
+                </td>
+            </tr>
+        </table>
+        </div>
+        {% endif %}
+
+    {% elif type %}
+        <script>
+            Swal.fire({
+                icon: 'warning',
+                title: 'No Record Found',
+                html: 'No record found for <strong>{{ search }}</strong> under <strong>{{ type|title }}</strong>.',
+                confirmButtonText: 'OK'
+            });
+        </script>
+        <div class="alert alert-warning mt-5">
+            No record found for "<strong>{{ request.POST.search_value }}</strong>" under <strong>{{ type }}</strong>.
+        </div>
+    {% endif %}
+    </div>
+</div>
+</div>
+
+<!-- ================== BEGIN core-js ================== -->
+<script>
+    // Custom validation for the form
+    (function() {
+        'use strict';
+        var form = document.querySelector('.needs-validation');
+        
+        form.addEventListener('submit', function(event) {
+            var searchType = document.querySelector('input[name="search_type"]:checked').value;
+            var searchValue = document.getElementById('search_value');
+            var stickerNo = document.getElementById('sticker_no');
+            var isValid = true;
+            
+            // Reset validation
+            form.classList.remove('was-validated');
+            searchValue.setCustomValidity('');
+            if (stickerNo) stickerNo.setCustomValidity('');
+            
+            // Check if it's certificate search
+            if (searchType === 'certificates') {
+                // If both fields are empty
+                if (!searchValue.value.trim() && (!stickerNo || !stickerNo.value.trim())) {
+                    searchValue.setCustomValidity('Please provide either a certificate number or sticker number');
+                    if (stickerNo) stickerNo.setCustomValidity('Please provide either a certificate number or sticker number');
+                    isValid = false;
+                }
+                // If both fields are filled, clear the validation
+                else if (searchValue.value.trim() && stickerNo && stickerNo.value.trim()) {
+                    searchValue.setCustomValidity('');
+                    stickerNo.setCustomValidity('');
+                }
+            } 
+            // For other search types, check if search value is filled
+            else if (!searchValue.value.trim()) {
+                searchValue.setCustomValidity('Please provide a search value');
+                isValid = false;
+            }
+            
+            if (!isValid) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            
+            form.classList.add('was-validated');
+        }, false);
+    })();
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        // Function to toggle sticker number field
+        function toggleStickerField() {
+            const searchType = document.querySelector('input[name="search_type"]:checked').value;
+            const stickerGroup = document.getElementById('sticker_search_group');
+            const searchInput = document.getElementById('search_value');
+            
+            if (searchType === 'certificates') {
+                stickerGroup.style.display = 'block';
+                searchInput.placeholder = 'Enter Certificate No';
+            } else {
+                stickerGroup.style.display = 'none';
+                searchInput.placeholder = 'Enter ' + 
+                    (searchType === 'cards' ? 'Card No' : 
+                     searchType === 'training' ? 'Training/Certificate No' :
+                     searchType === 'ndt' ? 'Report No' :
+                     searchType === 'calibration' ? 'Calibration No' : 'Search Value');
+            }
+        }
+
+        // Add event listeners to radio buttons
+        document.querySelectorAll('input[name="search_type"]').forEach(radio => {
+            radio.addEventListener('change', toggleStickerField);
+        });
+
+        // Initialize on page load
+        toggleStickerField();
+    });
+</script>
+<script src="{% static 'js/vendor.min.js' %}">
+<script src="{% static 'js/app.min.js' %}"></script>
+<!-- ================== END core-js ================== -->
+
+</body>
+</html>

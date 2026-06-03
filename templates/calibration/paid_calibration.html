@@ -1,0 +1,165 @@
+{% extends "base/base.html" %}
+{% load static %}
+{% block start %}
+<h1 class="page-header">
+    Paid Calibration Records (Total: {{ total_paid_calibrations }})
+</h1>
+<hr class="mb-4">
+
+{% if user.is_superuser %}
+
+<!-- Payment Summary -->
+<div class="row">
+    <!-- Jeddah Summary -->
+    <div class="col-md-6 col-lg-3 col-12">
+        <div class="small-box bg-primary">
+            <div class="inner">
+                <h4>Jeddah</h4>
+                <p>Paid No: <strong>{{ total_paid_jeddah_calibrations }}</strong> Amount: <strong>{{ total_paid_jeddah_amount|floatformat:1 }}</strong></p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-tools"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Riyadh Summary -->
+    <div class="col-md-6 col-lg-3 col-12">
+        <div class="small-box bg-success">
+            <div class="inner">
+                <h4>Riyadh</h4>
+                <p>Paid No: <strong>{{ total_paid_riyadh_calibrations }}</strong> Amount: <strong>{{ total_paid_riyadh_amount|floatformat:1 }}</strong></p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-tools"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- NEOM Summary -->
+    <div class="col-md-6 col-lg-3 col-12">
+        <div class="small-box bg-danger">
+            <div class="inner">
+                <h4>NEOM</h4>
+                <p>Paid No: <strong>{{ total_paid_neom_calibrations }}</strong> Amount: <strong>{{ total_paid_neom_amount|floatformat:1 }}</strong></p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-tools"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Damman Summary -->
+    <div class="col-md-6 col-lg-3 col-12">
+        <div class="small-box bg-warning">
+            <div class="inner">
+                <h4>Damman</h4>
+                <p>Paid No: <strong>{{ total_paid_damman_calibrations }}</strong> Amount: <strong>{{ total_paid_damman_amount|floatformat:1 }}</strong></p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-tools"></i>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Payment Summary -->
+{% endif %}
+
+
+<!-- Start Display Data -->
+<div class="card border-lime bg-lime bg-opacity-25 mb-5" style="width: 100%;">
+    <div class="card-header border-lime bg-lime bg-opacity-25 fw-bold small text-body">
+        <a style="font-size: 20px;">UNPAID Calibration RECORDS</a>
+    </div>
+    <div id="bootstrapTable" class="mb-1">
+        <div class="card">
+            <div class="card-body">
+                <div class="mb-3">
+                    <form method="GET" action="" class="d-flex mb-3" role="search">
+                        <input class="form-control me-2 w-25" type="search" name="searching_query" placeholder="Enter Certificate No..." aria-label="Search" value="{{ searching_query|default:'' }}">
+                        <button class="btn btn-primary" type="submit">Search</button>
+                        <a href="{% url 'paid_calibration' %}" class="btn btn-success"><i class="fa fa-refresh" aria-hidden="true"></i> Refresh</a>
+                    </form>
+                </div>
+                <table class="table text-nowrap w-100" id="myCalibrationTable" data-toggle="table" data-height="auto">
+                    <thead>
+                        <tr>
+                            <th>S.No</th>
+                            <th class="text-primary">Name</th>
+                            <th class="text-success">City</th>
+                            <th>LH Serial No</th>
+                            <th>Certificate No</th>
+                            <th>Sticker No</th>
+                            <th>Equipement Name</th>
+                            <th>Company Name</th>
+                            <th>Received on</th>
+                            <th>Technician</th>
+                            <th>Date of Calibration</th>
+                            <th>Next Date of Cal</th>
+                            <th>Validity</th>
+                            <th>Status</th>
+                            <th>Note</th>
+                            <th>Requested By</th>
+                            <th>Prepared By</th>
+                            <th>Wasted Serial No</th>
+                            <th>Invoice No</th>
+                            <th>Total Amount</th>
+                            <th>Paid Amount</th>
+                            <th>Cash/Bank</th>
+                            <th>Client Representative Name</th>
+                            <th>Client Representative Number</th>
+                            <th>Email</th>
+                            <th>Remarks</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for calibration in calibrations %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ calibration.user.first_name }}_{{ calibration.user.last_name }}</td>
+                            <td>{{ calibration.city }}</td>
+                            <td>{{ calibration.lh_serial_no }}</td>
+                            <td>{{ calibration.cert_no }}</td>
+                            <td>{{ calibration.sticker_no }}</td>
+                            <td>{{ calibration.equipement_name }}</td>
+                            <td>{{ calibration.company_name }}</td>
+                            <td>{{ calibration.received_on }}</td>
+                            <td>{{ calibration.technician }}</td>
+                            <td>{{ calibration.date_of_calibration }}</td>
+                            <td>{{ calibration.expiry_date }}</td>
+                            <td>{{ calibration.validity }}</td>
+                            <td>{{ calibration.status }}</td>
+                            <td>{{ calibration.note }}</td>
+                            <td>{{ calibration.requested_by }}</td>
+                            <td>{{ calibration.prepared_by }}</td>
+                            <td>{{ calibration.wasted_serial }}</td>
+                            <td>{{ calibration.invoice_no }}</td>
+                            <td>{{ calibration.total_amount }}</td>
+                            <td>{{ calibration.amount }}</td>
+                            <td>{{ calibration.cash_bank }}</td>
+                            <td>{{ calibration.client_rep_name }}</td>
+                            <td>{{ calibration.client_rep_number }}</td>
+                            <td>{{ calibration.email }}</td>
+                            <td>{{ calibration.remarks }}</td>
+                        </tr>
+
+                        {% endfor %}
+                        <tr>
+                            <td colspan="26" class="text-center">-</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Disabled and active states pagination -->
+                {% include "base/pagination.html" with page_obj=calibrations %}
+                <!-- End Disabled and active states pagination -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- End Display Data -->
+
+
+{% endblock %}
+<!-- BEGIN #Body_of_this_page -->

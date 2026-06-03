@@ -1,0 +1,734 @@
+{% extends "base/base.html" %}
+{% load static %}
+{% load url_utils %}
+{% load template_filters %}
+{% block start %}
+<h1 class="page-header">
+    Manage Training (Total: {{ total_trainings }})
+    {% if user.is_authenticated and not user.is_superuser %}
+    <button type="button" style="float:right;" class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#addNewTrainingModal">
+        New Training
+    </button>
+    {% endif %}
+</h1>
+<hr class="mb-4">
+
+{% if user.is_superuser %}
+<!-- City wise Summary -->
+<div class="row">
+    <!-- Total Jeddah -->
+    <div class="col-md-6 col-lg-3 col-12">
+        <div class="small-box bg-primary">
+            <div class="inner">
+                <h3>{{ total_jeddah_trainings }}</h3>
+                <p class="fw-bold">Total Jeddah</p>
+                <p>
+                    <small>Pending: {{ pending_jeddah_trainings }}</small><br>
+                    <small>Verified: {{ verified_jeddah_trainings }}</small>
+                </p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-certificate"></i>
+            </div>
+            <a href="{% url 'export_training_and_city_excel' 'training' 'Jeddah' %}" class="small-box-footer">
+                Export Excel <i class="fas fa-file-excel"></i>
+            </a>  
+        </div>
+    </div>
+
+    <!-- Total Riyadh -->
+    <div class="col-md-6 col-lg-3 col-12">
+        <div class="small-box bg-success">
+            <div class="inner">
+                <h3>{{ total_riyadh_trainings }}</h3>
+                <p class="fw-bold">Total Riyadh</p>
+                <p>
+                    <small>Pending: {{ pending_riyadh_trainings }}</small><br>
+                    <small>Verified: {{ verified_riyadh_trainings }}</small>
+                </p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-id-card"></i>
+            </div>
+            <a href="{% url 'export_training_and_city_excel' 'training' 'Riyadh' %}" class="small-box-footer">
+                Export Excel <i class="fas fa-file-excel"></i>
+            </a> 
+        </div>
+    </div>
+
+    <!-- Total NEOM -->
+    <div class="col-md-6 col-lg-3 col-12">
+        <div class="small-box bg-danger">
+            <div class="inner">
+                <h3>{{ total_neom_trainings }}</h3>
+                <p class="fw-bold">Total NEOM</p>
+                <p>
+                    <small>Pending: {{ pending_neom_trainings }}</small><br>
+                    <small>Verified: {{ verified_neom_trainings }}</small>
+                </p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-graduation-cap"></i>
+            </div>
+            <a href="{% url 'export_training_and_city_excel' 'training' 'NEOM' %}" class="small-box-footer">
+                Export Excel <i class="fas fa-file-excel"></i>
+            </a> 
+        </div>
+    </div>
+
+    <!-- Total Damman -->
+    <div class="col-md-6 col-lg-3 col-12">
+        <div class="small-box bg-warning">
+            <div class="inner">
+                <h3>{{ total_damman_trainings }}</h3>
+                <p class="fw-bold">Total Damman</p>
+                <p>
+                    <small class="text-dark">Pending: {{ pending_damman_trainings }}</small><br>
+                    <small class="text-dark">Verified: {{ verified_damman_trainings }}</small>
+                </p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-flask"></i>
+            </div>
+            <a href="{% url 'export_training_and_city_excel' 'training' 'Damman' %}" class="small-box-footer">
+                Export Excel <i class="fas fa-file-excel"></i>
+            </a> 
+        </div>
+    </div>
+</div>
+<!-- City wise Summary -->
+
+<!-- Payment Summary -->
+<div class="row">
+    <!-- Jeddah Summary -->
+    <div class="col-md-6 col-lg-3 col-12">
+        <div class="small-box bg-primary">
+            <div class="inner">
+                <h4>Jeddah</h4>
+                <p>Paid No: <strong>{{ total_paid_jeddah_trainings }}</strong> Amount: <strong>{{ total_paid_jeddah_amount|floatformat:1 }}</strong></p>
+                <p>Unpaid No of Training: <strong>{{ total_unpaid_jeddah_trainings }}</strong></p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-certificate"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Riyadh Summary -->
+    <div class="col-md-6 col-lg-3 col-12">
+        <div class="small-box bg-success">
+            <div class="inner">
+                <h4>Riyadh</h4>
+                <p>Paid No: <strong>{{ total_paid_riyadh_trainings }}</strong> Amount: <strong>{{ total_paid_riyadh_amount|floatformat:1 }}</strong></p>
+                <p>Unpaid No of Training: <strong>{{ total_unpaid_riyadh_trainings }}</strong></p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-id-card"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- NEOM Summary -->
+    <div class="col-md-6 col-lg-3 col-12">
+        <div class="small-box bg-danger">
+            <div class="inner">
+                <h4>NEOM</h4>
+                <p>Paid No: <strong>{{ total_paid_neom_trainings }}</strong> Amount: <strong>{{ total_paid_neom_amount|floatformat:1 }}</strong></p>
+                <p>Unpaid No of Training: <strong>{{ total_unpaid_neom_trainings }}</strong></p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-graduation-cap"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Damman Summary -->
+    <div class="col-md-6 col-lg-3 col-12">
+        <div class="small-box bg-warning">
+            <div class="inner">
+                <h4>Damman</h4>
+                <p>Paid No: <strong>{{ total_paid_damman_trainings }}</strong> Amount: <strong>{{ total_paid_damman_amount|floatformat:1 }}</strong></p>
+                <p>Unpaid No of Training: <strong>{{ total_unpaid_damman_trainings }}</strong></p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-flask"></i>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Payment Summary -->
+{% endif %}
+
+<!-- Modal for Manual Training Entry -->
+<div class="modal fade" id="addNewTrainingModal" tabindex="-1" aria-labelledby="addNewTrainingModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <form action="{% url 'add_training_manual' %}" method="post" class="was-validated">
+                {% csrf_token %}
+                <div class="modal-header bg-lime bg-opacity-25">
+                    <h5 class="modal-title">Add New Training</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body row g-3 px-3">
+                    <div class="col-md-4">
+                        <label>SR No</label>
+                        <input type="text" name="sr_no" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label>Card No</label>
+                        <input type="text" name="card_no" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label>Certificate No</label>
+                        <input type="text" name="cert_no" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label>Name of Trainee</label>
+                        <input type="text" name="name_of_trainee" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label>Company Name</label>
+                        <input type="text" name="company_name" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label>Iqama No</label>
+                        <input type="text" name="iqama_no" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label>Issue Date</label>
+                        <input type="date" name="issue_date" class="form-control" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label>Expiry Date</label>
+                        <input type="date" name="expiry_date" class="form-control" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label>Trade</label>
+                        <input type="text" name="trade" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label>Holo Gram No</label>
+                        <input type="text" name="holo_gram_no" 
+                            class="form-control" 
+                            pattern="^[A-Za-z]{1,3}-?\d+$"
+                            title="Format: 1-3 letters followed by numbers (e.g., T-123, BLT123, W-456)"
+                            required>
+                    </div>
+                    <div class="col-md-4">
+                        <label>Assessed By Resource Person</label>
+                        <input type="text" name="assessed_by_resource_person" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label>Note</label>
+                        <input type="text" name="note" class="form-control" value="BOLT Inspection has no libality for any damage/ errors committed by the holder of this certificate.For more info kindly contact to info@boltinspection.com">
+                    </div>
+                    <div class="col-md-4">
+                        <label>Wasted Serial</label>
+                        <input type="text" name="wasted_serial" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label>Requested By</label>
+                        <input type="text" name="requested_by" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label>Prepared By</label>
+                        <input type="text" name="prepared_by" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label>Invoice No</label>
+                        <input type="text" name="invoice_no" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label>Invoice Date</label>
+                        <input type="date" name="invoice_date" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label>Total Amount</label>
+                        <input type="text" name="total_amount" class="form-control" value="0" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\\..*)\\./g, '$1');" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label>Amount</label>
+                        <input type="text" name="amount" class="form-control" value="0" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\\..*)\\./g, '$1');" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label>Cash/Bank</label>
+                        <input type="text" name="cash_bank" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label>Client Rep Name</label>
+                        <input type="text" name="client_rep_name" 
+                            class="form-control" 
+                            pattern="^[A-Za-z][A-Za-z\s\-_]{0,}[A-Za-z]$"
+                            title="Please enter a valid name containing letters, spaces, hyphens, or underscores. Must start and end with a letter. Cannot be N/A."
+                            required>
+                    </div>
+                    <div class="col-md-4">
+                        <label>Client Rep Number (e.g., +9665XXXXXXXX)</label>
+                        <input type="tel"
+                            name="client_rep_number"
+                            class="form-control"
+                             
+                            pattern="^\+?[0-9]{10,15}$"
+                            title="Enter a valid WhatsApp number in international format (e.g., +9665XXXXXXXX)"
+                            required>
+                    </div>
+                    <div class="col-md-4">
+                        <label>Email</label>
+                        <input type="email" name="email" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label>Remarks</label>
+                        <input type="text" name="remarks" class="form-control" value="Delivered">
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-success">Add Training</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+<!-- Start Display Data -->
+<div class="card border-lime bg-lime bg-opacity-25 mb-5" style="width: 100%;">
+    <div class="card-header border-lime bg-lime bg-opacity-25 fw-bold small text-body">
+        <a style="font-size: 20px;">ALL TRAINING RECORDS</a>
+        {% comment %} <button class="btn btn-primary btn-circle btn-lg" onclick="exportToExcel()"> 
+            <i class="fa fa-file-excel"  style="color: white;">&nbsp;</i>Export to Excel
+        </button> {% endcomment %}
+        {% comment %} <button class="btn btn-success btn-circle btn-lg" onclick="exportToPDF()"> 
+            <i class="fa fa-file-pdf" style="color: white;"></i>Export to PDF
+        </button> {% endcomment %}
+    </div>
+    <div id="bootstrapTable" class="mb-1">
+        <div class="card">
+            <div class="card-body">
+                <div class="mb-3">
+                    <form method="GET" action="" class="row g-2 align-items-center">
+                        <div class="col-md-4 col-12">
+                            <input class="form-control" type="search" name="searching_query" placeholder="Search By Card No Or Certificate No or Company Name" aria-label="Search" value="{{ request.GET.searching_query|default:'' }}">
+                        </div>
+                        <div class="col-auto">
+                            <select name="city" class="form-select" id="yourCity">
+                                <option value="" {% if not request.GET.city %}selected{% endif %}>All Cities</option>
+                                <option value="NEOM" {% if request.GET.city == 'NEOM' %}selected{% endif %}>NEOM</option>
+                                <option value="Jeddah" {% if request.GET.city == 'Jeddah' %}selected{% endif %}>Jeddah</option>
+                                <option value="Riyadh" {% if request.GET.city == 'Riyadh' %}selected{% endif %}>Riyadh</option>
+                                <option value="Dammam" {% if request.GET.city == 'Dammam' %}selected{% endif %}>Dammam</option>
+                            </select>
+                        </div>
+                        <div class="col-auto">
+                            <select name="trade" class="form-select" id="yourtrade">
+                                <option value="" {% if not request.GET.trade %}selected{% endif %}>All Trade</option>
+                                {% for trade in unique_trades %}
+                                <option value="{{ trade }}" {% if request.GET.trade == trade %}selected{% endif %}>
+                                    {{ trade }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-auto">
+                            <button class="btn btn-primary" type="submit">
+                                <i class="fa fa-search me-1"></i> Search
+                            </button>
+                            <a href="{% url 'manage_training' %}" class="btn btn-outline-secondary">
+                                <i class="fa fa-refresh me-1"></i> Reset
+                            </a>
+                        </div>
+                    </form>
+                </div>
+                <table class="table text-nowrap w-100" id="myTrainingTable" data-toggle="table" data-height="auto">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>S.No</th>
+                            <th class="text-primary">Name</th>
+                            <th class="text-success">City</th>
+                            <th>Card No</th>
+                            <th>Certificate No</th>
+                            <th>Name of Trainee</th>
+                            <th>Company Name</th>
+                            <th>Iqama No</th>
+                            <th>Issue Date</th>
+                            <th>Expiry Date</th>
+                            <th>Remaining Months</th>
+                            <th>Trade</th>
+                            <th>Hologram No</th>
+                            <th>Assessed By Resource Person</th>
+                            <th>Status</th>
+                            <th>Note</th>
+                            <th>Wasted Serial</th>
+                            <th>Requested By</th>
+                            <th>Prepared By</th>
+                            <th>Invoice No</th>
+                            <th>Invoice Date</th>
+                            <th>Total Amount</th>
+                            <th>Paid Amount</th>
+                            <th>Cash/Bank</th>
+                            <th>Client Representative Name</th>
+                            <th>Client Representative Number</th>
+                            <th>Email</th>
+                            <th>Remarks</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for training in trainings %}
+                        <tr>
+                            <td>
+                                <div class="dropdown">
+                                    <button class="btn btn-primary dropdown-toggle" type="button" id="dropdownMenuButton{{ forloop.counter }}" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Actions
+                                    </button>
+                                    <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton{{ forloop.counter }}">
+                                        <li>
+                                            <a class="dropdown-item" href="#" 
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#updateTrainingModal{{ training.uid }}">
+                                            <i class="fa fa-edit" style="color: green"></i> Edit
+                                            </a>
+                                        </li>
+                                        {% if user.is_superuser %}
+                                        <li>
+                                            <a class="dropdown-item" href="#" 
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#holdTrainingModal{{ training.uid }}">
+                                            <i class="fa fa-ban" style="color: orange"></i> Hold
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" href="#" 
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#cancelTrainingModal{{ training.uid }}">
+                                            <i class="fa fa-trash" style="color: red"></i> Cancel
+                                            </a>
+                                        </li>
+                                        {% endif %}
+                                    </ul>
+                                </div>
+                            </td>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ training.user.first_name }}_{{ training.user.last_name }}</td>
+                            <td>{{ training.city }}</td>
+                            <td>{{ training.card_no }}</td>
+                            <td>{{ training.cert_no }}</td>
+                            <td>{{ training.name_of_trainee }}</td>
+                            <td>{{ training.company_name }}</td>
+                            <td>{{ training.iqama_no }}</td>
+                            <td>{{ training.issue_date }}</td>
+                            <td>{{ training.expiry_date }}</td>
+                            <td>{{ training.remaining_months }}</td>
+                            <td>{{ training.trade }}</td>
+                            <td>{{ training.holo_gram_no }}</td>
+                            <td>{{ training.assessed_by_resource_person }}</td>
+                            <td>{{ training.status }}</td>
+                            <td>{{ training.note }}</td>
+                            <td>{{ training.wasted_serial }}</td>
+                            <td>{{ training.requested_by }}</td>
+                            <td>{{ training.prepared_by }}</td>
+                            <td>{{ training.invoice_no }}</td>
+                            <td>{{ training.invoice_date }}</td>
+                            <td>{{ training.total_amount }}</td>
+                            <td>{{ training.amount }}</td>
+                            <td>{{ training.cash_bank }}</td>
+                            <td>{{ training.client_rep_name }}</td>
+                            <td>{{ training.client_rep_number }}</td>
+                            <td>{{ training.email }}</td>
+                            <td>{{ training.remarks }}</td>
+                        </tr>
+
+                        <!-- Edit Training Modal -->
+                        <div class="modal fade" id="updateTrainingModal{{ training.uid }}" tabindex="-1" aria-labelledby="updateTrainingModalLabel{{ training.uid }}" aria-hidden="true">
+                            <div class="modal-dialog modal-xl">
+                                <div class="modal-content">
+                                    <form action="{% url 'update_training' training.uid %}" method="post" class="was-validated">
+                                        {% csrf_token %}
+                                        <div class="modal-header bg-warning bg-opacity-25">
+                                            <h5 class="modal-title">Update Training</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body row g-3 px-3">
+                                            <div class="col-md-4">
+                                                <label>SR No</label>
+                                                <input type="text" name="sr_no" value="{{ training.sr_no }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Card No</label>
+                                                <input type="text" name="card_no" value="{{ training.card_no|default_empty }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Certificate No</label>
+                                                <input type="text" name="cert_no" value="{{ training.cert_no|default_empty }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Name of Trainee</label>
+                                                <input type="text" name="name_of_trainee" value="{{ training.name_of_trainee }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Company Name</label>
+                                                <input type="text" name="company_name" value="{{ training.company_name }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Iqama No</label>
+                                                <input type="text" name="iqama_no" value="{{ training.iqama_no }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Issue Date</label>
+                                                <input type="date" name="issue_date" value="{{ training.issue_date }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Expiry Date</label>
+                                                <input type="date" name="expiry_date" value="{{ training.expiry_date }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Remaining Months</label>
+                                                <input type="text" name="remaining_months" value="{{ training.remaining_months }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Trade</label>
+                                                <input type="text" name="trade" value="{{ training.trade }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Hologram No</label>
+                                                <input type="text" name="holo_gram_no" value="{{ training.holo_gram_no }}"
+                                                    class="form-control" 
+                                                    pattern="^[A-Za-z]{1,3}-?\d+$"
+                                                    title="Format: 1-3 letters followed by numbers (e.g., T-123, BLT123, W-456)"
+                                                    required>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Assessed By Resource Person</label>
+                                                <input type="text" name="assessed_by_resource_person" value="{{ training.assessed_by_resource_person }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Note</label>
+                                                <input type="text" name="note" value="{{ training.note }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Wasted Serial</label>
+                                                <input type="text" name="wasted_serial" value="{{ training.wasted_serial }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Requested By</label>
+                                                <input type="text" name="requested_by" value="{{ training.requested_by }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Prepared By</label>
+                                                <input type="text" name="prepared_by" value="{{ training.prepared_by }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Invoice No</label>
+                                                <input type="text" name="invoice_no" value="{{ training.invoice_no }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Invoice Date</label>
+                                                <input type="date" name="invoice_date" value="{{ training.invoice_date|date:'Y-m-d' }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Total Amount</label>
+                                                <input type="text" name="total_amount" value="{{ training.total_amount }}" class="form-control" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\\..*)\\./g, '$1');" required>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Paid Amount</label>
+                                                <input type="text" name="amount" value="{{ training.amount }}" class="form-control" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\\..*)\\./g, '$1');" required>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Cash/Bank</label>
+                                                <input type="text" name="cash_bank" value="{{ training.cash_bank }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Client Rep Name</label>
+                                                <input type="text" name="client_rep_name" value="{{ training.client_rep_name }}" 
+                                                    class="form-control" 
+                                                    pattern="^[A-Za-z][A-Za-z\s\-_]{0,}[A-Za-z]$"
+                                                    title="Please enter a valid name containing letters, spaces, hyphens, or underscores. Must start and end with a letter. Cannot be N/A."
+                                                    required>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Client Rep Number (e.g., +9665XXXXXXXX)</label>
+                                                <input type="tel"
+                                                    name="client_rep_number"
+                                                    value="{{ training.client_rep_number }}"
+                                                    class="form-control"
+                                                     
+                                                    pattern="^\+?[0-9]{10,15}$"
+                                                    title="Enter a valid WhatsApp number in international format (e.g., +9665XXXXXXXX)"
+                                                    required>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Email</label>
+                                                <input type="email" name="email" value="{{ training.email }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Remarks</label>
+                                                <input type="text" name="remarks" value="{{ training.remarks }}" class="form-control">
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="submit" class="btn btn-warning">Update Training</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Hold Training Confirmation Modal -->
+                        <div class="modal fade" id="holdTrainingModal{{ training.uid }}" tabindex="-1" aria-labelledby="holdTrainingModalLabel" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <form action="{% url 'hold_training' training.uid %}" method="post">
+                                        {% csrf_token %}
+                                        <div class="modal-header bg-warning text-white">
+                                            <h5 class="modal-title">Confirm Hold</h5>
+                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <p>Are you sure you want to hold this training?</p>
+                                            <p><strong>Card No:</strong> {{ training.card_no }} | <strong>Certificate No:</strong> {{ training.cert_no }}</p>
+                                            <p><strong>Company:</strong> {{ training.company_name }}</p>
+                                            <div class="form-group mt-3">
+                                                <label for="holdReason{{ training.uid }}">Reason for hold:</label>
+                                                <textarea class="form-control" id="holdReason{{ training.uid }}" name="hold_reason" rows="3" required></textarea>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                            <button type="submit" class="btn btn-warning">Confirm Hold</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Cancel Training Confirmation Modal -->
+                        <div class="modal fade" id="cancelTrainingModal{{ training.uid }}" tabindex="-1" aria-labelledby="cancelTrainingModalLabel" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <form action="{% url 'cancel_training' training.uid %}" method="post">
+                                        {% csrf_token %}
+                                        <div class="modal-header bg-danger text-white">
+                                            <h5 class="modal-title">Confirm Cancellation</h5>
+                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <p>Are you sure you want to cancel this training?</p>
+                                            <p><strong>Card No:</strong> {{ training.card_no }} | <strong>Certificate No:</strong> {{ training.cert_no }}</p>
+                                            <p><strong>Company:</strong> {{ training.company_name }}</p>
+                                            <div class="form-group mt-3">
+                                                <label for="cancelReason{{ training.uid }}">Reason for cancellation:</label>
+                                                <textarea class="form-control" id="cancelReason{{ training.uid }}" name="cancel_reason" rows="3" required></textarea>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                            <button type="submit" class="btn btn-danger">Confirm Cancel</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        {% endfor %}
+                        <tr>
+                            <td colspan="28" class="text-center">-</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Disabled and active states pagination -->
+                {% include "base/pagination.html" with page_obj=trainings %}
+                <!-- End Disabled and active states pagination -->
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<!-- ================== BEGIN Those are use for pdf and excel generated file ================== -->
+<script src="{% static 'datatable/v2.5.2/jspdf.umd.min.js' %}"></script>
+<script src="{% static 'datatable/v3.8.4/jspdf.plugin.autotable.min.js' %}"></script>
+<!-- ================== END Those are use for pdf and excel generated file  ================== -->
+ 
+<script>
+    function exportToExcel() {
+        const table = document.getElementById("myTrainingTable");
+        const rows = table.querySelectorAll("tr");
+        let csv = [];
+
+        for (let i = 0; i < rows.length; i++) {
+            const row = [], cols = rows[i].querySelectorAll("td, th");
+
+            for (let j = 0; j < cols.length; j++) { // Start from index 1 to skip the first column
+                row.push(cols[j].innerText);
+            }
+
+            csv.push(row.join(","));
+        }
+
+        // Create a blob
+        const blob = new Blob([csv.join("\n")], { type: "text/csv;charset=utf-8;" });
+
+        // Create a link element and click it
+        const link = document.createElement("a");
+        link.style.display = "none";
+        document.body.appendChild(link);
+        if (navigator.msSaveBlob) { // IE 10+
+            navigator.msSaveBlob(blob, "AllTrainingTable.csv");
+        } else {
+            link.setAttribute("href", URL.createObjectURL(blob));
+            link.setAttribute("download", "AllTrainingTable.csv");
+            link.click();
+        }
+        document.body.removeChild(link);
+    }
+
+    function exportToPDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('landscape');
+        
+        // Get the table element
+        const table = document.getElementById("myTrainingTable");
+        const rows = table.querySelectorAll("tr");
+        let data = [];
+
+        for (let i = 0; i < rows.length; i++) {
+            const row = [], cols = rows[i].querySelectorAll("td, th");
+
+            for (let j = 0; j < cols.length; j++) { // Start from index 1 to skip the first column
+                row.push(cols[j].innerText);
+            }
+
+            data.push(row);
+        }
+
+        doc.autoTable({
+            head: [data[0]], // Use the first row as the header
+            body: data.slice(1), // Use the rest as the body
+            startY: 20,
+            theme: 'grid',
+            styles: {
+                fontSize: 8,
+                cellPadding: 2,
+            },
+            headStyles: {
+                fillColor: [0, 123, 255],
+                textColor: [255, 255, 255],
+            },
+            didDrawPage: function (data) {
+                doc.text("All Training Record", 14, 10);
+            }
+        });
+
+        // Save the generated PDF
+        doc.save('AllTrainingTable.pdf');
+    }
+
+
+
+</script>
+
+{% endblock %}
+<!-- BEGIN #Body_of_this_page -->

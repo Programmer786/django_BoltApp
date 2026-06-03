@@ -1,0 +1,170 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8" />
+	<title>{{title}}</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<!-- Add a link to your favicon.ico file -->
+    <link href="{% static 'img/larsa_logo_nbg.png' %}" rel="icon" type="image/x-icon">
+	<meta name="description" content="Ezeesol Tech - Python Programmer" />
+	<meta name="author" content="Ezeesol Tech - Python Programmer" />
+
+	<!-- ================== BEGIN core-css ================== -->
+	<link rel="stylesheet" href="{% static 'css/vendor.min.css' %}" type="text/css" />
+	<link rel="stylesheet" href="{% static 'css/app.min.css' %}" type="text/css" />
+	<!-- ================== END core-css ================== -->
+
+	<!-- ================== BEGIN page-css ================== -->
+	<link rel="stylesheet" href="{% static 'plugins/bootstrap-table/dist/bootstrap-table.min.css' %}" type="text/css" />
+	<!-- Include jQuery from a CDN -->
+	<script src="{% static 'plugins/jquery/dist/jquery-3.6.0.min.js' %}"></script>
+	
+
+	<!-- ================== BEGIN core-css ================== -->
+	<link rel="stylesheet" href="{% static 'css/custom.css' %}" type="text/css" />
+	<!-- ================== END core-css ================== -->
+	<style>
+		.mt-19-custom {
+            margin-top: 19rem; /* Adjust as needed */
+        }
+        .mt-11-custom {
+            margin-top: 11rem; /* Adjust as needed */
+        }
+		.mt-5-5-custom {
+            margin-top: 5.5rem; /* Adjust as needed */
+        }
+    </style>
+	<style>
+		.pagination-wrapper::-webkit-scrollbar {
+			height: 6px;
+		}
+		.pagination-wrapper::-webkit-scrollbar-thumb {
+			background: #ccc;
+			border-radius: 5px;
+		}
+	</style>
+	
+	<!-- <script>
+		$('.menu-item').on('click', function () {
+			console.log('Menu item clicked');
+			$('.menu-item').removeClass('active');
+			$(this).addClass('active');
+		});
+	</script> -->
+	<!-- ================== END page-css ================== -->
+</head>
+
+<body>
+	<!-- BEGIN #app -->
+	<div id="app" class="app">
+        <!-- ======= Header ======= -->
+        {% include 'base/header.html' %}
+        <!-- End Header -->
+
+        <!-- ======= Sidebar ======= -->
+        {% include 'base/sidebar.html' %}
+        <!-- End Sidebar-->
+
+		<!-- BEGIN #content -->
+		<div id="content" class="app-content">
+			<!-- BEGIN #Message -->
+			{% include "base/alert.html" %}
+			<!-- END #Message -->
+    
+			{% block start %} 
+			
+			{% endblock %}
+		</div>
+		<!-- END #content -->
+
+        <!-- ======= Footer ======= -->
+        {% include 'base/footer.html' %}
+        <!-- End Footer-->
+
+		<!-- BEGIN btn-scroll-top -->
+		<a href="#" data-click="scroll-top" class="btn-scroll-top fade"><i class="fa fa-arrow-up"></i></a>
+		<!-- END btn-scroll-top -->
+    
+	</div>
+	<!-- END #app -->
+
+	<!-- ================== BEGIN core-js ================== -->
+	<script src="{% static 'js/vendor.min.js' %}"></script>
+	<script src="{% static 'js/app.min.js' %}"></script>
+	<!-- ================== END core-js ================== -->
+	<!-- ================== BEGIN page-js ================== -->
+	<script src="{% static 'js/demo/highlightjs.demo.js' %}"></script>
+	<script src="{% static 'plugins/datatables.net/js/jquery.dataTables.min.js' %}"></script>
+	<script src="{% static 'plugins/datatables.net-bs5/js/dataTables.bootstrap5.min.js' %}"></script>
+	<script src="{% static 'plugins/datatables.net-responsive/js/dataTables.responsive.min.js' %}"></script>
+	<!-- ================== BEGIN table design change in this ================== -->
+	<script src="{% static 'plugins/bootstrap-table/dist/bootstrap-table.min.js' %}"></script> 
+	<!-- ================== END table design change in this ================== -->
+	<script src="{% static 'js/demo/table-plugins.demo.js' %}"></script>
+	<script src="{% static 'js/demo/sidebar-scrollspy.demo.js' %}"></script>
+	<script src="{% static 'js/demo/form-plugins.demo.js' %}"></script>
+	<!-- ================== END page-js ================== -->
+	
+	<!-- ================== BEGIN Extra Plugin-js ================== -->
+	<script src="{% static 'plugins/moment/min/moment.min.js' %}"></script>
+	<script src="{% static 'plugins/bootstrap-daterangepicker/daterangepicker.js' %}"></script>
+	<script src="{% static 'plugins/bootstrap-timepicker/js/bootstrap-timepicker.min.js' %}"></script>
+	<script src="{% static 'plugins/bootstrap-slider/dist/bootstrap-slider.min.js' %}"></script>
+	<script src="{% static 'plugins/jquery-typeahead/dist/jquery.typeahead.min.js' %}"></script>
+	<script src="{% static 'plugins/jquery.maskedinput/src/jquery.maskedinput.js' %}"></script>
+	<script src="{% static 'plugins/tag-it/js/tag-it.min.js' %}"></script>
+	<script src="{% static 'plugins/blueimp-file-upload/js/jquery.fileupload.js' %}"></script>
+	<script src="{% static 'plugins/summernote/dist/summernote-lite.min.js' %}"></script>
+	<script src="{% static 'plugins/spectrum-colorpicker2/dist/spectrum.min.js' %}"></script>
+	<script src="{% static 'plugins/select-picker/dist/picker.min.js' %}"></script>
+	<!-- ================== END Extra Plugin-js ================== -->
+	<script src="{% static 'js/jquery.inputmask.bundle.js' %}"></script>
+
+	<!-- ================== Start #Only ASCII character in that range allowed" ================== -->
+	<script>
+		function onlyNumberKey(evt) {
+			// Only ASCII character in that range allowed
+			var ASCIICode = (evt.which) ? evt.which : evt.keyCode
+			if (ASCIICode > 31 && (ASCIICode < 48 || ASCIICode > 57))
+				return false;
+			return true;
+		}
+	</script>
+	<!-- ================== End #Only ASCII character in that range allowed" ================== -->
+	
+
+	<script>
+		function showPassword(userId) {
+			$.ajax({
+				url: '/reset_password/' + userId,
+				type: 'GET',
+				success: function(response) {
+					$('#decryptedPassword').text(response.user_password_reset);
+				},
+				error: function(error) {
+					alert('Error fetching password');
+				}
+			});
+		}
+	</script>
+	
+	<!-- For Profile Image change -->
+	<script>
+		function displayImg(input, imgElement) {
+			var file = input.files[0];
+			var reader = new FileReader();
+
+			reader.onload = function(e) {
+				imgElement.attr('src', e.target.result);
+			}
+
+			reader.readAsDataURL(file);
+		}
+	</script>
+
+</body>
+
+</html>

@@ -1,0 +1,52 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Error Page</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="" />
+    <meta name="author" content="" />
+
+    <!-- ================== BEGIN core-css ================== -->
+    <link
+      rel="stylesheet"
+      href="{% static 'css/vendor.min.css' %}"
+      type="text/css"
+    />
+    <link
+      rel="stylesheet"
+      href="{% static 'css/app.min.css' %}"
+      type="text/css"
+    />
+    <!-- ================== END core-css ================== -->
+  </head>
+  <body>
+    <!-- BEGIN #app -->
+    <div id="app" class="app app-full-height app-without-header">
+      <!-- BEGIN error -->
+      <div class="error-page">
+        <!-- BEGIN error-page-content -->
+        <div class="error-page-content">
+          <div class="error-img">
+            <div class="error-img-code">404</div>
+            <img src="{% static 'img/page/404.svg' %}" alt="Error Picture">
+          </div>
+
+          <h1>Oops!</h1>
+          <h3>We can't seem to find the page you're looking for</h3>
+          <p class="text-muted mb-2">Here are some helpful links instead:</p>
+          <a href="{% url 'dashboard' %}" class="btn btn-primary">Go to Homepage</a>
+        </div>
+        <!-- END error-page-content -->
+      </div>
+      <!-- END error -->
+    </div>
+    <!-- END #app -->
+
+    <!-- ================== BEGIN core-js ================== -->
+    <script src="{% static 'js/vendor.min.js' %}"></script>
+    <script src="{% static 'js/app.min.js' %}"></script>
+    <!-- ================== END core-js ================== -->
+  </body>
+</html>

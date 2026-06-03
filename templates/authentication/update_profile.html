@@ -1,0 +1,296 @@
+{% extends "base/base.html" %}
+{% load static %}
+{% block start %}
+
+<h1 class="page-header">
+    UPDATE PROFILE <small>Manage your account information below</small>
+</h1>
+<hr class="mb-4">
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-xl-8 col-lg-10 col-md-12">
+            <div class="card shadow-lg border-0 mt-4 mb-5">
+                <div class="card-body text-center px-5 py-4">
+                    <!-- Profile Picture with Edit Icon -->
+                    <div class="position-relative d-inline-block mb-3">
+                        <img src="{{ request.user.profile.profile_image.url }}"
+                             onerror="this.src='/static/img/user/user.jpg'"
+                             alt="Profile Picture"
+                             class="rounded-circle border border-4 border-success shadow"
+                             width="150" height="150">
+
+                        <!-- Edit Icon Button -->
+                        <a href="#" data-bs-toggle="modal" data-bs-target="#updateProfileImageModal"
+                           class="position-absolute bottom-0 end-0 translate-middle p-2 bg-white rounded-circle shadow-sm border border-success"
+                           style="width: 40px; height: 40px; text-align: center;">
+                            <i class="fa fa-pencil-alt text-success"></i>
+                        </a>
+                    </div>
+
+
+                    <!-- Name and Role -->
+                    <h3 class="fw-bold mb-0 text-dark">{{ role_with_cnic_data.full_name }}</h3>
+                    <p class="text-muted fs-5">{{ role_with_cnic_data.rol_name }}</p>
+
+                    <!-- User Information -->
+                    <div class="text-start mt-4 fs-5 px-3">
+                        <p><i class="fa fa-user text-success me-2"></i><strong>Username:</strong> {{ request.user.username }}</p>
+                        <p><i class="fa fa-envelope text-success me-2"></i><strong>Email:</strong> {{ request.user.email }}</p>
+                        <p><i class="fa fa-id-card text-success me-2"></i><strong>Full Name:</strong> {{ request.user.first_name }} {{ request.user.last_name }}</p>
+                        <p><i class="fa fa-phone text-success me-2"></i><strong>Phone:</strong> {{ request.user.profile.phone }}</p>
+                        <p><i class="fa fa-globe text-success me-2"></i><strong>Country:</strong> {{ request.user.profile.country }}</p>
+                        <p><i class="fa fa-location-arrow text-success me-2"></i><strong>City / Region:</strong> {{ request.user.profile.city }}</p>
+                        <p><i class="fa fa-location-arrow text-success me-2"></i><strong>Address:</strong> {{ request.user.profile.address }}</p>
+                        <p><i class="fa fa-venus-mars text-success me-2"></i><strong>Bio:</strong> {{ request.user.profile.bio }}</p>
+                        <p><i class="fa fa-calendar text-success me-2"></i><strong>Joined:</strong> {{ request.user.profile.created_at }}</p>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="d-flex justify-content-center gap-3 flex-wrap mt-4">
+                        <a href="#" class="btn btn-outline-primary btn-lg" data-bs-toggle="modal" data-bs-target="#updateManagerModal">
+                            <i class="fa fa-edit me-1"></i> Edit Info
+                        </a>
+                        <a href="#" class="btn btn-outline-warning btn-lg" data-bs-toggle="modal" data-bs-target="#changePassManagerModal">
+                            <i class="fa fa-key me-1"></i> Change Password
+                        </a>
+                        {% if request.user.is_active %}
+                        <!-- Trigger Disable Confirmation Modal -->
+                        <button class="btn btn-outline-danger btn-lg" data-bs-toggle="modal" data-bs-target="#confirmDisableModal">
+                            <i class="fa fa-ban me-1"></i> Disable
+                        </button>
+                        {% else %}
+                        <!-- Trigger Enable Confirmation Modal -->
+                        <button class="btn btn-outline-success btn-lg" data-bs-toggle="modal" data-bs-target="#confirmEnableModal">
+                            <i class="fa fa-check-circle me-1"></i> Enable
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- MODAL: Update Profile -->
+<div class="modal fade" id="updateManagerModal">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form action="{% url 'update_profile' %}" method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">Update Profile</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <!-- Django's built-in User model fields -->
+                        <div class="col-md-6">
+                            <label class="form-label">Username</label>
+                            <input type="text" name="username" class="form-control" value="{{ request.user.username }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Email</label>
+                            <input type="email" name="email" class="form-control" value="{{ request.user.email }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">First Name</label>
+                            <input type="text" name="first_name" class="form-control" value="{{ request.user.first_name }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Last Name</label>
+                            <input type="text" name="last_name" class="form-control" value="{{ request.user.last_name }}" required>
+                        </div>
+
+                        <!-- Your custom Profile model fields -->
+                        <div class="col-md-6">
+                            <label class="form-label">Phone</label>
+                            <input type="text" name="phone" class="form-control" maxlength="20" value="{{ request.user.profile.phone }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Country</label>
+                            <input type="text" name="country" class="form-control" value="{{ request.user.profile.country }}">
+                        </div>                  
+                        <div class="col-md-6">
+                            <label class="form-label">Address</label>
+                            <input type="text" name="address" class="form-control" value="{{ request.user.profile.address }}">
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label">Bio</label>
+                            <textarea name="bio" class="form-control" rows="3">{{ request.user.profile.bio }}</textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-success">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: Change Password -->
+<div class="modal fade" id="changePassManagerModal">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <form action="{% url 'change_password' %}" method="post">
+                {% csrf_token %}
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title">Change Password</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Current Password</label>
+                        <input type="password" name="current_password" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">New Password</label>
+                        <input type="password" name="new_password" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Confirm New Password</label>
+                        <input type="password" name="renew_password" class="form-control" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-outline-primary">Update</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+<!-- ================== BEGIN CropperJS CSS ================== -->
+<link rel="stylesheet" href="{% static 'plugins/cropperjs/1.5.13/cropper.min.css' %}" type="text/css" />
+<!-- ================== END CropperJS CSS ================== -->
+
+<!-- Modal for Update Profile Image -->
+<div class="modal fade" id="updateProfileImageModal">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form id="profileImageForm" method="post">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">Update Profile Image</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="profile_image"><b>Select Image</b></label>
+                        <input type="file" class="form-control" id="profile_image" accept="image/*" required>
+                    </div>
+                    <div class="text-center mt-3">
+                        <img id="cropper-preview" src="" class="img-fluid img-thumbnail" style="max-height: 300px;">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Crop & Upload</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ================== BEGIN CropperJS JS ================== -->
+<script src="{% static 'plugins/cropperjs/1.5.13/cropper.min.js' %}"></script>
+<!-- ================== END CropperJS JS ================== -->
+<script>
+    let cropper;
+    const input = document.getElementById('profile_image');
+    const preview = document.getElementById('cropper-preview');
+
+    input.addEventListener('change', function (e) {
+        const file = e.target.files[0];
+        if (file && file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = function (event) {
+                preview.src = event.target.result;
+                if (cropper) cropper.destroy();
+                cropper = new Cropper(preview, {
+                    aspectRatio: 1,
+                    viewMode: 1,
+                    autoCropArea: 1,
+                });
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    document.getElementById('profileImageForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        if (!cropper) return;
+
+        cropper.getCroppedCanvas().toBlob(function (blob) {
+            const formData = new FormData();
+            formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+            formData.append('profile_image', blob, 'profile.jpg');
+
+            fetch("{% url 'update_profile_image' %}", {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (response.ok) {
+                    location.reload();  // or alert('Updated!')
+                } else {
+                    alert('Failed to upload image.');
+                }
+            });
+        }, 'image/jpeg');
+    });
+</script>
+
+<!-- End CropperJS Modal for Update Profile -->
+
+<div class="modal fade" id="confirmDisableModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-danger">
+            <form action="{% url 'disable_role_user' %}" method="post">
+                {% csrf_token %}
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">Confirm Disable</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <p>Are you sure you want to <strong>disable</strong> your account?</p>
+                    <p class="text-danger"><small>This action can be reversed later by enabling it again.</small></p>
+                </div>
+                <div class="modal-footer justify-content-center">
+                    <button type="submit" class="btn btn-danger">Yes, Disable</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="confirmEnableModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-success">
+            <form action="{% url 'enable_role_user' %}" method="post">
+                {% csrf_token %}
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title">Confirm Enable</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <p>Do you want to <strong>enable</strong> your account?</p>
+                </div>
+                <div class="modal-footer justify-content-center">
+                    <button type="submit" class="btn btn-success">Yes, Enable</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+
+{% endblock %}

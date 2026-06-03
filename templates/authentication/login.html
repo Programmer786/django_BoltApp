@@ -1,0 +1,146 @@
+
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8">
+	<title>Bolt Company - Login</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="description" content="Secure login portal for Bolt Company management">
+	<meta name="author" content="">
+
+	<!-- ================== BEGIN core-css ================== -->
+	<link rel="stylesheet" href="{% static 'css/vendor.min.css' %}" type="text/css" />
+	<link rel="stylesheet" href="{% static 'css/app.min.css' %}" type="text/css" />
+	<!-- ================== END core-css ================== -->
+
+	<style>
+		@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap');
+
+		/* General Page Style */
+		body {
+			font-family: 'Poppins', sans-serif;
+			height: 100vh;
+			margin: 0;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			background: linear-gradient(45deg, rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url('{% static 'img/bolt_background.jpg' %}') center/cover no-repeat;
+			/* Overlay dark gradient on top of image for readability */
+			background-size: cover;
+			background-position: center;
+			animation: gradientBG 15s ease infinite;
+		}
+
+		/* Frosted Glass Effect for Login Box */
+		.login-box {
+			background: rgba(255, 255, 255, 0.2);
+			backdrop-filter: blur(10px);
+			border-radius: 15px;
+			padding: 40px;
+			box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+			width: 350px;
+			text-align: center;
+		}
+
+		.login-box h1 {
+			color: #fff;
+			font-size: 24px;
+			margin-bottom: 20px;
+		}
+
+		.login-box .form-control {
+			background-color: rgba(255, 255, 255, 0.8);
+			border: none;
+			border-radius: 30px;
+			padding: 10px 20px;
+			margin-bottom: 20px;
+			font-size: 16px;
+			box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+			transition: all 0.3s ease;
+		}
+
+		.login-box .form-control:focus {
+			background-color: rgba(255, 255, 255, 1);
+			box-shadow: 0px 6px 10px rgba(0, 0, 0, 0.2);
+			outline: none;
+		}
+
+		.login-box #login-btn {
+			background: #007bff;
+			color: #fff;
+			border: none;
+			border-radius: 30px;
+			padding: 10px 20px;
+			font-size: 16px;
+			cursor: pointer;
+			transition: background-color 0.3s ease;
+			width: 100%;
+		}
+
+		.login-box #login-btn:hover {
+			background: #0056b3;
+		}
+
+		.login-box p {
+			color: #fff;
+			font-size: 14px;
+		}
+
+		.alert {
+			color: #f8d7da;
+			background-color: #721c24;
+			padding: 10px;
+			border-radius: 5px;
+		}
+
+		/* Add Animation on Hover */
+		#login-btn, .form-control {
+			transition: all 0.3s ease;
+		}
+	</style>
+
+</head>
+
+<body>
+
+	<!-- BEGIN login-box -->
+	<div class="login-box">
+		<h1>Sign In to Bolt Company</h1>
+		<!-- BEGIN Message-Show -->
+		{% include "base/alert.html" %}
+		<!-- End Message-Show -->
+
+		<!-- BEGIN login-form -->
+		<form method="post" class="row g-3 needs-validation" novalidate>
+			{% csrf_token %}
+			<input type="hidden" name="next" value="{{ next }}">
+			<input type="text" class="form-control" name="username" placeholder="Enter Username" />
+			<input type="password" class="form-control" name="password" placeholder="Enter Password" />
+			<button type="submit" id='login-btn'>Sign In</button>
+		</form>
+		
+		<!-- END login-form -->
+		
+		<!-- Additional Text -->
+		<p>Secure login for Bolt Company management</p>
+		{% comment %} <p><a href="{% url 'frontend:verify_data' %}" class="btn btn-primary mt-3">Check Verification Data</a></p> {% endcomment %}
+	</div>
+	<!-- END login-box -->
+
+	<!-- ================== BEGIN core-js ================== -->
+	<script src="{% static 'js/vendor.min.js' %}"></script>
+	<script src="{% static 'js/app.min.js' %}"></script>
+	<!-- ================== END core-js ================== -->
+	<script>
+		function onlyNumberKey(evt) {
+			var ASCIICode = (evt.which) ? evt.which : evt.keyCode
+			if (ASCIICode > 31 && (ASCIICode < 48 || ASCIICode > 57)) return false;
+			return true;
+		}
+	</script>
+
+</body>
+
+</html>

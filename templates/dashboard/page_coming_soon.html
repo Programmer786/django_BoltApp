@@ -1,0 +1,64 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>Coming Soon</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="description" content="">
+	<meta name="author" content="">
+	
+	<!-- ================== BEGIN core-css ================== -->
+	<link
+      rel="stylesheet"
+      href="{% static 'css/vendor.min.css' %}"
+      type="text/css"
+    />
+    <link
+      rel="stylesheet"
+      href="{% static 'css/app.min.css' %}"
+      type="text/css"
+    />
+	<!-- ================== END core-css ================== -->
+	
+	<!-- ================== BEGIN page-css ================== -->
+	<link
+      rel="stylesheet"
+      href="{% static 'plugins/kbw-countdown/dist/css/jquery.countdown.css' %}"
+    />
+	<!-- ================== END page-css ================== -->
+
+</head>
+<body>
+	<!-- BEGIN #app -->
+	<div id="app" class="app app-full-height app-without-header">
+		<!-- BEGIN coming-soon -->
+		<div class="coming-soon">
+			<!-- BEGIN coming-soon-content -->
+			<div class="coming-soon-content">
+				<div class="coming-soon-img mb-4"><img src="{% static 'img/page/coming-soon.svg' %}" alt=""></div>
+				<div class="coming-soon-timer mb-3">
+					<div id="timer"></div>
+				</div>
+				<h2 class="mb-1">We're coming soon!</h2>
+				<p class="mb-0">We are working very hard on the new version of our site.<br> It will bring a lot of new features. Stay tuned!</p>
+			</div>
+			<!-- END coming-soon-content -->
+		</div>
+		<!-- END coming-soon -->
+	</div>
+	<!-- END #app -->
+	
+	<!-- ================== BEGIN core-js ================== -->
+    <script src="{% static 'js/vendor.min.js' %}"></script>
+    <script src="{% static 'js/app.min.js' %}"></script>
+    <!-- ================== END core-js ================== -->
+	
+	<!-- ================== BEGIN page-js ================== -->
+	<script src="{% static 'plugins/kbw-countdown/dist/js/jquery.plugin.js' %}"></script>
+	<script src="{% static 'plugins/kbw-countdown/dist/js/jquery.countdown.js' %}"></script>
+	<script src="{% static 'js/demo/page-coming-soon.demo.js' %}"></script>
+	<!-- ================== END page-js ================== -->
+	
+</body>
+</html>
