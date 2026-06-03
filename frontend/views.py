@@ -5,6 +5,7 @@ from dateutil.relativedelta import relativedelta
 from django.db.models import Q
 from django.shortcuts import render
 
+from authentication.models import Note
 from calibration.models import Calibration
 from certificates.models import Certificate
 from cards.models import Card
@@ -155,9 +156,13 @@ def verify_data(request):
             except Exception as e:
                 calculated_remaining_months = None
 
+    # Pull the note for this category from the Note model (one note per type)
+    type_note = Note.objects.filter(type=result_type).first() if result_type else None
+
     return render(request, 'frontend/verify_data.html', {
         'data': result,
         'type': result_type,
+        'type_note': type_note,
         'search': search_value,
         'search_type': search_type,
         'calculated_remaining_months': calculated_remaining_months,
