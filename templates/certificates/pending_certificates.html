@@ -66,7 +66,6 @@
                             <th>Manufacturer</th>
                             <th>Inspected By</th>
                             <th>Status</th>
-                            <th>Note</th>
                             <th>Prepared By</th>
                             <th>Wasted Serial</th>
                             <th>Invoice No</th>
@@ -145,7 +144,6 @@
                             <td>{{ cert.manufacturer }}</td>
                             <td>{{ cert.inspected_by }}</td>
                             <td>{{ cert.status }}</td>
-                            <td>{{ cert.note }}</td>
                             <td>{{ cert.prepared_by }}</td>
                             <td>{{ cert.wasted_serial }}</td>
                             <td>{{ cert.invoice_no }}</td>
@@ -215,10 +213,6 @@
                                             <div class="col-md-4">
                                                 <label>Inspected By</label>
                                                 <input type="text" name="inspected_by" value="{{ cert.inspected_by }}" class="form-control" readonly>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <label>Note</label>
-                                                <input type="text" name="note" value="{{ cert.note }}" class="form-control" readonly>
                                             </div>
                                             <div class="col-md-4">
                                                 <label>Prepared By</label>

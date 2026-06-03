@@ -431,7 +431,6 @@ def add_certificate_manual(request):
                 plate_no=request.POST.get('plate_no'),
                 manufacturer=request.POST.get('manufacturer'),
                 inspected_by=request.POST.get('inspected_by'),
-                note=request.POST.get('note'),
                 requested_by=request.POST.get('requested_by'),
                 prepared_by=request.POST.get('prepared_by'),
                 wasted_serial=request.POST.get('wasted_serial'),
@@ -516,7 +515,6 @@ def update_certificate(request, uid):
             cert.plate_no = request.POST.get('plate_no')
             cert.manufacturer = request.POST.get('manufacturer')
             cert.inspected_by = request.POST.get('inspected_by')
-            cert.note = request.POST.get('note')
             cert.requested_by = request.POST.get('requested_by')
             cert.prepared_by = request.POST.get('prepared_by')
             cert.wasted_serial = request.POST.get('wasted_serial')
@@ -902,7 +900,6 @@ def update_unpaid_certificate(request, uid):
         cert.plate_no = request.POST.get('plate_no')
         cert.manufacturer = request.POST.get('manufacturer')
         cert.inspected_by = request.POST.get('inspected_by')
-        cert.note = request.POST.get('note')
         cert.requested_by = request.POST.get('requested_by')
         cert.prepared_by = request.POST.get('prepared_by')
         cert.wasted_serial = request.POST.get('wasted_serial')
@@ -1095,7 +1092,7 @@ def report_paid_certificates(request):
         'total_paid_amount': total_paid_amount,
         'from_date': from_date,
         'to_date': to_date,
-        'sidebar_active': 'paid_certificates',
+        'sidebar_active': 'report_paid_certificates',
     }
     return render(request, 'certificates/report_paid_certificates.html', context)
 
