@@ -71,10 +71,6 @@
                         <input type="text" name="assessed_by_resource_person" class="form-control">
                     </div>
                     <div class="col-md-4">
-                        <label>Note</label>
-                        <input type="text" name="note" class="form-control" value="Training certificate issued after evaluation. Valid for limited time.">
-                    </div>
-                    <div class="col-md-4">
                         <label>Wasted Serial</label>
                         <input type="text" name="wasted_serial" class="form-control">
                     </div>
@@ -180,7 +176,6 @@
                             <th>Hologram No</th>
                             <th>Assessed By Resource Person</th>
                             <th>Status</th>
-                            <th>Note</th>
                             <th>Wasted Serial</th>
                             <th>Requested By</th>
                             <th>Prepared By</th>
@@ -259,7 +254,6 @@
                             <td>{{ training.holo_gram_no }}</td>
                             <td>{{ training.assessed_by_resource_person }}</td>
                             <td>{{ training.status }}</td>
-                            <td>{{ training.note }}</td>
                             <td>{{ training.wasted_serial }}</td>
                             <td>{{ training.requested_by }}</td>
                             <td>{{ training.prepared_by }}</td>
@@ -334,10 +328,6 @@
                                             <div class="col-md-4">
                                                 <label>Assessed By Resource Person</label>
                                                 <input type="text" name="assessed_by_resource_person" value="{{ training.assessed_by_resource_person }}" class="form-control">
-                                            </div>
-                                            <div class="col-md-4">
-                                                <label>Note</label>
-                                                <input type="text" name="note" value="{{ training.note }}" class="form-control">
                                             </div>
                                             <div class="col-md-4">
                                                 <label>Wasted Serial</label>

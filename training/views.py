@@ -431,7 +431,6 @@ def add_training_manual(request):
                 trade=request.POST.get('trade'),
                 holo_gram_no=request.POST.get('holo_gram_no'),
                 assessed_by_resource_person=request.POST.get('assessed_by_resource_person'),
-                note=request.POST.get('note'),
                 wasted_serial=request.POST.get('wasted_serial'),
                 requested_by=request.POST.get('requested_by'),
                 prepared_by=request.POST.get('prepared_by'),
@@ -518,7 +517,6 @@ def update_training(request, uid):
         training.trade = request.POST.get('trade')
         training.holo_gram_no = request.POST.get('holo_gram_no')
         training.assessed_by_resource_person = request.POST.get('assessed_by_resource_person')
-        training.note = request.POST.get('note')
         training.wasted_serial = request.POST.get('wasted_serial')
         training.requested_by = request.POST.get('requested_by')
         training.prepared_by = request.POST.get('prepared_by')
@@ -764,7 +762,6 @@ def update_unpaid_training(request, uid):
         training.trade = request.POST.get('trade')
         training.holo_gram_no = request.POST.get('holo_gram_no')
         training.assessed_by_resource_person = request.POST.get('assessed_by_resource_person')
-        training.note = request.POST.get('note')
         training.wasted_serial = request.POST.get('wasted_serial')
         training.requested_by = request.POST.get('requested_by')
         training.prepared_by = request.POST.get('prepared_by')

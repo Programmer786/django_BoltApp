@@ -187,7 +187,6 @@ def add_ndt_manual(request):
                 company_name=request.POST.get('company_name'),
                 joint_type=request.POST.get('joint_type'),
                 inspected_by=request.POST.get('inspected_by'),
-                note=request.POST.get('note'),
                 requested_by=request.POST.get('requested_by'),
                 prepared_by=request.POST.get('prepared_by'),
                 wasted_serial=request.POST.get('wasted_serial'),
@@ -237,7 +236,6 @@ def update_ndt(request, uid):
         ndt.company_name = request.POST.get('company_name')
         ndt.joint_type = request.POST.get('joint_type')
         ndt.inspected_by = request.POST.get('inspected_by')
-        ndt.note = request.POST.get('note')
         ndt.requested_by = request.POST.get('requested_by')
         ndt.prepared_by = request.POST.get('prepared_by')
         ndt.wasted_serial = request.POST.get('wasted_serial')
@@ -488,7 +486,6 @@ def update_unpaid_ndt(request, uid):
         ndt.company_name = request.POST.get('company_name')
         ndt.joint_type = request.POST.get('joint_type')
         ndt.inspected_by = request.POST.get('inspected_by')
-        ndt.note = request.POST.get('note')
         ndt.requested_by = request.POST.get('requested_by')
         ndt.prepared_by = request.POST.get('prepared_by')
         ndt.wasted_serial = request.POST.get('wasted_serial')

@@ -41,7 +41,6 @@
                             <th>Joint Type</th>
                             <th>Inspected By</th>
                             <th>Status</th>
-                            <th>Note</th>
                             <th>Prepared By</th>
                             <th>Wasted Serial No</th>
                             <th>Approved By</th>
@@ -122,7 +121,6 @@
                             <td>{{ ndt.joint_type }}</td>
                             <td>{{ ndt.inspected_by }}</td>
                             <td>{{ ndt.status }}</td>
-                            <td>{{ ndt.note }}</td>
                             <td>{{ ndt.prepared_by }}</td>
                             <td>{{ ndt.wasted_serial }}</td>
                             <td>{{ ndt.approved_by }}</td>
@@ -194,10 +192,6 @@
                                             <div class="col-md-4">
                                                 <label>Inspected By</label>
                                                 <input type="text" name="inspected_by" value="{{ ndt.inspected_by }}" class="form-control">
-                                            </div>
-                                            <div class="col-md-4">
-                                                <label>Note</label>
-                                                <input type="text" name="note" value="{{ ndt.note }}" class="form-control">
                                             </div>
                                             <div class="col-md-4">
                                                 <label>Prepared By</label>
