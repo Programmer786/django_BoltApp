@@ -421,7 +421,6 @@ def add_card_manual(request):
                 trade=request.POST.get('trade'),
                 holo_gram_no=request.POST.get('holo_gram_no'),
                 assessed_by=request.POST.get('assessed_by'),
-                note=request.POST.get('note'),
                 wasted_serial=request.POST.get('wasted_serial'),
                 requested_by=request.POST.get('requested_by'),
                 prepared_by=request.POST.get('prepared_by'),
@@ -492,7 +491,6 @@ def update_card(request, uid):
             card.trade = request.POST.get('trade')
             card.holo_gram_no = request.POST.get('holo_gram_no')
             card.assessed_by = request.POST.get('assessed_by')
-            card.note = request.POST.get('note')
             card.wasted_serial = request.POST.get('wasted_serial')
             card.requested_by = request.POST.get('requested_by')
             card.prepared_by = request.POST.get('prepared_by')
@@ -750,7 +748,6 @@ def update_unpaid_card(request, uid):
         card.trade = request.POST.get('trade')
         card.holo_gram_no = request.POST.get('holo_gram_no')
         card.assessed_by = request.POST.get('assessed_by')
-        card.note = request.POST.get('note')
         card.wasted_serial = request.POST.get('wasted_serial')
         card.requested_by = request.POST.get('requested_by')
         card.prepared_by = request.POST.get('prepared_by')

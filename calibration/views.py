@@ -185,7 +185,6 @@ def add_calibration_manual(request):
                 date_of_calibration=request.POST.get('date_of_calibration'),
                 expiry_date=request.POST.get('expiry_date'),
                 validity=remaining_months,
-                note=request.POST.get('note'),
                 requested_by=request.POST.get('requested_by'),
                 prepared_by=request.POST.get('prepared_by'),
                 wasted_serial=request.POST.get('wasted_serial'),
@@ -232,7 +231,6 @@ def update_calibration(request, uid):
         calibration.date_of_calibration = request.POST.get('date_of_calibration')
         calibration.expiry_date = request.POST.get('expiry_date')
         calibration.validity = request.POST.get('validity')
-        calibration.note = request.POST.get('note')
         calibration.requested_by = request.POST.get('requested_by')
         calibration.prepared_by = request.POST.get('prepared_by')
         calibration.wasted_serial = request.POST.get('wasted_serial')
@@ -472,7 +470,6 @@ def update_unpaid_calibration(request, uid):
         calibration.date_of_calibration = request.POST.get('date_of_calibration')
         calibration.expiry_date = request.POST.get('expiry_date')
         calibration.validity = request.POST.get('validity')
-        calibration.note = request.POST.get('note')
         calibration.requested_by = request.POST.get('requested_by')
         calibration.prepared_by = request.POST.get('prepared_by')
         calibration.wasted_serial = request.POST.get('wasted_serial')
