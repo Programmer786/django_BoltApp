@@ -8,7 +8,7 @@ from django.core.paginator import PageNotAnInteger, EmptyPage, Paginator
 from django.contrib import messages
 from django.views.decorators.http import require_POST, require_http_methods
 from django.utils.timezone import now  # Make sure this import is present
-from base.utils import items_per_page, current_date, get_next_numeric_sr_no
+from base.utils import items_per_page, current_date, get_next_numeric_sr_no, get_manager_city
 from training.models import Training
 from django.utils import timezone
 from datetime import timedelta
@@ -46,8 +46,13 @@ def manage_training(request):
     selected_trade = request.GET.get('trade', '').strip()
     training_list = Training.objects.none()  # Default to an empty queryset
 
-    # Check if the user is a superuser (admin)
-    if current_user.is_superuser:
+    # Managers (is_staff) act as admins limited to their own city
+    manager_city = get_manager_city(current_user)
+    if manager_city:
+        selected_city = manager_city
+
+    # Check if the user is a superuser (admin) or a manager
+    if current_user.is_superuser or current_user.is_staff:
         # Show all records for admin
         training_list = Training.objects.filter(isApprove=True, isCancel=False).order_by('-card_no')
         # Apply city filter if selected
@@ -152,6 +157,7 @@ def manage_training(request):
         'total_paid_damman_amount': total_paid_damman_amount,
         'searching_query': searching_query,  # Include for pre-filling the input
         'unique_trades': unique_trades,
+        'manager_city': manager_city,
         'sidebar_active': 'manage_training',
     }
     return render(request, 'training/manage_training.html', context)
@@ -173,8 +179,13 @@ def report_training(request):
 
     training_list = Training.objects.none()
 
-    # For admin users
-    if current_user.is_superuser:
+    # Managers (is_staff) act as admins limited to their own city
+    manager_city = get_manager_city(current_user)
+    if manager_city:
+        selected_city = manager_city
+
+    # For admin users (superuser or manager)
+    if current_user.is_superuser or current_user.is_staff:
         training_list = Training.objects.all().order_by('-card_no')
 
         # Apply status filter
@@ -230,6 +241,7 @@ def report_training(request):
         'selected_status': status,
         'company_name': company_name,
         'trade': trade,
+        'manager_city': manager_city,
         'sidebar_active': 'report_training',
     }
     return render(request, 'training/report_training.html', context)
@@ -549,8 +561,13 @@ def pending_training(request):
     selected_city = request.GET.get('city', '').strip()
     training_list = Training.objects.none()
 
-    # Check if the user is a superuser (admin)
-    if current_user.is_superuser:
+    # Managers (is_staff) act as admins limited to their own city
+    manager_city = get_manager_city(current_user)
+    if manager_city:
+        selected_city = manager_city
+
+    # Check if the user is a superuser (admin) or a manager
+    if current_user.is_superuser or current_user.is_staff:
         # Show all records for admin
         training_list = Training.objects.filter(isApprove=False, isCancel=False, isReject=False).order_by('-card_no')
         # Apply city filter if selected
@@ -588,6 +605,7 @@ def pending_training(request):
         'trainings': trainings,
         'current_date': current_date,
         'searching_query': searching_query,
+        'manager_city': manager_city,
         'sidebar_active': 'pending_training',
     }
     return render(request, 'training/pending_training.html', context)
@@ -692,10 +710,17 @@ def unpaid_training(request):
     searching_query = request.GET.get('searching_query', '').strip()
     training_list = Training.objects.none()
 
-    # Check if the user is a superuser (admin)
-    if current_user.is_superuser:
+    # Managers (is_staff) act as admins limited to their own city
+    manager_city = get_manager_city(current_user)
+
+    # Check if the user is a superuser (admin) or a manager
+    if current_user.is_superuser or current_user.is_staff:
         # Show all records for admin
         training_list = Training.objects.filter(isApprove=True, isCancel=False).filter(Q(amount__isnull=True) | Q(amount=0)).order_by('-card_no')
+
+        # Managers only see their own city's records
+        if manager_city:
+            training_list = training_list.filter(user__profile__city__iexact=manager_city)
 
         if searching_query:
             training_list = training_list.filter(Q(card_no__icontains=searching_query) | Q(cert_no__icontains=searching_query))
@@ -737,6 +762,7 @@ def unpaid_training(request):
         'total_unpaid_neom_training': total_unpaid_neom_training,
         'total_unpaid_damman_training': total_unpaid_damman_training,
         'searching_query': searching_query,
+        'manager_city': manager_city,
         'sidebar_active': 'unpaid_training',
     }
     return render(request, 'training/unpaid_training.html', context)
@@ -791,17 +817,24 @@ def paid_training(request):
     total_paid_jeddah_amount = total_paid_riyadh_amount = total_paid_neom_amount = total_paid_damman_amount = 0
 
     searching_query = request.GET.get('searching_query', '').strip()
-    
+
     training_list = Training.objects.none()
 
-    # Check if the user is a superuser (admin)
-    if current_user.is_superuser:
+    # Managers (is_staff) act as admins limited to their own city
+    manager_city = get_manager_city(current_user)
+
+    # Check if the user is a superuser (admin) or a manager
+    if current_user.is_superuser or current_user.is_staff:
         # Show all records for admin
         training_list = Training.objects.filter(isApprove=True, isCancel=False).exclude(amount=0).order_by('-card_no')
 
+        # Managers only see their own city's records
+        if manager_city:
+            training_list = training_list.filter(user__profile__city__iexact=manager_city)
+
         if searching_query:
             training_list = training_list.filter(Q(card_no__icontains=searching_query) | Q(cert_no__icontains=searching_query))
-            
+
         total_paid_training = training_list.count()
 
         # Paid Training
@@ -849,6 +882,7 @@ def paid_training(request):
         'total_paid_neom_amount': total_paid_neom_amount,
         'total_paid_damman_amount': total_paid_damman_amount,
         'searching_query': searching_query,
+        'manager_city': manager_city,
         'sidebar_active': 'paid_training',
     }
     return render(request, 'training/paid_training.html', context)
@@ -867,10 +901,17 @@ def report_paid_training(request):
     to_date = request.GET.get('to_date')
     training_list = Training.objects.none()
 
-    # Check if the user is a superuser (admin)
-    if current_user.is_superuser:
+    # Managers (is_staff) act as admins limited to their own city
+    manager_city = get_manager_city(current_user)
+
+    # Check if the user is a superuser (admin) or a manager
+    if current_user.is_superuser or current_user.is_staff:
         # Show all records for admin
         training_list = Training.objects.filter(isApprove=True, isCancel=False).exclude(amount=0).order_by('-card_no')
+
+        # Managers only see their own city's records
+        if manager_city:
+            training_list = training_list.filter(user__profile__city__iexact=manager_city)
 
         # Apply date range filter with timezone awareness
         if from_date and to_date:
@@ -880,11 +921,13 @@ def report_paid_training(request):
                 training_list = training_list.filter(created_at__range=[from_dt, to_dt])
             except (ValueError, TypeError):
                 pass
-            
+
         total_paid_training = training_list.count()
 
         # Base query for city statistics
         city_queryset = Training.objects.filter(isApprove=True, isCancel=False).exclude(amount=0)
+        if manager_city:
+            city_queryset = city_queryset.filter(user__profile__city__iexact=manager_city)
 
         # Apply date range to city statistics if dates are provided
         if from_date and to_date:
@@ -961,6 +1004,7 @@ def report_paid_training(request):
         'total_paid_amount': total_paid_amount,
         'from_date': from_date,
         'to_date': to_date,
+        'manager_city': manager_city,
         'sidebar_active': 'report_paid_training',
     }
     return render(request, 'training/report_paid_training.html', context)

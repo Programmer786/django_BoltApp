@@ -25,7 +25,7 @@
                             <span class="menu-text">Manage Certificates</span>
                         </a>
                     </div>
-                    {% if user.is_superuser %}
+                    {% if user.is_superuser or user.is_staff %}
                     <div class="menu-item {% if sidebar_active == 'pending_certificates' %}active{% endif %}">
                         <a href="{% url 'pending_certificates' %}" class="menu-link">
                             <span class="menu-icon"><i class="fas fa-clock text-warning"></i></span>
@@ -73,7 +73,7 @@
                             <span class="menu-text">Manage Cards</span>
                         </a>
                     </div>
-                    {% if user.is_superuser %}
+                    {% if user.is_superuser or user.is_staff %}
                     <div class="menu-item {% if sidebar_active == 'pending_cards' %}active{% endif %}">
                         <a href="{% url 'pending_cards' %}" class="menu-link">
                             <span class="menu-icon"><i class="fas fa-clock text-warning"></i></span>
@@ -121,7 +121,7 @@
                             <span class="menu-text">Manage Training</span>
                         </a>
                     </div>
-                    {% if user.is_superuser %}
+                    {% if user.is_superuser or user.is_staff %}
                     <div class="menu-item {% if sidebar_active == 'pending_training' %}active{% endif %}">
                         <a href="{% url 'pending_training' %}" class="menu-link">
                             <span class="menu-icon"><i class="fas fa-clock text-warning"></i></span>
@@ -169,7 +169,7 @@
                             <span class="menu-text">Manage NDT</span>
                         </a>
                     </div>
-                    {% if user.is_superuser %}
+                    {% if user.is_superuser or user.is_staff %}
                     <div class="menu-item {% if sidebar_active == 'pending_ndt' %}active{% endif %}">
                         <a href="{% url 'pending_ndt' %}" class="menu-link">
                             <span class="menu-icon"><i class="fas fa-clock text-warning"></i></span>
@@ -186,6 +186,18 @@
                         <a href="{% url 'unpaid_ndt' %}" class="menu-link">
                             <span class="menu-icon"><i class="fas fa-times-circle text-danger"></i></span>
                             <span class="menu-text">Unpaid NDT</span>
+                        </a>
+                    </div>
+                    <div class="menu-item {% if sidebar_active == 'report_paid_ndt' %}active{% endif %}">
+                        <a href="{% url 'report_paid_ndt' %}" class="menu-link">
+                            <span class="menu-icon"><i class="fas fa-file-excel text-primary"></i></span>
+                            <span class="menu-text">Report Paid Amount</span>
+                        </a>
+                    </div>
+                    <div class="menu-item {% if sidebar_active == 'report_ndt' %}active{% endif %}">
+                        <a href="{% url 'report_ndt' %}" class="menu-link">
+                            <span class="menu-icon"><i class="fas fa-file-excel text-primary"></i></span>
+                            <span class="menu-text">Report NDT</span>
                         </a>
                     </div>
                     {% endif %}
@@ -205,7 +217,7 @@
                             <span class="menu-text">Manage Calibration</span>
                         </a>
                     </div>
-                    {% if user.is_superuser %}
+                    {% if user.is_superuser or user.is_staff %}
                     <div class="menu-item {% if sidebar_active == 'pending_calibration' %}active{% endif %}">
                         <a href="{% url 'pending_calibration' %}" class="menu-link">
                             <span class="menu-icon"><i class="fas fa-clock text-warning"></i></span>
@@ -222,6 +234,18 @@
                         <a href="{% url 'unpaid_calibration' %}" class="menu-link">
                             <span class="menu-icon"><i class="fas fa-times-circle text-danger"></i></span>
                             <span class="menu-text">Unpaid Calibration</span>
+                        </a>
+                    </div>
+                    <div class="menu-item {% if sidebar_active == 'report_paid_calibration' %}active{% endif %}">
+                        <a href="{% url 'report_paid_calibration' %}" class="menu-link">
+                            <span class="menu-icon"><i class="fas fa-file-excel text-primary"></i></span>
+                            <span class="menu-text">Report Paid Amount</span>
+                        </a>
+                    </div>
+                    <div class="menu-item {% if sidebar_active == 'report_calibration' %}active{% endif %}">
+                        <a href="{% url 'report_calibration' %}" class="menu-link">
+                            <span class="menu-icon"><i class="fas fa-file-excel text-primary"></i></span>
+                            <span class="menu-text">Report Calibration</span>
                         </a>
                     </div>
                     {% endif %}

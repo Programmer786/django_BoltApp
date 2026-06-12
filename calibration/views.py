@@ -7,7 +7,7 @@ from django.core.paginator import PageNotAnInteger, EmptyPage, Paginator
 from django.contrib import messages
 from django.views.decorators.http import require_POST, require_http_methods
 from django.utils.timezone import now  # Make sure this import is present
-from base.utils import items_per_page, current_date
+from base.utils import items_per_page, current_date, get_manager_city
 from calibration.models import Calibration
 from django.utils import timezone
 from datetime import timedelta
@@ -36,8 +36,13 @@ def manage_calibration(request):
     selected_city = request.GET.get('city', '').strip()
     calibration_list = Calibration.objects.none()  # Default to an empty queryset
 
-    # Check if the user is a superuser (admin)
-    if current_user.is_superuser:
+    # Managers (is_staff) act as admins limited to their own city
+    manager_city = get_manager_city(current_user)
+    if manager_city:
+        selected_city = manager_city
+
+    # Check if the user is a superuser (admin) or a manager
+    if current_user.is_superuser or current_user.is_staff:
         # Show all records for admin
         calibration_list = Calibration.objects.filter(isApprove=True).order_by('-cert_no')
         # Apply city filter if selected
@@ -137,6 +142,7 @@ def manage_calibration(request):
         'total_paid_damman_calibrations': total_paid_damman_calibrations,
         'total_unpaid_damman_calibrations_count': total_unpaid_damman_calibrations_count,
         'searching_query': searching_query,  # Include for pre-filling the input
+        'manager_city': manager_city,
         'sidebar_active': 'manage_calibration',
     }
     return render(request, 'calibration/manage_calibration.html', context)
@@ -262,8 +268,13 @@ def pending_calibration(request):
     selected_city = request.GET.get('city', '').strip()
     calibration_list = Calibration.objects.none()
 
-    # Check if the user is a superuser (admin)
-    if current_user.is_superuser:
+    # Managers (is_staff) act as admins limited to their own city
+    manager_city = get_manager_city(current_user)
+    if manager_city:
+        selected_city = manager_city
+
+    # Check if the user is a superuser (admin) or a manager
+    if current_user.is_superuser or current_user.is_staff:
         # Show all records for admin
         calibration_list = Calibration.objects.filter(isApprove=False, isReject=False).order_by('-cert_no')
         # Apply city filter if selected
@@ -301,6 +312,7 @@ def pending_calibration(request):
         'calibrations': calibrations,
         'current_date': current_date,
         'searching_query': searching_query,
+        'manager_city': manager_city,
         'sidebar_active': 'pending_calibration',
     }
     return render(request, 'calibration/pending_calibration.html', context)
@@ -401,10 +413,17 @@ def unpaid_calibration(request):
     searching_query = request.GET.get('searching_query', '').strip()
     calibration_list = Calibration.objects.none()
 
-    # Check if the user is a superuser (admin)
-    if current_user.is_superuser:
+    # Managers (is_staff) act as admins limited to their own city
+    manager_city = get_manager_city(current_user)
+
+    # Check if the user is a superuser (admin) or a manager
+    if current_user.is_superuser or current_user.is_staff:
         # Show all records for admin
         calibration_list = Calibration.objects.filter(isApprove=True).filter(Q(amount__isnull=True) | Q(amount=0)).order_by('-cert_no')
+
+        # Managers only see their own city's records
+        if manager_city:
+            calibration_list = calibration_list.filter(user__profile__city__iexact=manager_city)
 
         if searching_query:
             calibration_list = calibration_list.filter(Q(cert_no__icontains=searching_query))
@@ -446,6 +465,7 @@ def unpaid_calibration(request):
         'total_unpaid_neom_calibrations': total_unpaid_neom_calibrations,
         'total_unpaid_damman_calibrations': total_unpaid_damman_calibrations,
         'searching_query': searching_query,
+        'manager_city': manager_city,
         'sidebar_active': 'unpaid_calibration',
     }
     return render(request, 'calibration/unpaid_calibration.html', context)
@@ -501,10 +521,17 @@ def paid_calibration(request):
     searching_query = request.GET.get('searching_query', '').strip()
     calibration_list = Calibration.objects.none()
 
-    # Check if the user is a superuser (admin)
-    if current_user.is_superuser:
+    # Managers (is_staff) act as admins limited to their own city
+    manager_city = get_manager_city(current_user)
+
+    # Check if the user is a superuser (admin) or a manager
+    if current_user.is_superuser or current_user.is_staff:
         # Show all records for admin
         calibration_list = Calibration.objects.filter(isApprove=True).exclude(amount=0).order_by('-cert_no')
+
+        # Managers only see their own city's records
+        if manager_city:
+            calibration_list = calibration_list.filter(user__profile__city__iexact=manager_city)
 
         if searching_query:
             calibration_list = calibration_list.filter(Q(cert_no__icontains=searching_query))
@@ -556,6 +583,169 @@ def paid_calibration(request):
         'total_paid_neom_amount': total_paid_neom_amount,
         'total_paid_damman_amount': total_paid_damman_amount,
         'searching_query': searching_query,
+        'manager_city': manager_city,
         'sidebar_active': 'paid_calibration',
     }
     return render(request, 'calibration/paid_calibration.html', context)
+
+
+@login_required
+def report_calibration(request):
+    current_user = request.user
+
+    from_date = request.GET.get('from_date')
+    to_date = request.GET.get('to_date')
+    selected_city = request.GET.get('city', '').strip()
+    status = request.GET.get('status')
+    company_name = request.GET.get('company_name', '').strip()
+    equipment_name = request.GET.get('equipment_name', '').strip()
+
+    calibration_list = Calibration.objects.none()
+
+    # Managers (is_staff) act as admins limited to their own city
+    manager_city = get_manager_city(current_user)
+    if manager_city:
+        selected_city = manager_city
+
+    # For admin users (superuser or manager)
+    if current_user.is_superuser or current_user.is_staff:
+        calibration_list = Calibration.objects.all().order_by('-cert_no')
+
+        if status == 'True':
+            calibration_list = calibration_list.filter(isApprove=True)
+        elif status == 'False':
+            calibration_list = calibration_list.filter(isApprove=False)
+
+        if from_date and to_date:
+            from_dt = timezone.make_aware(datetime.strptime(from_date, '%Y-%m-%d'))
+            to_dt = timezone.make_aware(datetime.strptime(to_date, '%Y-%m-%d') + timedelta(days=1))
+            calibration_list = calibration_list.filter(created_at__range=[from_dt, to_dt])
+
+        if selected_city:
+            calibration_list = calibration_list.filter(user__profile__city__iexact=selected_city)
+
+        if company_name:
+            calibration_list = calibration_list.filter(company_name__icontains=company_name)
+
+        if equipment_name:
+            calibration_list = calibration_list.filter(equipment_name__icontains=equipment_name)
+    else:
+        twenty_four_hours_ago = timezone.now() - timedelta(hours=24)
+        calibration_list = Calibration.objects.filter(
+            user=current_user, isApprove=False, created_at__gte=twenty_four_hours_ago
+        ).order_by('-cert_no')
+
+    paginator = Paginator(calibration_list, 50)
+    page = request.GET.get('page', '1')
+
+    try:
+        calibrations = paginator.page(int(page))
+    except (PageNotAnInteger, EmptyPage):
+        calibrations = paginator.page(1)
+
+    context = {
+        'title': 'Report Calibration',
+        'calibrations': calibrations,
+        'current_date': timezone.now().date(),
+        'total_calibrations': calibration_list.count(),
+        'from_date': from_date,
+        'to_date': to_date,
+        'selected_city': selected_city,
+        'selected_status': status,
+        'company_name': company_name,
+        'equipment_name': equipment_name,
+        'manager_city': manager_city,
+        'sidebar_active': 'report_calibration',
+    }
+    return render(request, 'calibration/report_calibration.html', context)
+
+
+@login_required
+def report_paid_calibration(request):
+    current_user = request.user
+    total_paid_calibrations = 0
+    total_paid_jeddah_calibrations = total_paid_riyadh_calibrations = total_paid_neom_calibrations = total_paid_damman_calibrations = 0
+    total_paid_jeddah_amount = total_paid_riyadh_amount = total_paid_neom_amount = total_paid_damman_amount = total_paid_amount = 0
+
+    from_date = request.GET.get('from_date')
+    to_date = request.GET.get('to_date')
+    calibration_list = Calibration.objects.none()
+
+    # Managers (is_staff) act as admins limited to their own city
+    manager_city = get_manager_city(current_user)
+
+    if current_user.is_superuser or current_user.is_staff:
+        calibration_list = Calibration.objects.filter(isApprove=True).exclude(amount=0).order_by('-cert_no')
+
+        # Managers only see their own city's records
+        if manager_city:
+            calibration_list = calibration_list.filter(user__profile__city__iexact=manager_city)
+
+        if from_date and to_date:
+            try:
+                from_dt = timezone.make_aware(datetime.strptime(from_date, '%Y-%m-%d'))
+                to_dt = timezone.make_aware(datetime.strptime(to_date, '%Y-%m-%d') + timedelta(days=1))
+                calibration_list = calibration_list.filter(created_at__range=[from_dt, to_dt])
+            except (ValueError, TypeError):
+                pass
+
+        total_paid_calibrations = calibration_list.count()
+
+        # Base query for city statistics
+        city_queryset = Calibration.objects.filter(isApprove=True).exclude(amount=0)
+        if manager_city:
+            city_queryset = city_queryset.filter(user__profile__city__iexact=manager_city)
+
+        if from_date and to_date:
+            try:
+                from_dt = timezone.make_aware(datetime.strptime(from_date, '%Y-%m-%d'))
+                to_dt = timezone.make_aware(datetime.strptime(to_date, '%Y-%m-%d') + timedelta(days=1))
+                city_queryset = city_queryset.filter(created_at__range=[from_dt, to_dt])
+            except (ValueError, TypeError):
+                pass
+
+        total_paid_jeddah_calibrations = city_queryset.filter(user__profile__city__iexact="Jeddah").count()
+        total_paid_riyadh_calibrations = city_queryset.filter(user__profile__city__iexact="Riyadh").count()
+        total_paid_neom_calibrations = city_queryset.filter(user__profile__city__iexact="NEOM").count()
+        total_paid_damman_calibrations = city_queryset.filter(user__profile__city__iexact="Damman").count()
+
+        total_paid_jeddah_amount = city_queryset.filter(user__profile__city__iexact="Jeddah").aggregate(Sum('amount'))['amount__sum'] or 0
+        total_paid_riyadh_amount = city_queryset.filter(user__profile__city__iexact="Riyadh").aggregate(Sum('amount'))['amount__sum'] or 0
+        total_paid_neom_amount = city_queryset.filter(user__profile__city__iexact="NEOM").aggregate(Sum('amount'))['amount__sum'] or 0
+        total_paid_damman_amount = city_queryset.filter(user__profile__city__iexact="Damman").aggregate(Sum('amount'))['amount__sum'] or 0
+
+        total_paid_amount = total_paid_jeddah_amount + total_paid_riyadh_amount + total_paid_neom_amount + total_paid_damman_amount
+    else:
+        twenty_four_hours_ago = timezone.now() - timedelta(hours=24)
+        calibration_list = Calibration.objects.filter(user=current_user, created_at__gte=twenty_four_hours_ago).order_by('-cert_no')
+
+    paginator = Paginator(calibration_list, items_per_page)
+    page = request.GET.get('page', '1')
+
+    try:
+        calibrations = paginator.page(int(page))
+    except PageNotAnInteger:
+        calibrations = paginator.page(1)
+    except EmptyPage:
+        calibrations = paginator.page(paginator.num_pages)
+
+    context = {
+        'title': 'Paid Calibration',
+        'calibrations': calibrations,
+        'current_date': current_date,
+        'total_paid_calibrations': total_paid_calibrations,
+        'total_paid_jeddah_calibrations': total_paid_jeddah_calibrations,
+        'total_paid_riyadh_calibrations': total_paid_riyadh_calibrations,
+        'total_paid_neom_calibrations': total_paid_neom_calibrations,
+        'total_paid_damman_calibrations': total_paid_damman_calibrations,
+        'total_paid_jeddah_amount': total_paid_jeddah_amount,
+        'total_paid_riyadh_amount': total_paid_riyadh_amount,
+        'total_paid_neom_amount': total_paid_neom_amount,
+        'total_paid_damman_amount': total_paid_damman_amount,
+        'total_paid_amount': total_paid_amount,
+        'from_date': from_date,
+        'to_date': to_date,
+        'manager_city': manager_city,
+        'sidebar_active': 'report_paid_calibration',
+    }
+    return render(request, 'calibration/report_paid_calibration.html', context)

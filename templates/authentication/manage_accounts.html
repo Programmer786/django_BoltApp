@@ -59,7 +59,16 @@
                           <option value="Riyadh">Riyadh</option>
                           <option value="Dammam">Dammam</option>
                       </select>
-                    </div>  
+                    </div>
+
+                    <div class="col-12">
+                      <label for="yourRole" class="form-label">Role</label>
+                      <select name="role" class="form-select" id="yourRole" required>
+                          <option value="employee" selected>Employee</option>
+                          <option value="manager">Manager</option>
+                      </select>
+                      <div class="invalid-feedback">Please select a role!</div>
+                    </div>
 
                     <div class="col-12">
                       <label for="yourPassword" class="form-label">Password</label>
@@ -209,13 +218,17 @@
                         
                                             <div class="col-12">
                                                 <label for="editCity{{ user.id }}" class="form-label">City / Region</label>
-                                                <select name="city" class="form-select" id="editCity{{ user.id }}" required>
+                                                <select name="city" class="form-select" id="editCity{{ user.id }}" required {% if user.has_records %}disabled{% endif %}>
                                                     <option value="">Select location</option>
                                                     <option value="NEOM" {% if user.profile.city == 'NEOM' %}selected{% endif %}>NEOM</option>
                                                     <option value="Jeddah" {% if user.profile.city == 'Jeddah' %}selected{% endif %}>Jeddah</option>
                                                     <option value="Riyadh" {% if user.profile.city == 'Riyadh' %}selected{% endif %}>Riyadh</option>
                                                     <option value="Dammam" {% if user.profile.city == 'Dammam' %}selected{% endif %}>Dammam</option>
                                                 </select>
+                                                {% if user.has_records %}
+                                                <input type="hidden" name="city" value="{{ user.profile.city }}">
+                                                <small class="text-muted"><i class="fas fa-lock me-1"></i>City / Region is locked because this user has already created records.</small>
+                                                {% endif %}
                                                 <div class="invalid-feedback">Please select a city/region</div>
                                             </div>
                                         </div>

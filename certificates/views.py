@@ -7,7 +7,7 @@ from django.core.paginator import PageNotAnInteger, EmptyPage, Paginator
 from django.contrib import messages
 from django.views.decorators.http import require_POST, require_http_methods
 from django.views.decorators.http import require_http_methods
-from base.utils import items_per_page, current_date, get_next_numeric_sr_no
+from base.utils import items_per_page, current_date, get_next_numeric_sr_no, get_manager_city
 from certificates.models import Certificate
 from django.utils import timezone
 from datetime import datetime, timedelta
@@ -49,8 +49,13 @@ def manage_certificates(request):
     selected_city = request.GET.get('city', '').strip()
     certificate_list = Certificate.objects.none()  # Default to an empty queryset
 
-    # Check if the user is a superuser (admin)
-    if current_user.is_superuser:
+    # Managers (is_staff) act as admins limited to their own city
+    manager_city = get_manager_city(current_user)
+    if manager_city:
+        selected_city = manager_city
+
+    # Check if the user is a superuser (admin) or a manager
+    if current_user.is_superuser or current_user.is_staff:
         # Base query for admin users
         certificate_list = Certificate.objects.filter(isApprove=True, isCancel=False).order_by('-cert_no')
 
@@ -150,6 +155,7 @@ def manage_certificates(request):
         'total_paid_neom_amount': total_paid_neom_amount,
         'total_paid_damman_amount': total_paid_damman_amount,
         'searching_query': searching_query,  # Include for pre-filling the input
+        'manager_city': manager_city,
         'sidebar_active': 'manage_certificates',
     }
     return render(request, 'certificates/manage_certificates.html', context)
@@ -171,8 +177,13 @@ def report_certificates(request):
 
     certificate_list = Certificate.objects.none()
 
-    # For admin users
-    if current_user.is_superuser:
+    # Managers (is_staff) act as admins limited to their own city
+    manager_city = get_manager_city(current_user)
+    if manager_city:
+        selected_city = manager_city
+
+    # For admin users (superuser or manager)
+    if current_user.is_superuser or current_user.is_staff:
         certificate_list = Certificate.objects.all().order_by('-cert_no')
 
         # Apply status filter
@@ -228,6 +239,7 @@ def report_certificates(request):
         'selected_status': status,
         'company_name': company_name,
         'equipment_type': equipment_type,
+        'manager_city': manager_city,
         'sidebar_active': 'report_certificates',
     }
     return render(request, 'certificates/report_certificates.html', context)
@@ -582,8 +594,13 @@ def pending_certificates(request):
     selected_city = request.GET.get('city', '').strip()
     certificate_list = Certificate.objects.none()
 
-    # Check if the user is a superuser (admin)
-    if current_user.is_superuser:
+    # Managers (is_staff) act as admins limited to their own city
+    manager_city = get_manager_city(current_user)
+    if manager_city:
+        selected_city = manager_city
+
+    # Check if the user is a superuser (admin) or a manager
+    if current_user.is_superuser or current_user.is_staff:
         # Show all records for admin
         certificate_list = Certificate.objects.filter(isApprove=False, isCancel=False, isReject=False).order_by('-cert_no')
         # Apply city filter if selected
@@ -622,6 +639,7 @@ def pending_certificates(request):
         'certificates': certificates,
         'current_date': current_date,
         'searching_query': searching_query,
+        'manager_city': manager_city,
         'sidebar_active': 'pending_certificates',
     }
     return render(request, 'certificates/pending_certificates.html', context)
@@ -829,10 +847,17 @@ def unpaid_certificates(request):
     searching_query = request.GET.get('searching_query', '').strip()
     certificate_list = Certificate.objects.none()
 
-    # Check if the user is a superuser (admin)
-    if current_user.is_superuser:
+    # Managers (is_staff) act as admins limited to their own city
+    manager_city = get_manager_city(current_user)
+
+    # Check if the user is a superuser (admin) or a manager
+    if current_user.is_superuser or current_user.is_staff:
         # Show all records for admin
         certificate_list = Certificate.objects.filter(isApprove=True, isCancel=False).filter(Q(amount__isnull=True) | Q(amount=0)).order_by('-cert_no')
+
+        # Managers only see their own city's records
+        if manager_city:
+            certificate_list = certificate_list.filter(user__profile__city__iexact=manager_city)
 
         if searching_query:
             certificate_list = certificate_list.filter(Q(cert_no__icontains=searching_query) | Q(company_name__icontains=searching_query))
@@ -874,6 +899,7 @@ def unpaid_certificates(request):
         'total_unpaid_neom_certificates': total_unpaid_neom_certificates,
         'total_unpaid_damman_certificates': total_unpaid_damman_certificates,
         'searching_query': searching_query,
+        'manager_city': manager_city,
         'sidebar_active': 'unpaid_certificates',
     }
     return render(request, 'certificates/unpaid_certificates.html', context)
@@ -938,14 +964,21 @@ def paid_certificates(request):
     searching_query = request.GET.get('searching_query', '').strip()
     certificate_list = Certificate.objects.none()
 
-    # Check if the user is a superuser (admin)
-    if current_user.is_superuser:
+    # Managers (is_staff) act as admins limited to their own city
+    manager_city = get_manager_city(current_user)
+
+    # Check if the user is a superuser (admin) or a manager
+    if current_user.is_superuser or current_user.is_staff:
         # Show all records for admin
         certificate_list = Certificate.objects.filter(isApprove=True, isCancel=False).exclude(amount=0).order_by('-cert_no')
 
+        # Managers only see their own city's records
+        if manager_city:
+            certificate_list = certificate_list.filter(user__profile__city__iexact=manager_city)
+
         if searching_query:
             certificate_list = certificate_list.filter(Q(cert_no__icontains=searching_query) | Q(company_name__icontains=searching_query))
-            
+
         total_paid_certificates = certificate_list.count()
 
         # Paid Certificate
@@ -993,6 +1026,7 @@ def paid_certificates(request):
         'total_paid_neom_amount': total_paid_neom_amount,
         'total_paid_damman_amount': total_paid_damman_amount,
         'searching_query': searching_query,
+        'manager_city': manager_city,
         'sidebar_active': 'paid_certificates',
     }
     return render(request, 'certificates/paid_certificates.html', context)
@@ -1010,10 +1044,17 @@ def report_paid_certificates(request):
     to_date = request.GET.get('to_date')
     certificate_list = Certificate.objects.none()
 
-    # Check if the user is a superuser (admin)
-    if current_user.is_superuser:
+    # Managers (is_staff) act as admins limited to their own city
+    manager_city = get_manager_city(current_user)
+
+    # Check if the user is a superuser (admin) or a manager
+    if current_user.is_superuser or current_user.is_staff:
         # Show all records for admin
         certificate_list = Certificate.objects.filter(isApprove=True, isCancel=False).exclude(amount=0).order_by('-cert_no')
+
+        # Managers only see their own city's records
+        if manager_city:
+            certificate_list = certificate_list.filter(user__profile__city__iexact=manager_city)
 
         # Apply date range filter with timezone awareness
         if from_date and to_date:
@@ -1025,6 +1066,8 @@ def report_paid_certificates(request):
 
         # Base query for city statistics
         city_queryset = Certificate.objects.filter(isApprove=True, isCancel=False).exclude(amount=0)
+        if manager_city:
+            city_queryset = city_queryset.filter(user__profile__city__iexact=manager_city)
         
         # Apply date range to city statistics if dates are provided
         if from_date and to_date:
@@ -1092,6 +1135,7 @@ def report_paid_certificates(request):
         'total_paid_amount': total_paid_amount,
         'from_date': from_date,
         'to_date': to_date,
+        'manager_city': manager_city,
         'sidebar_active': 'report_paid_certificates',
     }
     return render(request, 'certificates/report_paid_certificates.html', context)

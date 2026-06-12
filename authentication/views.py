@@ -271,6 +271,20 @@ def update_profile_image(request):
     return redirect('users_profile', user_id=user.id)
 
 
+def user_has_records(user):
+    """
+    Return True if the user has created at least one record in any module.
+    Used to lock the City/Region once records exist (city groups those records).
+    """
+    return (
+        user.new_certificates.exists() or
+        user.new_cards.exists() or
+        user.new_trainings.exists() or
+        user.new_non_destructive_testing.exists() or
+        user.new_calibrations.exists()
+    )
+
+
 @login_required
 def manage_accounts(request):
     """
@@ -278,18 +292,22 @@ def manage_accounts(request):
     Requires authentication.
     """
     users_list = User.objects.filter(is_superuser=False).order_by('-date_joined')
-    
+
     # Pagination
     paginator = Paginator(users_list, 10)  # Show 10 users per page
     page = request.GET.get('page')
-    
+
     try:
         users = paginator.page(page)
     except PageNotAnInteger:
         users = paginator.page(1)
     except EmptyPage:
         users = paginator.page(paginator.num_pages)
-    
+
+    # Flag each user on this page: City/Region is locked once records exist
+    for account in users:
+        account.has_records = user_has_records(account)
+
     context = {
         'users': users,
         'total_accounts': users_list.count(),
@@ -326,7 +344,12 @@ def edit_user(request, user_id):
             username = request.POST.get('username', '').strip()
             email = request.POST.get('email', '').strip().lower()
             city = request.POST.get('city', '').strip()
-            
+
+            # Lock City/Region once the user has created any records:
+            # changing it would mis-group their existing entries.
+            if user_has_records(user):
+                city = profile.city
+
             # Basic validation
             if not all([first_name, last_name, username, email, city]):
                 messages.error(request, 'All fields are required.')
@@ -390,6 +413,7 @@ def add_account(request):
         email = request.POST.get('email')
         password = request.POST.get('password')
         city = request.POST.get('city')
+        role = request.POST.get('role')  # 'manager' or 'employee'
 
         if User.objects.filter(username=username).exists():
             messages.warning(request, 'Username is already taken.')
@@ -400,13 +424,14 @@ def add_account(request):
             return redirect('manage_accounts')
 
         try:
-            # Create the user
+            # Create the user (Manager -> is_staff=True, Employee -> is_staff=False)
             user = User.objects.create_user(
                 username=username,
                 email=email,
                 first_name=first_name,
                 last_name=last_name,
-                password=password
+                password=password,
+                is_staff=(role == 'manager')
             )
             
             # Update profile

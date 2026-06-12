@@ -8,7 +8,7 @@ from django.core.paginator import PageNotAnInteger, EmptyPage, Paginator
 from django.contrib import messages
 from django.views.decorators.http import require_POST, require_http_methods
 
-from base.utils import items_per_page, current_date
+from base.utils import items_per_page, current_date, get_manager_city
 from cards.models import Card
 from django.utils import timezone
 from datetime import timedelta
@@ -43,8 +43,13 @@ def manage_cards(request):
     selected_city = request.GET.get('city', '').strip()
     card_list = Card.objects.none()  # Default to an empty queryset
 
-    # Check if the user is a superuser (admin)
-    if current_user.is_superuser:
+    # Managers (is_staff) act as admins limited to their own city
+    manager_city = get_manager_city(current_user)
+    if manager_city:
+        selected_city = manager_city
+
+    # Check if the user is a superuser (admin) or a manager
+    if current_user.is_superuser or current_user.is_staff:
         # Show all records for admin
         card_list = Card.objects.filter(isApprove=True, isCancel=False, isHold = False).order_by('-card_no')
         # Apply city filter if selected
@@ -143,6 +148,7 @@ def manage_cards(request):
         'total_paid_neom_amount': total_paid_neom_amount,
         'total_paid_damman_amount': total_paid_damman_amount,
         'searching_query': searching_query,  # Include for pre-filling the input
+        'manager_city': manager_city,
         'sidebar_active': 'manage_cards',
     }
     return render(request, 'cards/manage_cards.html', context)
@@ -164,8 +170,13 @@ def report_cards(request):
 
     card_list = Card.objects.none()
 
-    # For admin users
-    if current_user.is_superuser:
+    # Managers (is_staff) act as admins limited to their own city
+    manager_city = get_manager_city(current_user)
+    if manager_city:
+        selected_city = manager_city
+
+    # For admin users (superuser or manager)
+    if current_user.is_superuser or current_user.is_staff:
         card_list = Card.objects.all().order_by('-card_no')
 
         # Apply status filter
@@ -221,6 +232,7 @@ def report_cards(request):
         'selected_status': status,
         'company_name': company_name,
         'trade': trade,
+        'manager_city': manager_city,
         'sidebar_active': 'report_cards',
     }
     return render(request, 'cards/report_cards.html', context)
@@ -535,8 +547,13 @@ def pending_cards(request):
     selected_city = request.GET.get('city', '').strip()
     card_list = Card.objects.none()
 
-    # Check if the user is a superuser (admin)
-    if current_user.is_superuser:
+    # Managers (is_staff) act as admins limited to their own city
+    manager_city = get_manager_city(current_user)
+    if manager_city:
+        selected_city = manager_city
+
+    # Check if the user is a superuser (admin) or a manager
+    if current_user.is_superuser or current_user.is_staff:
         # Show all records for admin
         card_list = Card.objects.filter(isApprove=False, isCancel=False, isHold = False, isReject=False).order_by('-card_no')
         # Apply city filter if selected
@@ -574,6 +591,7 @@ def pending_cards(request):
         'cards': cards,
         'current_date': current_date,
         'searching_query': searching_query,
+        'manager_city': manager_city,
         'sidebar_active': 'pending_cards',
     }
     return render(request, 'cards/pending_cards.html', context)
@@ -678,10 +696,17 @@ def unpaid_cards(request):
     searching_query = request.GET.get('searching_query', '').strip()
     card_list = Card.objects.none()
 
-    # Check if the user is a superuser (admin)
-    if current_user.is_superuser:
+    # Managers (is_staff) act as admins limited to their own city
+    manager_city = get_manager_city(current_user)
+
+    # Check if the user is a superuser (admin) or a manager
+    if current_user.is_superuser or current_user.is_staff:
         # Show all records for admin
         card_list = Card.objects.filter(isApprove=True, isCancel=False, isHold = False).filter(Q(amount__isnull=True) | Q(amount=0)).order_by('-card_no')
+
+        # Managers only see their own city's records
+        if manager_city:
+            card_list = card_list.filter(user__profile__city__iexact=manager_city)
 
         if searching_query:
             card_list = card_list.filter(Q(card_no__icontains=searching_query))
@@ -723,6 +748,7 @@ def unpaid_cards(request):
         'total_unpaid_neom_cards': total_unpaid_neom_cards,
         'total_unpaid_damman_cards': total_unpaid_damman_cards,
         'searching_query': searching_query,
+        'manager_city': manager_city,
         'sidebar_active': 'unpaid_cards',
     }
     return render(request, 'cards/unpaid_cards.html', context)
@@ -812,10 +838,17 @@ def paid_cards(request):
     searching_query = request.GET.get('searching_query', '').strip()
     card_list = Card.objects.none()
 
-    # Check if the user is a superuser (admin)
-    if current_user.is_superuser:
+    # Managers (is_staff) act as admins limited to their own city
+    manager_city = get_manager_city(current_user)
+
+    # Check if the user is a superuser (admin) or a manager
+    if current_user.is_superuser or current_user.is_staff:
         # Show all records for admin
         card_list = Card.objects.filter(isApprove=True, isCancel=False, isHold = False).exclude(amount=0).order_by('-card_no')
+
+        # Managers only see their own city's records
+        if manager_city:
+            card_list = card_list.filter(user__profile__city__iexact=manager_city)
 
         if searching_query:
             card_list = card_list.filter(Q(card_no__icontains=searching_query))
@@ -867,6 +900,7 @@ def paid_cards(request):
         'total_paid_neom_amount': total_paid_neom_amount,
         'total_paid_damman_amount': total_paid_damman_amount,
         'searching_query': searching_query,
+        'manager_city': manager_city,
         'sidebar_active': 'paid_cards',
     }
     return render(request, 'cards/paid_cards.html', context)
@@ -884,10 +918,17 @@ def report_paid_cards(request):
     to_date = request.GET.get('to_date')
     card_list = Card.objects.none()
 
-    # Check if the user is a superuser (admin)
-    if current_user.is_superuser:
+    # Managers (is_staff) act as admins limited to their own city
+    manager_city = get_manager_city(current_user)
+
+    # Check if the user is a superuser (admin) or a manager
+    if current_user.is_superuser or current_user.is_staff:
         # Show all records for admin
         card_list = Card.objects.filter(isApprove=True, isCancel=False, isHold = False).exclude(amount=0).order_by('-card_no')
+
+        # Managers only see their own city's records
+        if manager_city:
+            card_list = card_list.filter(user__profile__city__iexact=manager_city)
 
         # Apply date range filter with timezone awareness
         if from_date and to_date:
@@ -902,6 +943,8 @@ def report_paid_cards(request):
 
         # Base query for city statistics
         city_queryset = Card.objects.filter(isApprove=True, isCancel=False, isHold = False).exclude(amount=0)
+        if manager_city:
+            city_queryset = city_queryset.filter(user__profile__city__iexact=manager_city)
 
         # Apply date range to city statistics if dates are provided
         if from_date and to_date:
@@ -969,6 +1012,7 @@ def report_paid_cards(request):
         'total_paid_amount': total_paid_amount,
         'from_date': from_date,
         'to_date': to_date,
+        'manager_city': manager_city,
         'sidebar_active': 'report_paid_cards',
     }
     return render(request, 'cards/report_paid_cards.html', context)

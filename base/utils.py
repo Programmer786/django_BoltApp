@@ -10,6 +10,17 @@ items_per_page = 10
 current_date = now().date().isoformat()  # Formatting the date as 'YYYY-MM-DD'
 
 
+def get_manager_city(user):
+    """
+    Return the city a manager (is_staff, non-superuser) is restricted to.
+    Returns None for superusers (no restriction) and regular employees.
+    """
+    if getattr(user, 'is_staff', False) and not user.is_superuser:
+        profile = getattr(user, 'profile', None)
+        return getattr(profile, 'city', None) if profile else None
+    return None
+
+
 def validate_image(image):
     """ Validates the image file type and size. """
     if not image.name.lower().endswith(('.jpg', '.jpeg', '.png')):

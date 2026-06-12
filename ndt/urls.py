@@ -11,4 +11,6 @@ urlpatterns = [
     path('unpaid-ndt/', views.unpaid_ndt, name="unpaid_ndt"),
     path('paid-ndt/', views.paid_ndt, name="paid_ndt"),
     path('ndt/update_unpaid/<uuid:uid>/', views.update_unpaid_ndt, name='update_unpaid_ndt'),
+    path('report-ndt/', views.report_ndt, name="report_ndt"),
+    path('report-paid-ndt/', views.report_paid_ndt, name="report_paid_ndt"),
 ]

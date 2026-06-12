@@ -13,10 +13,11 @@
 </h1>
 <hr class="mb-4">
 
-{% if user.is_superuser %}
+{% if user.is_superuser or user.is_staff %}
 <!-- City wise Summary -->
 <div class="row">
     <!-- Total Jeddah -->
+    {% if not manager_city or manager_city|lower == 'jeddah' %}
     <div class="col-md-6 col-lg-3 col-12">
         <div class="small-box bg-primary">
             <div class="inner">
@@ -36,7 +37,10 @@
         </div>
     </div>
 
+    {% endif %}
+
     <!-- Total Riyadh -->
+    {% if not manager_city or manager_city|lower == 'riyadh' %}
     <div class="col-md-6 col-lg-3 col-12">
         <div class="small-box bg-success">
             <div class="inner">
@@ -56,7 +60,10 @@
         </div>
     </div>
 
+    {% endif %}
+
     <!-- Total NEOM -->
+    {% if not manager_city or manager_city|lower == 'neom' %}
     <div class="col-md-6 col-lg-3 col-12">
         <div class="small-box bg-danger">
             <div class="inner">
@@ -76,7 +83,10 @@
         </div>
     </div>
 
+    {% endif %}
+
     <!-- Total Damman -->
+    {% if not manager_city or manager_city|lower == 'damman' or manager_city|lower == 'dammam' %}
     <div class="col-md-6 col-lg-3 col-12">
         <div class="small-box bg-warning">
             <div class="inner">
@@ -92,15 +102,17 @@
             </div>
             <a href="{% url 'export_training_and_city_excel' 'training' 'Damman' %}" class="small-box-footer">
                 Export Excel <i class="fas fa-file-excel"></i>
-            </a> 
+            </a>
         </div>
     </div>
+    {% endif %}
 </div>
 <!-- City wise Summary -->
 
 <!-- Payment Summary -->
 <div class="row">
     <!-- Jeddah Summary -->
+    {% if not manager_city or manager_city|lower == 'jeddah' %}
     <div class="col-md-6 col-lg-3 col-12">
         <div class="small-box bg-primary">
             <div class="inner">
@@ -114,7 +126,10 @@
         </div>
     </div>
 
+    {% endif %}
+
     <!-- Riyadh Summary -->
+    {% if not manager_city or manager_city|lower == 'riyadh' %}
     <div class="col-md-6 col-lg-3 col-12">
         <div class="small-box bg-success">
             <div class="inner">
@@ -128,7 +143,10 @@
         </div>
     </div>
 
+    {% endif %}
+
     <!-- NEOM Summary -->
+    {% if not manager_city or manager_city|lower == 'neom' %}
     <div class="col-md-6 col-lg-3 col-12">
         <div class="small-box bg-danger">
             <div class="inner">
@@ -142,7 +160,10 @@
         </div>
     </div>
 
+    {% endif %}
+
     <!-- Damman Summary -->
+    {% if not manager_city or manager_city|lower == 'damman' or manager_city|lower == 'dammam' %}
     <div class="col-md-6 col-lg-3 col-12">
         <div class="small-box bg-warning">
             <div class="inner">
@@ -155,6 +176,7 @@
             </div>
         </div>
     </div>
+    {% endif %}
 </div>
 <!-- Payment Summary -->
 {% endif %}
