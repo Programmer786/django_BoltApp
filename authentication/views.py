@@ -16,7 +16,8 @@ from django.contrib.auth import authenticate, login, logout, update_session_auth
 from django.http import HttpResponseRedirect
 from django.utils.http import url_has_allowed_host_and_scheme
 
-from base.utils import log_activity
+from django.db.models import Q
+from base.utils import log_activity, get_manager_city
 from .models import Profile, Note
 
 
@@ -289,14 +290,36 @@ def user_has_records(user):
 def manage_accounts(request):
     """
     Display and manage user accounts.
-    Requires authentication.
+    Superuser: sees everyone. Manager: sees only employees of their city.
     """
+    manager_city = get_manager_city(request.user)
+
     users_list = User.objects.filter(is_superuser=False).order_by('-date_joined')
 
-    # Pagination
-    paginator = Paginator(users_list, 10)  # Show 10 users per page
-    page = request.GET.get('page')
+    # Manager sees only employees (not other staff/managers) of their own city
+    if manager_city:
+        users_list = users_list.filter(is_staff=False, profile__city=manager_city)
 
+    # Search filter: username / full name / email
+    q = request.GET.get('q', '').strip()
+    if q:
+        users_list = users_list.filter(
+            Q(username__icontains=q) |
+            Q(first_name__icontains=q) |
+            Q(last_name__icontains=q) |
+            Q(email__icontains=q)
+        )
+
+    # City filter (superuser only; managers are already locked to their city)
+    city_filter = request.GET.get('city', '').strip()
+    if city_filter and not manager_city:
+        users_list = users_list.filter(profile__city=city_filter)
+
+    total_accounts = users_list.count()
+
+    # Pagination
+    paginator = Paginator(users_list, 10)
+    page = request.GET.get('page')
     try:
         users = paginator.page(page)
     except PageNotAnInteger:
@@ -304,13 +327,16 @@ def manage_accounts(request):
     except EmptyPage:
         users = paginator.page(paginator.num_pages)
 
-    # Flag each user on this page: City/Region is locked once records exist
+    # Flag each user: City/Region is locked once they have any records
     for account in users:
         account.has_records = user_has_records(account)
 
     context = {
         'users': users,
-        'total_accounts': users_list.count(),
+        'total_accounts': total_accounts,
+        'manager_city': manager_city,
+        'search_q': q,
+        'city_filter': city_filter,
         'title': 'Manage Accounts',
         'sidebar_active': 'manage_accounts',
     }
@@ -414,6 +440,12 @@ def add_account(request):
         password = request.POST.get('password')
         city = request.POST.get('city')
         role = request.POST.get('role')  # 'manager' or 'employee'
+
+        # Managers can only add employees in their own city
+        adding_manager_city = get_manager_city(request.user)
+        if adding_manager_city:
+            city = adding_manager_city
+            role = 'employee'
 
         if User.objects.filter(username=username).exists():
             messages.warning(request, 'Username is already taken.')

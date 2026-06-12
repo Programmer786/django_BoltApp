@@ -3,7 +3,7 @@
 {% block start %}
 <h1 class="page-header">
     Manage Accounts (Total: {{ total_accounts }})
-    {% if user.is_authenticated and user.is_superuser %}
+    {% if user.is_authenticated and user.is_superuser or user.is_staff %}
     <button type="button" style="float:right;" class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#addNewAccountModal">
         <i class="fas fa-plus me-1"></i> New Account
     </button>
@@ -52,6 +52,12 @@
 
                     <div class="col-12">
                       <label for="yourCity" class="form-label">City / Region</label>
+                      {% if manager_city %}
+                      {# Manager: city is fixed to their own city — cannot be changed #}
+                      <input type="text" class="form-control" value="{{ manager_city }}" disabled>
+                      <input type="hidden" name="city" value="{{ manager_city }}">
+                      <small class="text-muted"><i class="fas fa-lock me-1"></i>Employees are added to your city ({{ manager_city }}) only.</small>
+                      {% else %}
                       <select name="city" class="form-select" id="yourCity" required>
                           <option value="">Select location</option>
                           <option value="NEOM">NEOM</option>
@@ -59,15 +65,22 @@
                           <option value="Riyadh">Riyadh</option>
                           <option value="Dammam">Dammam</option>
                       </select>
+                      {% endif %}
                     </div>
 
                     <div class="col-12">
                       <label for="yourRole" class="form-label">Role</label>
+                      {% if manager_city %}
+                      {# Manager: can only create employees #}
+                      <input type="text" class="form-control" value="Employee" disabled>
+                      <input type="hidden" name="role" value="employee">
+                      {% else %}
                       <select name="role" class="form-select" id="yourRole" required>
                           <option value="employee" selected>Employee</option>
                           <option value="manager">Manager</option>
                       </select>
                       <div class="invalid-feedback">Please select a role!</div>
+                      {% endif %}
                     </div>
 
                     <div class="col-12">
@@ -93,6 +106,38 @@
 </div>
 
 
+<!-- Search / Filter bar -->
+<div class="card shadow-sm mb-3">
+    <div class="card-body py-2">
+        <form method="GET" action="" class="row g-2 align-items-center">
+            <div class="col-md-4 col-12">
+                <input type="search" name="q" class="form-control" placeholder="Search username / name / email"
+                       value="{{ search_q }}">
+            </div>
+            {% if not manager_city %}
+            <div class="col-md-2 col-12">
+                <select name="city" class="form-select">
+                    <option value="">All Cities</option>
+                    <option value="NEOM" {% if city_filter == 'NEOM' %}selected{% endif %}>NEOM</option>
+                    <option value="Jeddah" {% if city_filter == 'Jeddah' %}selected{% endif %}>Jeddah</option>
+                    <option value="Riyadh" {% if city_filter == 'Riyadh' %}selected{% endif %}>Riyadh</option>
+                    <option value="Dammam" {% if city_filter == 'Dammam' %}selected{% endif %}>Dammam</option>
+                </select>
+            </div>
+            {% endif %}
+            <div class="col-auto">
+                <button class="btn btn-primary" type="submit"><i class="fa fa-search me-1"></i> Search</button>
+                <a href="{% url 'manage_accounts' %}" class="btn btn-outline-secondary"><i class="fa fa-refresh me-1"></i> Reset</a>
+            </div>
+            {% if manager_city %}
+            <div class="col-auto">
+                <span class="badge bg-info text-dark fs-6"><i class="fas fa-map-marker-alt me-1"></i> Showing {{ manager_city }} employees only</span>
+            </div>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
 <!-- Start Display Data -->
 <!-- User Accounts Table -->
 <div class="card shadow-sm mb-4">
@@ -112,6 +157,7 @@
                         <th>Full Name</th>
                         <th>Email</th>
                         <th>Location</th>
+                        <th>Role</th>
                         <th>Status</th>
                         <th>Actions</th>
                     </tr>
@@ -125,6 +171,13 @@
                             <td>{{ user.get_full_name|default:'-' }}</td>
                             <td>{{ user.email }}</td>
                             <td>{{ user.profile.city|default:'-' }}</td>
+                            <td>
+                                {% if user.is_staff %}
+                                    <span class="badge bg-warning text-dark">Manager</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Employee</span>
+                                {% endif %}
+                            </td>
                             <td>
                                 {% if user.is_active %}
                                     <span class="badge bg-success">Active</span>
@@ -168,11 +221,13 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="7" class="text-center py-4">
+                            <td colspan="8" class="text-center py-4">
                                 <div class="text-muted">No user accounts found.</div>
+                                {% if user.is_superuser or user.is_staff %}
                                 <a href="#" class="btn btn-sm btn-primary mt-2" data-bs-toggle="modal" data-bs-target="#addNewAccountModal">
                                     <i class="fas fa-plus me-1"></i> Add New User
                                 </a>
+                                {% endif %}
                             </td>
                         </tr>
                         {% endfor %}
@@ -251,23 +306,23 @@
                     <ul class="pagination justify-content-center">
                         {% if users.has_previous %}
                             <li class="page-item">
-                                <a class="page-link" href="?page={{ users.previous_page_number }}" aria-label="Previous">
+                                <a class="page-link" href="?page={{ users.previous_page_number }}{% if search_q %}&q={{ search_q }}{% endif %}{% if city_filter %}&city={{ city_filter }}{% endif %}" aria-label="Previous">
                                     <span aria-hidden="true">&laquo;</span>
                                 </a>
                             </li>
                         {% endif %}
-                        
+
                         {% for num in users.paginator.page_range %}
                             {% if users.number == num %}
                                 <li class="page-item active"><span class="page-link">{{ num }}</span></li>
                             {% else %}
-                                <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                                <li class="page-item"><a class="page-link" href="?page={{ num }}{% if search_q %}&q={{ search_q }}{% endif %}{% if city_filter %}&city={{ city_filter }}{% endif %}">{{ num }}</a></li>
                             {% endif %}
                         {% endfor %}
-                        
+
                         {% if users.has_next %}
                             <li class="page-item">
-                                <a class="page-link" href="?page={{ users.next_page_number }}" aria-label="Next">
+                                <a class="page-link" href="?page={{ users.next_page_number }}{% if search_q %}&q={{ search_q }}{% endif %}{% if city_filter %}&city={{ city_filter }}{% endif %}" aria-label="Next">
                                     <span aria-hidden="true">&raquo;</span>
                                 </a>
                             </li>

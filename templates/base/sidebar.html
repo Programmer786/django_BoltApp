@@ -311,7 +311,7 @@
             </div>
             {% endif %}
             
-            {% if user.is_superuser %}
+            {% if user.is_superuser or user.is_staff %}
             <div class="menu-divider"></div>
             <div class="menu-header">Settings</div>
             <div class="menu-item {% if sidebar_active == 'manage_accounts' %}active{% endif %}">
@@ -320,6 +320,8 @@
                     <span class="menu-text">Manage Account</span>
                 </a>
             </div>
+            {% endif %}
+            {% if user.is_superuser %}
             <div class="menu-item {% if sidebar_active == 'manage_notes' %}active{% endif %}">
                 <a href="{% url 'manage_notes' %}" class="menu-link">
                     <span class="menu-icon"><i class="fa fa-sticky-note text-dark"></i></span>
