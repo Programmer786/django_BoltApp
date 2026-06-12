@@ -1,5 +1,87 @@
 {% load static %}
 
+<style>
+/* ── Header enhancements ───────────────────────────── */
+#header.app-header {
+	box-shadow: 0 1px 0 #e2e8f0, 0 2px 8px rgba(0,0,0,.04);
+	backdrop-filter: blur(8px);
+}
+.header-role-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 10.5px;
+	font-weight: 600;
+	letter-spacing: .4px;
+	padding: 2px 8px;
+	border-radius: 99px;
+	text-transform: uppercase;
+}
+.header-role-badge.admin   { background: #fef3c7; color: #92400e; }
+.header-role-badge.manager { background: #ede9fe; color: #5b21b6; }
+.header-role-badge.employee{ background: #f0fdf4; color: #166534; }
+
+.menu-item.dropdown .menu-link {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+.menu-img.online img {
+	border: 2px solid #e2e8f0;
+	transition: border-color .2s;
+}
+.menu-item.dropdown:hover .menu-img.online img { border-color: #3b82f6; }
+
+.header-user-info {
+	display: flex;
+	flex-direction: column;
+	line-height: 1.25;
+}
+.header-user-info .username {
+	font-size: 13.5px;
+	font-weight: 600;
+	color: var(--bs-body-color, #1e293b);
+}
+
+.dropdown-menu {
+	border-radius: 12px !important;
+	border: 1px solid #e2e8f0 !important;
+	box-shadow: 0 8px 30px rgba(0,0,0,.12) !important;
+	padding: 6px !important;
+	min-width: 180px;
+}
+.dropdown-item {
+	border-radius: 8px !important;
+	font-size: 13.5px !important;
+	font-weight: 500 !important;
+	padding: 8px 12px !important;
+	transition: background .15s !important;
+}
+.dropdown-item:hover { background: #f1f5f9 !important; }
+.dropdown-item.text-danger:hover { background: #fef2f2 !important; }
+.dropdown-divider { margin: 4px 0 !important; border-color: #f1f5f9 !important; }
+
+/* Dropdown header user block */
+.dropdown-user-block {
+	padding: 10px 12px 8px;
+	border-bottom: 1px solid #f1f5f9;
+	margin-bottom: 4px;
+}
+.dropdown-user-block .full-name {
+	font-size: 13px;
+	font-weight: 600;
+	color: #0f172a;
+}
+.dropdown-user-block .email {
+	font-size: 11.5px;
+	color: #64748b;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	max-width: 160px;
+}
+</style>
+
 <!-- BEGIN #header -->
 <div id="header" class="app-header">
 	<!-- BEGIN mobile-toggler -->
@@ -19,9 +101,8 @@
 				<span class="bar"></span>
 			</button>
 		</div>
-
-		<a href="#" class="brand-logo">
-			<img src="{% static 'img/logo.png' %}" class="invert-dark" alt="Logo Picture" height="20">
+		<a href="/" class="brand-logo">
+			<img src="{% static 'img/logo.png' %}" class="invert-dark" alt="Bolt Company" height="20">
 		</a>
 	</div>
 	<!-- END brand -->
@@ -29,87 +110,42 @@
 	<!-- BEGIN menu -->
 	<div class="menu">
 		<form class="menu-search" method="POST" name="header_search_form">
-			<div class="menu-search-input">
-				<!-- <input type="text" class="form-control" placeholder="Search menu..."> -->
-			</div>
+			<div class="menu-search-input"></div>
 		</form>
-		<!-- <div class="menu-item dropdown">
-			<a href="#" data-bs-toggle="dropdown" data-display="static" class="menu-link">
-				<div class="menu-icon"><i class="fa fa-bell nav-icon"></i></div>
-				<div class="menu-label">3</div>
-			</a>
-			<div class="dropdown-menu dropdown-menu-end dropdown-notification">
-				<h6 class="dropdown-header text-body-emphasis mb-1">Notifications</h6>
-				<a href="#" class="dropdown-notification-item">
-					<div class="dropdown-notification-icon">
-						<i class="fa fa-receipt fa-lg fa-fw text-success"></i>
-					</div>
-					<div class="dropdown-notification-info">
-						<div class="title">Your store has a new order for 2 items totaling $1,299.00</div>
-						<div class="time">just now</div>
-					</div>
-					<div class="dropdown-notification-arrow">
-						<i class="fa fa-chevron-right"></i>
-					</div>
-				</a>
-				<a href="#" class="dropdown-notification-item">
-					<div class="dropdown-notification-icon">
-						<i class="far fa-user-circle fa-lg fa-fw text-muted"></i>
-					</div>
-					<div class="dropdown-notification-info">
-						<div class="title">3 new customer account is created</div>
-						<div class="time">2 minutes ago</div>
-					</div>
-					<div class="dropdown-notification-arrow">
-						<i class="fa fa-chevron-right"></i>
-					</div>
-				</a>
-				<a href="#" class="dropdown-notification-item">
-					<div class="dropdown-notification-icon">
-						<img src="assets/img/icon/android.svg" alt="" width="26">
-					</div>
-					<div class="dropdown-notification-info">
-						<div class="title">Your android application has been approved</div>
-						<div class="time">5 minutes ago</div>
-					</div>
-					<div class="dropdown-notification-arrow">
-						<i class="fa fa-chevron-right"></i>
-					</div>
-				</a>
-				<a href="#" class="dropdown-notification-item">
-					<div class="dropdown-notification-icon">
-						<img src="assets/img/icon/paypal.svg" alt="" width="26">
-					</div>
-					<div class="dropdown-notification-info">
-						<div class="title">Paypal payment method has been enabled for your store</div>
-						<div class="time">10 minutes ago</div>
-					</div>
-					<div class="dropdown-notification-arrow">
-						<i class="fa fa-chevron-right"></i>
-					</div>
-				</a>
-				<div class="p-2 text-center mb-n1">
-					<a href="#" class="text-body-emphasis text-opacity-50 text-decoration-none">See all</a>
-				</div>
-			</div>
-		</div> -->
 		<div class="menu-item dropdown">
-			<a href="#" data-bs-toggle="dropdown" data-display="static" class="menu-link">
-				<div class="menu-img online">
+			<a href="#" data-bs-toggle="dropdown" data-display="static" class="menu-link" style="padding: 6px 12px;">
+				<div class="menu-img online" style="flex-shrink:0;">
 					<img src="{{ request.user.profile.profile_image.url }}"
-                             onerror="this.src='/static/img/user/user.jpg'"
-                             alt="Profile Picture"
-                             class="ms-100 mh-100 rounded-circle" 
-                             style="width: 50px; height: 50px;">
+					     onerror="this.src='/static/img/user/user.jpg'"
+					     alt="Profile"
+					     class="rounded-circle"
+					     style="width:40px;height:40px;object-fit:cover;">
 				</div>
-				<div class="menu-text">{{ request.user.username }}</div>
+				<div class="header-user-info d-none d-md-flex">
+					<span class="username">{{ request.user.username }}</span>
+					{% if request.user.is_superuser %}
+					<span class="header-role-badge admin"><i class="fas fa-crown" style="font-size:9px;"></i> Admin</span>
+					{% elif request.user.is_staff %}
+					<span class="header-role-badge manager"><i class="fas fa-user-tie" style="font-size:9px;"></i> Manager</span>
+					{% else %}
+					<span class="header-role-badge employee"><i class="fas fa-user" style="font-size:9px;"></i> Employee</span>
+					{% endif %}
+				</div>
+				<i class="fas fa-chevron-down ms-1 d-none d-md-inline" style="font-size:10px;opacity:.5;"></i>
 			</a>
 			<div class="dropdown-menu dropdown-menu-end me-lg-3">
-				<a class="dropdown-item d-flex align-items-center" href="{% url 'users_profile' request.user.id %}">Edit Profile <i class="fa fa-user-circle fa-fw ms-auto text-body text-opacity-50"></i></a>
-				<!-- <a class="dropdown-item d-flex align-items-center" href="email_inbox.html">Inbox <i class="fa fa-envelope fa-fw ms-auto text-body text-opacity-50"></i></a> -->
-				<!-- <a class="dropdown-item d-flex align-items-center" href="calendar.html">Calendar <i class="fa fa-calendar-alt fa-fw ms-auto text-body text-opacity-50"></i></a> -->
+				<!-- User info block -->
+				<div class="dropdown-user-block">
+					<div class="full-name">{{ request.user.get_full_name|default:request.user.username }}</div>
+					<div class="email">{{ request.user.email|default:'—' }}</div>
+				</div>
+				<a class="dropdown-item d-flex align-items-center" href="{% url 'users_profile' request.user.id %}">
+					<i class="fa fa-user-circle fa-fw me-2 text-primary" style="width:16px;"></i> Edit Profile
+				</a>
 				<div class="dropdown-divider"></div>
-				<a class="dropdown-item d-flex align-items-center" href="{% url 'logout_page' %}">Log Out <i class="fa fa-toggle-off fa-fw ms-auto text-body text-opacity-50"></i></a>
+				<a class="dropdown-item d-flex align-items-center text-danger" href="{% url 'logout_page' %}">
+					<i class="fa fa-sign-out-alt fa-fw me-2" style="width:16px;"></i> Log Out
+				</a>
 			</div>
 		</div>
 	</div>
