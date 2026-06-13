@@ -62,4 +62,5 @@ class Calibration(BaseModel):
 
     @property
     def city(self):
-        return self.user.profile.city if self.user and hasattr(self.user, 'profile') else None
+        profile = getattr(self.user, 'profile', None) if self.user else None
+        return getattr(profile, 'city', None)

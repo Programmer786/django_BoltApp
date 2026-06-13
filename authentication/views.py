@@ -758,3 +758,19 @@ def update_note(request, note_id):
     log_activity(user=request.user, action=f"Updated note for type: {note.type}", request=request)
     messages.success(request, 'Note updated successfully.')
     return redirect('manage_notes')
+
+
+@login_required
+@require_http_methods(["POST"])
+def delete_note(request, note_id):
+    """Delete an existing note."""
+    if not request.user.is_superuser:
+        messages.error(request, 'You do not have permission to delete notes.')
+        return redirect('manage_notes')
+
+    note = get_object_or_404(Note, id=note_id)
+    note_type = note.type
+    note.delete()
+    log_activity(user=request.user, action=f"Deleted note for type: {note_type}", request=request)
+    messages.success(request, 'Note deleted successfully.')
+    return redirect('manage_notes')

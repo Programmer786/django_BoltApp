@@ -1,9 +1,12 @@
+import logging
 import uuid
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+
+logger = logging.getLogger(__name__)
 
 from django.conf import settings
 from base.emails import send_account_created_email
@@ -49,7 +52,7 @@ def send_email_token(sender, instance, created, **kwargs):
                 profile.save()
 
     except Exception as e:
-        print(f"Error creating profile or sending email: {e}")
+        logger.error(f"Error creating profile for user {instance.username}: {e}")
         raise
 
 

@@ -1,33 +1,33 @@
-from decimal import Decimal
-
-from django.contrib.auth.decorators import login_required
-from django.db.models import Sum, Q
-from django.shortcuts import render, redirect, get_object_or_404
-from django.core.paginator import PageNotAnInteger, EmptyPage, Paginator
-from django.contrib import messages
-from django.views.decorators.http import require_POST, require_http_methods
-from django.views.decorators.http import require_http_methods
-from base.utils import items_per_page, current_date, get_next_numeric_sr_no, get_manager_city
-from certificates.models import Certificate
-from django.utils import timezone
+import csv
+import logging
+import os
 from datetime import datetime, timedelta
-from django.contrib import messages
-from dateutil.relativedelta import relativedelta
-from django.utils.timezone import now  # Make sure this import is present
-import openpyxl
-from openpyxl.styles import Font, PatternFill, Alignment
-from django.http import HttpResponse
+from decimal import Decimal
+from io import BytesIO, StringIO
 
-from reportlab.pdfgen import canvas
+from dateutil.relativedelta import relativedelta
+from django.conf import settings
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
+from django.db.models import Q, Sum
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.utils.timezone import now
+from django.views.decorators.http import require_POST, require_http_methods
+from PyPDF2 import PdfReader, PdfWriter
+from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
-from PyPDF2 import PdfReader, PdfWriter
-from io import BytesIO
+from reportlab.pdfgen import canvas
+import openpyxl
+from openpyxl.styles import Alignment, Font, PatternFill
+
+from base.utils import current_date, get_manager_city, get_next_numeric_sr_no, items_per_page
 from .models import Certificate
-from django.conf import settings
-import csv
-import os
-from io import StringIO
+
+logger = logging.getLogger(__name__)
 from reportlab.platypus import Table, TableStyle
 from reportlab.lib import colors
 

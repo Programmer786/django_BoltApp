@@ -1,8 +1,12 @@
+import logging
+from datetime import datetime
+
 from django.conf import settings
+from django.contrib.auth import logout
 from django.shortcuts import redirect
 from django.utils.timezone import now
-from datetime import datetime
-from django.contrib.auth import logout
+
+logger = logging.getLogger(__name__)
 
 class AutoLogoutMiddleware:
     def __init__(self, get_response):
@@ -22,8 +26,8 @@ class AutoLogoutMiddleware:
                     if elapsed > settings.SESSION_COOKIE_AGE:
                         logout(request)
                         return redirect(settings.LOGIN_URL)
-                except (ValueError, TypeError):
-                    # Corrupt timestamp — reset it and continue, don't log out
+                except (ValueError, TypeError) as e:
+                    logger.warning(f"AutoLogoutMiddleware: corrupt session timestamp, resetting. {e}")
                     pass
 
             request.session['last_activity'] = now().isoformat()

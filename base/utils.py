@@ -1,9 +1,14 @@
-from authentication.models import ActivityLog
-from certificates.models import Certificate
 import datetime
+import logging
+from decimal import Decimal, ROUND_HALF_UP
+
 from django.core.exceptions import ValidationError
 from django.utils.timezone import now
-from decimal import Decimal, ROUND_HALF_UP
+
+from authentication.models import ActivityLog
+from certificates.models import Certificate
+
+logger = logging.getLogger(__name__)
 
 # this is used for pagination
 items_per_page = 10
@@ -67,8 +72,7 @@ def get_next_numeric_sr_no():
         if last and last.sr_no_int is not None:
             return str(last.sr_no_int + 1)
     except Exception as e:
-        # Log the error or handle it as needed
-        pass
+        logger.error(f"get_next_numeric_sr_no failed: {e}")
 
     return "1"
 
