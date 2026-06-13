@@ -260,3 +260,14 @@ sudo systemctl daemon-reload
 
 sudo systemctl restart gunicorn
 ```
+
+## Test Gunicorn manually
+
+```bash
+cd /var/www/django_project
+
+source venv/bin/activate
+
+gunicorn cms_bolt.wsgi:application
+```
+
