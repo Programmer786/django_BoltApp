@@ -344,6 +344,7 @@ def approve_reject_calibration(request, uid):
     return redirect('pending_calibration')
 
 
+@login_required
 def export_calibration_data_excel(request, model_name, city):
     if model_name != "calibration":
         return HttpResponse("Invalid category", status=400)

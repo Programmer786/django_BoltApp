@@ -11,19 +11,22 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+load_dotenv(BASE_DIR / '.env')
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-!rc+sg1mot^w)6ig&@yq2$rmhq6ro!wg7e)80nlsfyoh#=e=87'
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fallback-dev-only')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
 # In settings.py
 HIDE_SENSITIVE_DATES = False  # This will show dates in production
@@ -39,8 +42,7 @@ LOGIN_URL = 'login'
 
 # LOGIN_URL = '/authentication/login/'  # URL to redirect unauthenticated users
 
-DOMAIN_NAME = '147.93.90.97'
-# DOMAIN_NAME = 'localhost:8000'
+DOMAIN_NAME = os.getenv('DOMAIN_NAME', 'localhost:8000')
 
 
 
@@ -181,8 +183,8 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_USE_TLS = True
 EMAIL_PORT = 587
-EMAIL_HOST_USER = 'pythondev9836@gmail.com'
-EMAIL_HOST_PASSWORD = 'bopfzchmhniippwi'  # create App passwords in gmail setting
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 
 
 # Session Settings – Expire login session after 10 minutes

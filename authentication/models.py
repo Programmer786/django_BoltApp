@@ -40,16 +40,16 @@ def send_email_token(sender, instance, created, **kwargs):
     try:
         if created:
             email_token = str(uuid.uuid4())
-            profile, _ = Profile.objects.get_or_create(user=instance, defaults={'email_token': email_token})
-            
-            # If profile already existed, update the token
-            if not created:
+            profile, profile_created = Profile.objects.get_or_create(
+                user=instance, defaults={'email_token': email_token}
+            )
+            # Profile already existed before user was saved — assign a fresh token
+            if not profile_created:
                 profile.email_token = email_token
                 profile.save()
 
     except Exception as e:
         print(f"Error creating profile or sending email: {e}")
-        # Re-raise the exception to prevent silent failures in production
         raise
 
 

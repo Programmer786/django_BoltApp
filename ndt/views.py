@@ -352,6 +352,7 @@ def approve_reject_ndt(request, uid):
     return redirect('pending_ndt')
 
 
+@login_required
 def export_ndt_data_excel(request, model_name, city):
     if model_name != "ndt":
         return HttpResponse("Invalid category", status=400)

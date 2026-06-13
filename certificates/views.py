@@ -245,6 +245,7 @@ def report_certificates(request):
     return render(request, 'certificates/report_certificates.html', context)
 
 
+@login_required
 def export_certificates_csv(request):
     # Get filter parameters from the request
     from_date = request.GET.get('from_date')
@@ -671,6 +672,7 @@ def approve_reject_certificate(request, uid):
     return redirect('pending_certificates')
 
 
+@login_required
 def export_certificate_data_excel(request, model_name, city):
     if model_name != "certificate":
         return HttpResponse("Invalid category", status=400)
@@ -737,6 +739,7 @@ def export_certificate_data_excel(request, model_name, city):
     return response
 
 
+@login_required
 def generate_certificate_pdf(request, cert_uid):
     cert = Certificate.objects.get(uid=cert_uid)
 

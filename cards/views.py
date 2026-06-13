@@ -238,6 +238,7 @@ def report_cards(request):
     return render(request, 'cards/report_cards.html', context)
 
 
+@login_required
 def export_cards_csv(request):
     # Get filter parameters from the request
     from_date = request.GET.get('from_date')
@@ -623,6 +624,7 @@ def approve_reject_cards(request, uid):
     return redirect('pending_cards')
 
 
+@login_required
 def export_card_and_city_excel(request, model_name, city):
     if model_name != "card":
         return HttpResponse("Invalid category", status=400)

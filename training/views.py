@@ -247,6 +247,7 @@ def report_training(request):
     return render(request, 'training/report_training.html', context)
 
 
+@login_required
 def export_training_csv(request):
     # Get filter parameters from the request
     from_date = request.GET.get('from_date')
@@ -637,6 +638,7 @@ def approve_reject_training(request, uid):
     return redirect('pending_training')
 
 
+@login_required
 def export_training_data_excel(request, model_name, city):
     if model_name != "training":
         return HttpResponse("Invalid category", status=400)

@@ -548,10 +548,16 @@ def admin_change_password(request, user_id):
     if not request.user.is_superuser:
         messages.error(request, 'Permission denied')
         return redirect('manage_accounts')
-    
+
     if request.method == 'POST':
         try:
             user = get_object_or_404(User, id=user_id)
+
+            # Prevent changing another superuser's password
+            if user.is_superuser and user != request.user:
+                messages.error(request, 'Cannot reset another superuser\'s password.')
+                return redirect('manage_accounts')
+
             new_password = request.POST.get('new_password')
             
             if not new_password or len(new_password) < 8:

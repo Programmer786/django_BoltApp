@@ -11,20 +11,17 @@ def send_account_created_email(email, username, password, first_name, last_name,
     # Create a plain text message
     message = f"""
     Hello {first_name} {last_name},
-    
+
     Your account has been created successfully.
-    
-    Here are your login details:
-    Username: {username}
-    Password: {password}
-    
+
+    Your login username is: {username}
+
     Please activate your account by clicking this link:
     http://{settings.DOMAIN_NAME}/activate/{email_token}
-    
-    After activation, you can login at: http://{settings.DOMAIN_NAME}/login/
-    
-    We recommend changing your password after first login.
-    
+
+    After activation, you can log in at: http://{settings.DOMAIN_NAME}/login/
+    You will be prompted to set your own password on first login.
+
     Best regards,
     {getattr(settings, 'EMAIL_FROM_NAME', 'The Bolt Team')}
     """
