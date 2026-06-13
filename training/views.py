@@ -627,9 +627,12 @@ def approve_reject_training(request, uid):
             training.isReject = True
             messages.warning(request, 'Training rejected and updated successfully.')
 
+        approver = request.user.get_full_name() or request.user.username
+        owner = training.user.get_full_name() or training.user.username
+        verdict = 'Approved' if training.isApprove else 'Rejected'
         training._request_user = request.user
         training._request = request
-        training._activity_message = f"{'Approved' if training.isApprove else 'Rejected'} training card {training.card_no}"
+        training._activity_message = f"{verdict} training card {training.card_no} (owner: {owner}) by {approver}"
         training.save()
     return redirect('pending_training')
 
@@ -1025,9 +1028,9 @@ def cancel_training(request, uid):
             training.isCancel = True
             training.cancel_reason = request.POST.get('cancel_reason', 'No reason provided')
             
-            # Add activity message
-            training._activity_message = f"Cancelled training {training.card_no}"
-            
+            training._request_user = request.user
+            training._request = request
+            training._activity_message = f"Cancelled training {training.card_no} by {request.user.get_full_name() or request.user.username}"
             training.save()
             
             # Log the activity
@@ -1068,9 +1071,9 @@ def activate_training(request, uid):
             training.isCancel = False
             activate_notes = request.POST.get('activate_notes', '')
             
-            # Add activity message
-            training._activity_message = f"Activated training {training.card_no}"
-            
+            training._request_user = request.user
+            training._request = request
+            training._activity_message = f"Activated training {training.card_no} by {request.user.get_full_name() or request.user.username}"
             training.save()
             
             # Log the activity
@@ -1176,7 +1179,9 @@ def hold_training(request, uid):
                 
             training.isHold = True
             training.hold_reason = request.POST.get('hold_reason', 'No reason provided')
-            training._activity_message = f"Training {training.card_no} put on hold"
+            training._request_user = request.user
+            training._request = request
+            training._activity_message = f"Training {training.card_no} put on hold by {request.user.get_full_name() or request.user.username}"
             training.save()
             
             from django.contrib.admin.models import LogEntry, CHANGE
@@ -1209,7 +1214,9 @@ def unhold_training(request, uid):
             
             activate_notes = request.POST.get('activate_notes', '')
             training.isHold = False
-            training._activity_message = f"Training {training.card_no} released from hold"
+            training._request_user = request.user
+            training._request = request
+            training._activity_message = f"Training {training.card_no} released from hold by {request.user.get_full_name() or request.user.username}"
             training.save()
             
             from django.contrib.admin.models import LogEntry, CHANGE

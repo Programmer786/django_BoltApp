@@ -334,9 +334,12 @@ def approve_reject_calibration(request, uid):
             calibration.isReject = True
             messages.warning(request, 'Calibration rejected and updated successfully.')
 
+        approver = request.user.get_full_name() or request.user.username
+        owner = calibration.user.get_full_name() or calibration.user.username
+        verdict = 'Approved' if calibration.isApprove else 'Rejected'
         calibration._request_user = request.user
         calibration._request = request
-        calibration._activity_message = f"{'Approved' if calibration.isApprove else 'Rejected'} calibration certificate {calibration.cert_no}"
+        calibration._activity_message = f"{verdict} calibration {calibration.cert_no} (owner: {owner}) by {approver}"
         calibration.save()
     return redirect('pending_calibration')
 

@@ -94,6 +94,7 @@ def register_page(request):
             user_obj.profile.city = city
             user_obj.profile.save()
 
+            log_activity(user=user_obj, action=f"Registered new account: {user_obj.username}", request=request)
             messages.success(request, 'An email has been sent to your mail.')
             return redirect('login')
 
@@ -112,6 +113,7 @@ def activate_email(request, email_token):
         user = Profile.objects.get(email_token=email_token)
         user.is_email_verified = True
         user.save()
+        log_activity(user=user.user, action=f"Email verified for account: {user.user.username}", request=request)
         messages.success(request, 'Your account has been verified successfully!')
         return redirect('login')
     except Profile.DoesNotExist:
@@ -159,6 +161,7 @@ def update_profile(request):
         profile.bio = request.POST.get('bio', profile.bio)
 
         profile.save()
+        log_activity(user=user, action=f"Updated profile info for: {user.username}", request=request)
         messages.success(request, 'Profile updated successfully!')
 
     except ValidationError as e:
@@ -189,6 +192,7 @@ def change_password(request):
         user.set_password(new_password)
         user.save()
         update_session_auth_hash(request, user)
+        log_activity(user=user, action=f"Changed own password: {user.username}", request=request)
         messages.success(request, 'Password changed successfully!')
     except ValidationError as e:
         messages.error(request, str(e) if isinstance(e, str) else ', '.join(e.messages))
@@ -205,6 +209,7 @@ def disable_role_user(request):
     try:
         user.is_active = 0
         user.save()
+        log_activity(user=user, action=f"Disabled own account: {user.username}", request=request)
         messages.success(request, 'Record Successfully Disable!')
     except ValidationError as e:
         messages.error(request, str(e) if isinstance(e, str) else ', '.join(e.messages))
@@ -221,6 +226,7 @@ def enable_role_user(request):
     try:
         user.is_active = 1
         user.save()
+        log_activity(user=user, action=f"Enabled own account: {user.username}", request=request)
         messages.success(request, 'Record Successfully Enable!')
     except ValidationError as e:
         messages.error(request, str(e) if isinstance(e, str) else ', '.join(e.messages))
@@ -406,7 +412,8 @@ def edit_user(request, user_id):
             user.save()
             profile.city = city
             profile.save()
-            
+
+            log_activity(user=request.user, action=f"Edited account: {user.username} (by {request.user.username})", request=request)
             messages.success(request, f'User {user.username} has been updated successfully.')
             return redirect('manage_accounts')
             
@@ -488,6 +495,7 @@ def add_account(request):
                 email_token=email_token
             )
             
+            log_activity(user=request.user, action=f"Created account for {username} ({role})", request=request)
             messages.success(request, f'User account created successfully. Login details sent to {email}.')
             return redirect('manage_accounts')
 
@@ -521,6 +529,7 @@ def toggle_user_status(request, user_id):
         user.save()
         
         action = 'activated' if is_active else 'deactivated'
+        log_activity(user=request.user, action=f"Account {action}: {user.username}", request=request)
         messages.success(request, f'User {action} successfully')
         
     except User.DoesNotExist:
@@ -551,11 +560,12 @@ def admin_change_password(request, user_id):
                 
             user.set_password(new_password)
             user.save()
-            
+
             # Update session if admin changed their own password
             if user == request.user:
                 update_session_auth_hash(request, user)
-                
+
+            log_activity(user=request.user, action=f"Reset password for: {user.username} (by {request.user.username})", request=request)
             messages.success(request, 'Password updated successfully')
             
         except User.DoesNotExist:
@@ -584,8 +594,21 @@ def logs_activity(request):
     from django.db.models import Q
     from datetime import datetime
     
-    # Get logs ordered by most recent first
+    # Scope logs by role:
+    # - Superuser: all logs
+    # - Manager: logs for users in their city + their own logs
+    # - Employee: only their own logs
     logs_list = ActivityLog.objects.select_related('user').order_by('-timestamp')
+    manager_city = get_manager_city(request.user)
+    if manager_city:
+        city_user_ids = User.objects.filter(
+            is_superuser=False, is_staff=False, profile__city=manager_city
+        ).values_list('id', flat=True)
+        logs_list = logs_list.filter(
+            Q(user=request.user) | Q(user__id__in=city_user_ids)
+        )
+    elif not request.user.is_superuser:
+        logs_list = logs_list.filter(user=request.user)
     
     from datetime import date, timedelta
     
@@ -702,6 +725,7 @@ def add_note(request):
         return redirect('manage_notes')
 
     Note.objects.create(type=note_type, note=note_text)
+    log_activity(user=request.user, action=f"Created note for type: {note_type}", request=request)
     messages.success(request, 'Note added successfully.')
     return redirect('manage_notes')
 
@@ -717,5 +741,6 @@ def update_note(request, note_id):
     note = get_object_or_404(Note, id=note_id)
     note.note = request.POST.get('note', '').strip()
     note.save()
+    log_activity(user=request.user, action=f"Updated note for type: {note.type}", request=request)
     messages.success(request, 'Note updated successfully.')
     return redirect('manage_notes')

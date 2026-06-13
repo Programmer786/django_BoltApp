@@ -655,17 +655,18 @@ def approve_reject_certificate(request, uid):
         if action == 'approve':
             cert.isApprove = True
             cert.isReject = False
-            cert._activity_message = f"Approved certificate {cert.cert_no}"
             messages.success(request, 'Certificate approved and updated successfully.')
         elif action == 'reject':
             cert.isApprove = False
             cert.isReject = True
-            cert._activity_message = f"Rejected certificate {cert.cert_no}"
             messages.warning(request, 'Certificate rejected and updated successfully.')
 
-        cert._request_user = request.user  # this line use for history save
+        approver = request.user.get_full_name() or request.user.username
+        owner = cert.user.get_full_name() or cert.user.username
+        verdict = 'Approved' if cert.isApprove else 'Rejected'
+        cert._request_user = request.user
         cert._request = request
-        cert._activity_message = f"{'Approved' if cert.isApprove else 'Rejected'} certificate {cert.cert_no}"
+        cert._activity_message = f"{verdict} certificate {cert.cert_no} (owner: {owner}) by {approver}"
         cert.save()
     return redirect('pending_certificates')
 
@@ -1157,8 +1158,9 @@ def cancel_certificate(request, uid):
             certificate.cancel_reason = request.POST.get('cancel_reason', 'No reason provided')
             
             # Add activity message
-            certificate._activity_message = f"Cancelled certificate {certificate.cert_no}"
-            
+            certificate._request_user = request.user
+            certificate._request = request
+            certificate._activity_message = f"Cancelled certificate {certificate.cert_no} by {request.user.get_full_name() or request.user.username}"
             certificate.save()
             
             # Log the activity
@@ -1200,8 +1202,9 @@ def activate_certificate(request, uid):
             activate_notes = request.POST.get('activate_notes', '')
             
             # Add activity message
-            certificate._activity_message = f"Activated certificate {certificate.cert_no}"
-            
+            certificate._request_user = request.user
+            certificate._request = request
+            certificate._activity_message = f"Activated certificate {certificate.cert_no} by {request.user.get_full_name() or request.user.username}"
             certificate.save()
             
             # Log the activity
@@ -1289,7 +1292,9 @@ def hold_certificate(request, uid):
                 
             certificate.isHold = True
             certificate.hold_reason = request.POST.get('hold_reason', 'No reason provided')
-            certificate._activity_message = f"Certificate {certificate.cert_no} put on hold"
+            certificate._request_user = request.user
+            certificate._request = request
+            certificate._activity_message = f"Certificate {certificate.cert_no} put on hold by {request.user.get_full_name() or request.user.username}"
             certificate.save()
             
             from django.contrib.admin.models import LogEntry, CHANGE
@@ -1327,7 +1332,9 @@ def unhold_certificate(request, uid):
             
             activate_notes = request.POST.get('activate_notes', '')
             certificate.isHold = False
-            certificate._activity_message = f"Certificate {certificate.cert_no} released from hold"
+            certificate._request_user = request.user
+            certificate._request = request
+            certificate._activity_message = f"Certificate {certificate.cert_no} released from hold by {request.user.get_full_name() or request.user.username}"
             certificate.save()
             
             from django.contrib.admin.models import LogEntry, CHANGE

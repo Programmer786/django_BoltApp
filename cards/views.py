@@ -613,9 +613,12 @@ def approve_reject_cards(request, uid):
             card.isReject = True
             messages.warning(request, 'Card rejected and updated successfully.')
 
+        approver = request.user.get_full_name() or request.user.username
+        owner = card.user.get_full_name() or card.user.username
+        verdict = 'Approved' if card.isApprove else 'Rejected'
         card._request_user = request.user
         card._request = request
-        card._activity_message = f"{'Approved' if card.isApprove else 'Rejected'} Card {card.card_no}"
+        card._activity_message = f"{verdict} card {card.card_no} (owner: {owner}) by {approver}"
         card.save()
     return redirect('pending_cards')
 
@@ -1033,9 +1036,9 @@ def cancel_card(request, uid):
             card.isCancel = True
             card.cancel_reason = request.POST.get('cancel_reason', 'No reason provided')
             
-            # Add activity message
-            card._activity_message = f"Cancelled card {card.card_no}"
-            
+            card._request_user = request.user
+            card._request = request
+            card._activity_message = f"Cancelled card {card.card_no} by {request.user.get_full_name() or request.user.username}"
             card.save()
             
             # Log the activity
@@ -1076,9 +1079,9 @@ def activate_card(request, uid):
             card.isCancel = False
             activate_notes = request.POST.get('activate_notes', '')
             
-            # Add activity message
-            card._activity_message = f"Activated card {card.card_no}"
-            
+            card._request_user = request.user
+            card._request = request
+            card._activity_message = f"Activated card {card.card_no} by {request.user.get_full_name() or request.user.username}"
             card.save()
             
             # Log the activity
@@ -1164,7 +1167,9 @@ def hold_card(request, uid):
                 
             card.isHold = True
             card.hold_reason = request.POST.get('hold_reason', 'No reason provided')
-            card._activity_message = f"Card {card.card_no} put on hold"
+            card._request_user = request.user
+            card._request = request
+            card._activity_message = f"Card {card.card_no} put on hold by {request.user.get_full_name() or request.user.username}"
             card.save()
             
             from django.contrib.admin.models import LogEntry, CHANGE
@@ -1199,9 +1204,9 @@ def unhold_card(request, uid):
             card.isHold = False
             activate_notes = request.POST.get('activate_notes', '')
             
-            # Add activity message
-            card._activity_message = f"Released hold on card {card.card_no}"
-            
+            card._request_user = request.user
+            card._request = request
+            card._activity_message = f"Released hold on card {card.card_no} by {request.user.get_full_name() or request.user.username}"
             card.save()
             
             # Log the activity

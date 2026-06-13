@@ -342,9 +342,12 @@ def approve_reject_ndt(request, uid):
             ndt.isReject = True
             messages.warning(request, 'NonDestructiveTesting rejected and updated successfully.')
 
+        approver = request.user.get_full_name() or request.user.username
+        owner = ndt.user.get_full_name() or ndt.user.username
+        verdict = 'Approved' if ndt.isApprove else 'Rejected'
         ndt._request_user = request.user
         ndt._request = request
-        ndt._activity_message = f"{'Approved' if ndt.isApprove else 'Rejected'} NDT report {ndt.report_no}"
+        ndt._activity_message = f"{verdict} NDT report {ndt.report_no} (owner: {owner}) by {approver}"
         ndt.save()
     return redirect('pending_ndt')
 
