@@ -11,7 +11,6 @@ import uuid
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.models import User
-from django.views.decorators.http import require_http_methods
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.http import HttpResponseRedirect
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -357,13 +356,22 @@ from django.http import JsonResponse
 @login_required
 def edit_user(request, user_id):
     """
-    Edit user details - handles both GET and POST requests
+    Edit user details - handles both GET and POST requests.
+    Superusers can edit anyone. Managers can only edit non-staff users in their city.
     """
-    if not request.user.is_superuser:
+    manager_city = get_manager_city(request.user)
+    if not request.user.is_superuser and not manager_city:
         messages.error(request, 'You do not have permission to edit users.')
         return redirect('manage_accounts')
-    
+
     user = get_object_or_404(User, id=user_id)
+
+    # Managers: can only edit employees (non-staff) belonging to their city
+    if manager_city:
+        user_city = getattr(getattr(user, 'profile', None), 'city', None)
+        if user.is_staff or user.is_superuser or user_city != manager_city:
+            messages.error(request, 'You can only edit employees in your city.')
+            return redirect('manage_accounts')
     
     # Get or create user profile
     profile, created = Profile.objects.get_or_create(user=user)

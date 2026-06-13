@@ -46,49 +46,43 @@ def index(request):
             month_training = Training.objects.filter(created_at__month=current_month, isApprove=True).count()
             month_calibration = Calibration.objects.filter(created_at__month=current_month, isApprove=True).count()
 
-            # Get user activity for today and last 30 days
+            # Get user activity — 10 queries total regardless of user count
             thirty_days_ago = today - timezone.timedelta(days=30)
-            
-            # Get all users who have made any entries
+
+            today_per_user = {}
+            last30_per_user = {}
+            for model in [Certificate, Card, NonDestructiveTesting, Training, Calibration]:
+                for uid, cnt in (model.objects
+                                 .filter(created_at__date=today)
+                                 .values('user')
+                                 .annotate(cnt=Count('uid'))
+                                 .values_list('user', 'cnt')):
+                    today_per_user[uid] = today_per_user.get(uid, 0) + cnt
+
+                for uid, cnt in (model.objects
+                                 .filter(created_at__date__gte=thirty_days_ago)
+                                 .values('user')
+                                 .annotate(cnt=Count('uid'))
+                                 .values_list('user', 'cnt')):
+                    last30_per_user[uid] = last30_per_user.get(uid, 0) + cnt
+
             from django.contrib.auth import get_user_model
             User = get_user_model()
-            
-            # Get user activity data
-            user_activity = []
-            # Get all active users
-            users = User.objects.filter(is_active=True)
-            
-            # First pass: collect all user data
-            for user in users:
-                today_count = 0
-                last_30_days_count = 0
-                
-                # Count entries for each model
-                for model in [Certificate, Card, NonDestructiveTesting, Training, Calibration]:
-                    today_count += model.objects.filter(
-                        user=user, 
-                        created_at__date=today
-                    ).count()
-                    
-                    last_30_days_count += model.objects.filter(
-                        user=user, 
-                        created_at__date__gte=thirty_days_ago
-                    ).count()
-                
-                if today_count > 0 or last_30_days_count > 0:
-                    user_activity.append({
-                        'username': user.username,
-                        'today_count': today_count,
-                        'last_30_days_count': last_30_days_count
-                    })
-            
-            # Sort by today's count in descending order
-            user_activity = sorted(user_activity, key=lambda x: x['today_count'], reverse=True)
-            
-            # Calculate max entries for percentage calculation (minimum 1 to avoid division by zero)
-            max_entries = max(1, max((activity['last_30_days_count'] for activity in user_activity), default=1))
-            
-            # Add percentage to each user's activity
+            active_ids = set(today_per_user) | set(last30_per_user)
+            username_map = dict(User.objects.filter(id__in=active_ids, is_active=True).values_list('id', 'username'))
+
+            user_activity = [
+                {
+                    'username': username_map[uid],
+                    'today_count': today_per_user.get(uid, 0),
+                    'last_30_days_count': last30_per_user.get(uid, 0),
+                }
+                for uid in active_ids
+                if uid in username_map
+            ]
+            user_activity.sort(key=lambda x: x['today_count'], reverse=True)
+
+            max_entries = max(1, max((a['last_30_days_count'] for a in user_activity), default=1))
             for activity in user_activity:
                 activity['activity_percent'] = min(100, int((activity['last_30_days_count'] / max_entries) * 100))
 
