@@ -69,7 +69,14 @@
                         </div>
                     </form>
                 </div>
-                <table class="table text-nowrap w-100" id="myCertificateTable" data-toggle="table" data-height="auto">
+                <div style="max-height:65vh;overflow-y:auto;overflow-x:auto;">
+                <style>
+                    #myTrainingTable thead th {
+                        position: sticky; top: 0; z-index: 10;
+                        background: #f8fafc; box-shadow: 0 2px 0 #e2e8f0; white-space: nowrap;
+                    }
+                </style>
+                <table class="table text-nowrap w-100" id="myTrainingTable">
                     <thead>
                         <tr>
                             <th>S.No</th>
@@ -139,6 +146,7 @@
                         </tr>
                     </tbody>
                 </table>
+                </div><!-- /scroll-wrapper -->
 
                 <!-- Disabled and active states pagination -->
                 {% include "base/pagination.html" with page_obj=training %}
