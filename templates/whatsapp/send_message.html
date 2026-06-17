@@ -1,0 +1,493 @@
+{% extends "base/base.html" %}
+{% load static %}
+{% block start %}
+
+<style>
+  :root { --wa: #25D366; --wa-dark: #128C7E; --wa-light: #dcf8c6; }
+
+  .wa-header {
+    background: linear-gradient(135deg, var(--wa-dark) 0%, var(--wa) 100%);
+    border-radius: 16px; color: #fff;
+    padding: 28px 32px; margin-bottom: 28px;
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+  }
+  .wa-header h1 { margin: 0; font-size: 1.6rem; font-weight: 700; }
+  .wa-header p  { margin: 4px 0 0; opacity: .85; font-size: .95rem; }
+
+  /* Toggle pill */
+  .type-toggle { display: flex; background: #f5f5f5; border-radius: 50px; padding: 4px; gap: 4px; }
+  .type-toggle label {
+    flex: 1; text-align: center; cursor: pointer; padding: 8px 20px;
+    border-radius: 50px; font-weight: 600; font-size: .88rem; color: #888; transition: all .2s; user-select: none;
+  }
+  .type-toggle input[type=radio] { display: none; }
+  .type-toggle input:checked + label { background: var(--wa); color: #fff; box-shadow: 0 2px 8px rgba(37,211,102,.3); }
+
+  /* Mode toggle */
+  .mode-toggle { display: flex; background: #f5f5f5; border-radius: 50px; padding: 4px; gap: 4px; }
+  .mode-toggle label {
+    flex: 1; text-align: center; cursor: pointer; padding: 7px 16px;
+    border-radius: 50px; font-weight: 600; font-size: .82rem; color: #888; transition: all .2s; user-select: none;
+  }
+  .mode-toggle input[type=radio] { display: none; }
+  .mode-toggle input:checked + label { background: #fff; color: var(--wa-dark); box-shadow: 0 2px 8px rgba(0,0,0,.1); }
+
+  /* Cards */
+  .card-wa { border: none; border-radius: 16px; box-shadow: 0 2px 16px rgba(0,0,0,.06); }
+  .card-wa .card-header {
+    background: #fff; border-bottom: 1px solid #f0f0f0;
+    border-radius: 16px 16px 0 0 !important; padding: 18px 24px;
+    font-weight: 700; font-size: .95rem; display: flex; align-items: center; gap: 10px;
+  }
+
+  /* WhatsApp phone mockup */
+  .phone-mockup {
+    background: #fff; border-radius: 36px;
+    box-shadow: 0 8px 40px rgba(0,0,0,.15), inset 0 0 0 2px #e0e0e0;
+    overflow: hidden; max-width: 320px; margin: 0 auto;
+  }
+  .phone-top-bar {
+    background: var(--wa-dark); color: #fff;
+    padding: 14px 18px 10px; display: flex; align-items: center; gap: 10px;
+  }
+  .phone-avatar { width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,.3); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .8rem; }
+  .phone-name { font-size: .9rem; font-weight: 600; line-height: 1.2; }
+  .phone-status { font-size: .7rem; opacity: .8; }
+  .phone-body {
+    background: #e5ddd5; padding: 16px; min-height: 220px; max-height: 340px; overflow-y: auto;
+    background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5z' fill='%23b0bec5' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E");
+  }
+  .chat-bubble {
+    background: var(--wa-light); border-radius: 14px 14px 2px 14px;
+    padding: 10px 14px 6px; max-width: 90%; margin-left: auto; margin-right: 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.12); font-size: .85rem; line-height: 1.5;
+    word-wrap: break-word; position: relative;
+  }
+  .chat-bubble .tick { font-size: .7rem; color: #34B7F1; float: right; margin-top: 4px; margin-left: 8px; }
+  .chat-time { font-size: .68rem; color: #999; text-align: right; margin-top: 2px; }
+  .phone-input-bar { background: #f0f0f0; padding: 10px 14px; display: flex; align-items: center; gap: 10px; }
+  .phone-input-bar .fake-input { background: #fff; border-radius: 24px; padding: 8px 14px; flex: 1; font-size: .8rem; color: #bbb; }
+  .phone-input-bar .send-icon { color: var(--wa); font-size: 1.2rem; }
+
+  /* Contact select */
+  .contact-select { border-radius: 10px; border: 1px solid #e0e0e0; padding: 10px 14px; width: 100%; font-size: .9rem; }
+  .contact-select:focus { border-color: var(--wa); box-shadow: 0 0 0 3px rgba(37,211,102,.12); outline: none; }
+
+  /* Bulk checkboxes */
+  .bulk-list { max-height: 200px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 10px; }
+  .bulk-list .form-check { padding: 10px 14px; margin: 0; border-bottom: 1px solid #f5f5f5; transition: background .15s; }
+  .bulk-list .form-check:last-child { border-bottom: none; }
+  .bulk-list .form-check:hover { background: #f8fffe; }
+  .bulk-list .form-check-input:checked { background-color: var(--wa); border-color: var(--wa); }
+
+  /* Textarea */
+  .msg-textarea { border-radius: 12px; border: 1px solid #e0e0e0; resize: none; font-size: .9rem; line-height: 1.6; padding: 12px 16px; }
+  .msg-textarea:focus { border-color: var(--wa); box-shadow: 0 0 0 3px rgba(37,211,102,.12); outline: none; }
+
+  /* Send btn */
+  .btn-send {
+    background: linear-gradient(135deg, var(--wa-dark), var(--wa));
+    color: #fff; border: none; border-radius: 12px; padding: 12px 28px;
+    font-weight: 700; font-size: .95rem; width: 100%;
+    box-shadow: 0 4px 14px rgba(37,211,102,.35); transition: all .2s;
+  }
+  .btn-send:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(37,211,102,.45); color: #fff; }
+
+  /* History */
+  .status-badge { padding: 3px 12px; border-radius: 50px; font-size: .75rem; font-weight: 600; display: inline-block; }
+  .status-sent    { background: #e8f5e9; color: #2e7d32; }
+  .status-failed  { background: #ffebee; color: #c62828; }
+  .status-partial { background: #fff8e1; color: #f57f17; }
+
+  /* Char counter */
+  .char-count { font-size: .78rem; color: #aaa; text-align: right; }
+  .char-count.warning { color: #f57c00; }
+  .char-count.danger  { color: #c62828; }
+</style>
+
+<!-- Header -->
+<div class="wa-header">
+  <div>
+    <h1><i class="fab fa-whatsapp me-2"></i> Send WhatsApp Message</h1>
+    <p>{{ total_contacts }} contacts available · Single or Bulk delivery</p>
+  </div>
+  <a href="{% url 'whatsapp_contacts' %}" class="btn btn-light fw-600" style="border-radius:10px;">
+    <i class="fas fa-address-book me-2" style="color:var(--wa);"></i> Contacts Library
+  </a>
+</div>
+
+{% if messages %}
+{% for message in messages %}
+<div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show rounded-3 mb-3" role="alert">
+  {{ message }}
+  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- Main row -->
+<div class="row g-4 mb-4">
+
+  <!-- Compose -->
+  <div class="col-lg-7">
+    <div class="card card-wa">
+      <div class="card-header">
+        <i class="fas fa-paper-plane" style="color:var(--wa);"></i> Compose Message
+      </div>
+      <div class="card-body p-4">
+        <form method="POST" action="{% url 'whatsapp_send' %}" id="sendForm">
+          {% csrf_token %}
+
+          <!-- Delivery type -->
+          <div class="mb-4">
+            <label class="form-label fw-600 text-dark mb-2">Delivery Type</label>
+            <div class="type-toggle">
+              <input type="radio" name="message_type" id="typeSingle" value="single" checked>
+              <label for="typeSingle"><i class="fas fa-user me-1"></i> Single Contact</label>
+              <input type="radio" name="message_type" id="typeBulk" value="bulk">
+              <label for="typeBulk"><i class="fas fa-users me-1"></i> Bulk</label>
+            </div>
+          </div>
+
+          <!-- Single contact selector -->
+          <div id="singleSection" class="mb-4">
+            <label class="form-label fw-600 text-dark">Select Contact</label>
+            <select name="contact_id" class="contact-select" id="contactSelect">
+              <option value="">— Choose a contact —</option>
+              {% for c in contacts %}
+              <option value="{{ c.id }}" data-phone="{{ c.phone }}">{{ c.name }} · {{ c.phone }}</option>
+              {% endfor %}
+            </select>
+            <div id="selectedPhone" class="mt-2 d-none">
+              <span class="badge rounded-pill" style="background:var(--wa);font-size:.8rem;padding:6px 14px;">
+                <i class="fab fa-whatsapp me-1"></i> <span id="phoneLabel"></span>
+              </span>
+            </div>
+          </div>
+
+          <!-- Bulk selector -->
+          <div id="bulkSection" class="mb-4 d-none">
+            <label class="form-label fw-600 text-dark d-flex justify-content-between">
+              <span>Select Contacts</span>
+              <span>
+                <a href="#" id="selectAll" class="me-2" style="color:var(--wa);font-size:.8rem;text-decoration:none;font-weight:600;">Select All</a>
+                <a href="#" id="clearAll" style="color:#e53935;font-size:.8rem;text-decoration:none;font-weight:600;">Clear</a>
+              </span>
+            </label>
+            <div class="bulk-list">
+              {% for c in contacts %}
+              <div class="form-check">
+                <input class="form-check-input bulk-cb" type="checkbox" name="bulk_contacts" value="{{ c.id }}" id="bc{{ c.id }}">
+                <label class="form-check-label" for="bc{{ c.id }}" style="font-size:.88rem;cursor:pointer;">
+                  <strong>{{ c.name }}</strong> <span style="color:#aaa;">{{ c.phone }}</span>
+                </label>
+              </div>
+              {% empty %}
+              <div class="text-center py-3 text-muted" style="font-size:.85rem;">No contacts yet. <a href="{% url 'whatsapp_contacts' %}">Add contacts</a></div>
+              {% endfor %}
+            </div>
+            <p id="bulkCount" class="mt-1 text-muted" style="font-size:.8rem;">0 selected</p>
+          </div>
+
+          <!-- Message mode -->
+          <div class="mb-3">
+            <label class="form-label fw-600 text-dark mb-2">Message Mode</label>
+            <div class="mode-toggle">
+              <input type="radio" name="mode" id="modeText" value="text" checked>
+              <label for="modeText"><i class="fas fa-comment-alt me-1"></i> Custom Text</label>
+              <input type="radio" name="mode" id="modeTemplate" value="template">
+              <label for="modeTemplate"><i class="fas fa-magic me-1"></i> Template</label>
+            </div>
+          </div>
+
+          <!-- Text mode -->
+          <div id="textSection" class="mb-4">
+            <label class="form-label fw-600 text-dark">Message Body</label>
+            <textarea name="body" id="msgBody" class="form-control msg-textarea" rows="5"
+              placeholder="Type your message here…" maxlength="1600"></textarea>
+            <div class="char-count mt-1"><span id="charCount">0</span> / 1600</div>
+          </div>
+
+          <!-- Template mode -->
+          <div id="templateSection" class="d-none mb-4">
+            <label class="form-label fw-600 text-dark">Template Content SID</label>
+            <input type="text" name="content_sid" class="form-control mb-3"
+              placeholder="HXb5b62575e6e4ff6129ad7c8efe1f983e"
+              style="border-radius:10px;">
+            <label class="form-label fw-600 text-dark">Content Variables <span class="text-muted fw-400">(JSON)</span></label>
+            <input type="text" name="content_variables" class="form-control"
+              placeholder='{"1":"12/1","2":"3pm"}'
+              style="border-radius:10px;">
+            <div class="mt-2 p-3 rounded-3" style="background:#f0fdf4;border:1px solid #bbf7d0;font-size:.8rem;color:#555;">
+              <i class="fas fa-info-circle me-1 text-success"></i>
+              Enter the Twilio content template SID and JSON variables (if any).
+            </div>
+          </div>
+
+          <button type="submit" class="btn-send" id="sendBtn">
+            <i class="fab fa-whatsapp me-2"></i> Send Message
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Preview -->
+  <div class="col-lg-5">
+    <div class="card card-wa mb-4">
+      <div class="card-header">
+        <i class="fas fa-mobile-alt" style="color:var(--wa);"></i> Live Preview
+      </div>
+      <div class="card-body p-4">
+        <div class="phone-mockup">
+          <div class="phone-top-bar">
+            <div class="phone-avatar" id="previewAvatar">?</div>
+            <div>
+              <div class="phone-name" id="previewName">Select a contact</div>
+              <div class="phone-status">online</div>
+            </div>
+            <i class="fab fa-whatsapp ms-auto" style="font-size:1.4rem;opacity:.7;"></i>
+          </div>
+          <div class="phone-body" id="phoneBody">
+            <div id="bubbleWrap" class="d-none">
+              <div class="chat-bubble">
+                <div id="previewText" style="white-space:pre-wrap;"></div>
+                <div class="chat-time">
+                  {% now "H:i" %} <span class="tick">✓✓</span>
+                </div>
+              </div>
+            </div>
+            <div id="emptyPreview" class="d-flex align-items-center justify-content-center h-100" style="min-height:180px;">
+              <div class="text-center text-muted" style="font-size:.82rem;">
+                <i class="fab fa-whatsapp" style="font-size:2.5rem;opacity:.3;color:#25D366;display:block;margin-bottom:8px;"></i>
+                Type a message to preview
+              </div>
+            </div>
+          </div>
+          <div class="phone-input-bar">
+            <div class="fake-input">Message…</div>
+            <i class="fas fa-microphone send-icon"></i>
+          </div>
+        </div>
+
+        <!-- Bulk recipient count -->
+        <div id="recipientInfo" class="mt-3 text-center d-none">
+          <span class="badge" style="background:rgba(37,211,102,.12);color:var(--wa-dark);font-size:.82rem;padding:8px 16px;border-radius:50px;">
+            <i class="fas fa-users me-1"></i>
+            <span id="recipientCount">0</span> recipient(s) selected
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="row g-3">
+      <div class="col-6">
+        <div class="card card-wa text-center p-3">
+          <div style="font-size:1.6rem;font-weight:800;color:var(--wa);">{{ total_contacts }}</div>
+          <div style="font-size:.78rem;color:#888;font-weight:600;">TOTAL CONTACTS</div>
+        </div>
+      </div>
+      <div class="col-6">
+        <div class="card card-wa text-center p-3">
+          <div style="font-size:1.6rem;font-weight:800;color:#128C7E;">{{ history|length }}</div>
+          <div style="font-size:.78rem;color:#888;font-weight:600;">MESSAGES SENT</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Message History -->
+<div class="card card-wa">
+  <div class="card-header">
+    <i class="fas fa-history" style="color:var(--wa);"></i> Message History
+    <span class="badge ms-2" style="background:var(--wa);font-size:.75rem;">Last 30</span>
+  </div>
+  <div class="card-body p-0">
+    {% if history %}
+    <div class="table-responsive">
+      <table class="table mb-0">
+        <thead style="background:#f8f9fa;">
+          <tr>
+            <th style="padding:12px 16px;font-size:.8rem;color:#888;font-weight:600;border:none;">SENT BY</th>
+            <th style="padding:12px 16px;font-size:.8rem;color:#888;font-weight:600;border:none;">TYPE</th>
+            <th style="padding:12px 16px;font-size:.8rem;color:#888;font-weight:600;border:none;">MESSAGE</th>
+            <th style="padding:12px 16px;font-size:.8rem;color:#888;font-weight:600;border:none;">RECIPIENTS</th>
+            <th style="padding:12px 16px;font-size:.8rem;color:#888;font-weight:600;border:none;">STATUS</th>
+            <th style="padding:12px 16px;font-size:.8rem;color:#888;font-weight:600;border:none;">SENT AT</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for msg in history %}
+          <tr style="vertical-align:middle;">
+            <td style="padding:12px 16px;">
+              <strong style="font-size:.88rem;">{{ msg.sent_by.get_full_name|default:msg.sent_by.username }}</strong>
+            </td>
+            <td style="padding:12px 16px;">
+              <span class="badge" style="background:{% if msg.message_type == 'bulk' %}#e3f2fd{% else %}#f3e5f5{% endif %};color:{% if msg.message_type == 'bulk' %}#1565c0{% else %}#6a1b9a{% endif %};font-size:.75rem;padding:5px 12px;">
+                <i class="fas {% if msg.message_type == 'bulk' %}fa-users{% else %}fa-user{% endif %} me-1"></i>
+                {{ msg.get_message_type_display }}
+              </span>
+            </td>
+            <td style="padding:12px 16px;max-width:240px;">
+              {% if msg.body %}
+              <span style="font-size:.85rem;color:#444;" title="{{ msg.body }}">
+                {{ msg.body|truncatechars:60 }}
+              </span>
+              {% elif msg.content_sid %}
+              <span style="font-size:.8rem;color:#888;font-style:italic;">
+                <i class="fas fa-magic me-1"></i>Template: {{ msg.content_sid|truncatechars:30 }}
+              </span>
+              {% endif %}
+            </td>
+            <td style="padding:12px 16px;text-align:center;">
+              <span style="font-size:.85rem;">
+                <span style="color:#2e7d32;font-weight:700;">{{ msg.total_sent }}</span>
+                {% if msg.total_failed %}<span style="color:#c62828;"> / {{ msg.total_failed }} failed</span>{% endif %}
+              </span>
+            </td>
+            <td style="padding:12px 16px;">
+              <span class="status-badge status-{{ msg.status }}">
+                {% if msg.status == 'sent' %}<i class="fas fa-check-double me-1"></i>Sent
+                {% elif msg.status == 'failed' %}<i class="fas fa-times me-1"></i>Failed
+                {% else %}<i class="fas fa-exclamation me-1"></i>Partial{% endif %}
+              </span>
+            </td>
+            <td style="padding:12px 16px;font-size:.82rem;color:#888;white-space:nowrap;">
+              {{ msg.sent_at|date:"d M Y H:i" }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+      <i class="fab fa-whatsapp" style="font-size:3rem;color:#e0e0e0;"></i>
+      <p class="text-muted mt-3 mb-0 fw-600">No messages sent yet</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+(function() {
+  // Type toggle
+  const radios = document.querySelectorAll('[name=message_type]');
+  const singleSec = document.getElementById('singleSection');
+  const bulkSec   = document.getElementById('bulkSection');
+  const recipientInfo = document.getElementById('recipientInfo');
+
+  radios.forEach(r => r.addEventListener('change', function() {
+    if (this.value === 'single') {
+      singleSec.classList.remove('d-none');
+      bulkSec.classList.add('d-none');
+      recipientInfo.classList.add('d-none');
+    } else {
+      singleSec.classList.add('d-none');
+      bulkSec.classList.remove('d-none');
+      recipientInfo.classList.remove('d-none');
+      updateBulkCount();
+    }
+  }));
+
+  // Mode toggle
+  const modeRadios = document.querySelectorAll('[name=mode]');
+  const textSec = document.getElementById('textSection');
+  const tmplSec = document.getElementById('templateSection');
+  modeRadios.forEach(r => r.addEventListener('change', function() {
+    if (this.value === 'text') {
+      textSec.classList.remove('d-none');
+      tmplSec.classList.add('d-none');
+    } else {
+      textSec.classList.add('d-none');
+      tmplSec.classList.remove('d-none');
+    }
+  }));
+
+  // Single contact select → update preview
+  const contactSel = document.getElementById('contactSelect');
+  const previewAvatar = document.getElementById('previewAvatar');
+  const previewName   = document.getElementById('previewName');
+  const selectedPhone = document.getElementById('selectedPhone');
+  const phoneLabel    = document.getElementById('phoneLabel');
+
+  contactSel.addEventListener('change', function() {
+    const opt = this.options[this.selectedIndex];
+    if (this.value) {
+      const name = opt.text.split('·')[0].trim();
+      previewName.textContent = name;
+      previewAvatar.textContent = name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+      phoneLabel.textContent = opt.dataset.phone;
+      selectedPhone.classList.remove('d-none');
+    } else {
+      previewName.textContent = 'Select a contact';
+      previewAvatar.textContent = '?';
+      selectedPhone.classList.add('d-none');
+    }
+  });
+
+  // Message body → live preview
+  const msgBody    = document.getElementById('msgBody');
+  const previewText = document.getElementById('previewText');
+  const bubbleWrap  = document.getElementById('bubbleWrap');
+  const emptyPrev   = document.getElementById('emptyPreview');
+  const charCount   = document.getElementById('charCount');
+  const charEl      = document.querySelector('.char-count');
+
+  msgBody.addEventListener('input', function() {
+    const val = this.value;
+    const len = val.length;
+    charCount.textContent = len;
+    charEl.className = 'char-count mt-1' + (len > 1400 ? ' danger' : len > 1000 ? ' warning' : '');
+
+    if (val.trim()) {
+      previewText.textContent = val;
+      bubbleWrap.classList.remove('d-none');
+      emptyPrev.classList.add('d-none');
+    } else {
+      bubbleWrap.classList.add('d-none');
+      emptyPrev.classList.remove('d-none');
+    }
+  });
+
+  // Bulk count
+  const bulkCbs = document.querySelectorAll('.bulk-cb');
+  const bulkCount = document.getElementById('bulkCount');
+  const recipientCount = document.getElementById('recipientCount');
+
+  function updateBulkCount() {
+    const cnt = document.querySelectorAll('.bulk-cb:checked').length;
+    const total = bulkCbs.length;
+    const label = cnt === 0 ? `All ${total} contacts will receive the message` : `${cnt} selected`;
+    bulkCount.textContent = label;
+    recipientCount.textContent = cnt === 0 ? total : cnt;
+  }
+
+  bulkCbs.forEach(cb => cb.addEventListener('change', updateBulkCount));
+
+  document.getElementById('selectAll').addEventListener('click', function(e) {
+    e.preventDefault();
+    bulkCbs.forEach(cb => cb.checked = true);
+    updateBulkCount();
+  });
+  document.getElementById('clearAll').addEventListener('click', function(e) {
+    e.preventDefault();
+    bulkCbs.forEach(cb => cb.checked = false);
+    updateBulkCount();
+  });
+
+  // Confirm before bulk send
+  document.getElementById('sendForm').addEventListener('submit', function(e) {
+    const isBulk = document.querySelector('[name=message_type]:checked').value === 'bulk';
+    if (isBulk) {
+      const cnt = document.querySelectorAll('.bulk-cb:checked').length || {{ total_contacts }};
+      if (!confirm(`Send message to ${cnt} contact(s)?`)) { e.preventDefault(); }
+    }
+  });
+})();
+</script>
+
+{% endblock %}

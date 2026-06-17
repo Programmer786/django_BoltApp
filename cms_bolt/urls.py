@@ -31,6 +31,7 @@ urlpatterns = [
     path('', include('calibration.urls')),
 
     path('', include(('frontend.urls', 'frontend'), namespace='frontend')),
+    path('', include('whatsapp.urls')),
 ]
 
 if settings.DEBUG:

@@ -336,7 +336,31 @@
             </div>
             {% endif %}
 
-
+            {% if user.is_superuser %}
+            <div class="menu-divider"></div>
+            <div class="menu-header">WhatsApp</div>
+            <div class="menu-item has-sub {% if sidebar_active == 'whatsapp_send' or sidebar_active == 'whatsapp_contacts' %}active{% endif %}">
+                <a href="#" class="menu-link">
+                    <span class="menu-icon"><i class="fab fa-whatsapp" style="color:#25D366;"></i></span>
+                    <span class="menu-text">WhatsApp</span>
+                    <span class="menu-caret"><b class="caret"></b></span>
+                </a>
+                <div class="menu-submenu">
+                    <div class="menu-item {% if sidebar_active == 'whatsapp_send' %}active{% endif %}">
+                        <a href="{% url 'whatsapp_send' %}" class="menu-link">
+                            <span class="menu-icon"><i class="fas fa-paper-plane" style="color:#25D366;"></i></span>
+                            <span class="menu-text">Send Message</span>
+                        </a>
+                    </div>
+                    <div class="menu-item {% if sidebar_active == 'whatsapp_contacts' %}active{% endif %}">
+                        <a href="{% url 'whatsapp_contacts' %}" class="menu-link">
+                            <span class="menu-icon"><i class="fas fa-address-book" style="color:#128C7E;"></i></span>
+                            <span class="menu-text">Contacts Library</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
 
 <!--            <div class="menu-divider"></div>-->
 <!--            <div class="menu-header">Settings</div>-->

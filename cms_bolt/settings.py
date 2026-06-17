@@ -65,6 +65,7 @@ INSTALLED_APPS = [
     'ndt',
     'calibration',
     'frontend',
+    'whatsapp',
 ]
 
 MIDDLEWARE = [
@@ -186,6 +187,11 @@ EMAIL_PORT = 587
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 
+
+# Twilio WhatsApp
+TWILIO_ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID', '')
+TWILIO_AUTH_TOKEN = os.getenv('TWILIO_AUTH_TOKEN', '')
+TWILIO_WHATSAPP_NUMBER = os.getenv('TWILIO_WHATSAPP_NUMBER', 'whatsapp:+14155238886')
 
 # Session Settings – Expire login session after 10 minutes
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Keep session even if the browser is closed (False means browser not closes)
