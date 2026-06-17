@@ -7,6 +7,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
 from django.db.models import Q
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -171,12 +172,21 @@ def edit_contact(request, contact_id):
 
 
 @superuser_required
+def whatsapp_web_status(request):
+    """AJAX — returns WhatsApp Web connection status + QR base64 if not logged in."""
+    from .selenium_sender import get_status
+    status = get_status()
+    return JsonResponse(status)
+
+
+@superuser_required
 def send_message(request):
     contacts = WhatsAppContact.objects.all().order_by('name')
     history = WhatsAppMessage.objects.prefetch_related('logs').order_by('-sent_at')[:30]
 
     if request.method == 'POST':
-        mode = request.POST.get('mode', 'text')          # text | template
+        sender = request.POST.get('sender', 'twilio')     # twilio | selenium
+        mode = request.POST.get('mode', 'text')           # text | template
         msg_type = request.POST.get('message_type', 'single')  # single | bulk
         body = request.POST.get('body', '').strip()
         content_sid = request.POST.get('content_sid', '').strip()
@@ -242,92 +252,123 @@ def send_message(request):
             sent_by=request.user,
             message_type=msg_type,
             mode=mode,
+            via=sender,
             body=body if mode == 'text' else None,
             image_url=image_url,
             content_sid=content_sid if mode == 'template' else None,
             content_variables=content_variables if mode == 'template' else None,
         )
 
-        try:
-            from twilio.rest import Client
-            client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+        # ── WhatsApp Web (Selenium) ────────────────────────────────────────────
+        if sender == 'selenium':
+            from .selenium_sender import get_status, send_wa_message
+
+            status = get_status()
+            if not status['available']:
+                messages.error(request, f"Selenium error: {status['error']}")
+                wa_message.status = 'failed'
+                wa_message.save()
+                return redirect('whatsapp_send')
+
+            if not status['logged_in']:
+                messages.error(request, 'WhatsApp Web is not connected. Please scan the QR code first.')
+                wa_message.status = 'failed'
+                wa_message.save()
+                return redirect('whatsapp_send')
 
             total_sent = total_failed = 0
             for contact in recipient_qs:
-                try:
-                    kwargs = {
-                        'from_': settings.TWILIO_WHATSAPP_NUMBER,
-                        'to': f'whatsapp:{contact.phone}',
-                    }
-                    if mode == 'template':
-                        kwargs['content_sid'] = content_sid
-                        if content_variables:
-                            kwargs['content_variables'] = content_variables
-                    else:
-                        kwargs['body'] = body
-                        # Only pass media_url if HTTPS — Twilio WhatsApp rejects HTTP
-                        # and will fail the entire message, not just the image
-                        if image_url and image_url.startswith('https://'):
-                            kwargs['media_url'] = [image_url]
-
-                    msg = client.messages.create(**kwargs)
-                    WhatsAppMessageLog.objects.create(
-                        message=wa_message,
-                        contact=contact,
-                        phone=contact.phone,
-                        contact_name=contact.name,
-                        sid=msg.sid,
-                        status='sent',
-                    )
+                success, error = send_wa_message(contact.phone, body or '')
+                WhatsAppMessageLog.objects.create(
+                    message=wa_message,
+                    contact=contact,
+                    phone=contact.phone,
+                    contact_name=contact.name,
+                    status='sent' if success else 'failed',
+                    error=error,
+                )
+                if success:
                     total_sent += 1
-
-                except Exception as e:
-                    logger.error(f"WhatsApp send to {contact.phone} failed: {e}")
-                    WhatsAppMessageLog.objects.create(
-                        message=wa_message,
-                        contact=contact,
-                        phone=contact.phone,
-                        contact_name=contact.name,
-                        status='failed',
-                        error=str(e),
-                    )
+                else:
                     total_failed += 1
 
-            wa_message.total_sent = total_sent
-            wa_message.total_failed = total_failed
-            if total_failed == 0:
-                wa_message.status = 'sent'
-            elif total_sent == 0:
+        # ── Twilio API ─────────────────────────────────────────────────────────
+        else:
+            try:
+                from twilio.rest import Client
+                client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+
+                total_sent = total_failed = 0
+                for contact in recipient_qs:
+                    try:
+                        kwargs = {
+                            'from_': settings.TWILIO_WHATSAPP_NUMBER,
+                            'to': f'whatsapp:{contact.phone}',
+                        }
+                        if mode == 'template':
+                            kwargs['content_sid'] = content_sid
+                            if content_variables:
+                                kwargs['content_variables'] = content_variables
+                        else:
+                            kwargs['body'] = body
+                            if image_url and image_url.startswith('https://'):
+                                kwargs['media_url'] = [image_url]
+
+                        msg = client.messages.create(**kwargs)
+                        WhatsAppMessageLog.objects.create(
+                            message=wa_message,
+                            contact=contact,
+                            phone=contact.phone,
+                            contact_name=contact.name,
+                            sid=msg.sid,
+                            status='sent',
+                        )
+                        total_sent += 1
+
+                    except Exception as e:
+                        logger.error(f"Twilio send to {contact.phone} failed: {e}")
+                        WhatsAppMessageLog.objects.create(
+                            message=wa_message,
+                            contact=contact,
+                            phone=contact.phone,
+                            contact_name=contact.name,
+                            status='failed',
+                            error=str(e),
+                        )
+                        total_failed += 1
+
+            except Exception as e:
+                logger.error(f"Twilio client init failed: {e}")
                 wa_message.status = 'failed'
-            else:
-                wa_message.status = 'partial'
-            wa_message.save()
+                wa_message.save()
+                messages.error(request, f'Twilio error: {e}')
+                return redirect('whatsapp_send')
 
-            log_activity(
-                user=request.user,
-                action=f"WhatsApp message sent — {total_sent} delivered, {total_failed} failed ({msg_type})",
-                request=request,
+        # ── Final status + activity log ────────────────────────────────────────
+        wa_message.total_sent = total_sent
+        wa_message.total_failed = total_failed
+        wa_message.status = 'sent' if total_failed == 0 else ('failed' if total_sent == 0 else 'partial')
+        wa_message.save()
+
+        log_activity(
+            user=request.user,
+            action=f"WhatsApp [{sender}] sent — {total_sent} ok, {total_failed} failed ({msg_type})",
+            request=request,
+        )
+
+        if total_failed == 0:
+            messages.success(request, f'Message sent to {total_sent} contact(s) via {"WhatsApp Web" if sender == "selenium" else "Twilio"}.')
+        elif total_sent == 0:
+            messages.error(request, f'All {total_failed} messages failed.')
+        else:
+            messages.warning(request, f'Sent to {total_sent}, failed for {total_failed}.')
+
+        if image_https_warning and sender == 'twilio':
+            messages.warning(
+                request,
+                'Image was saved but NOT sent — Twilio requires HTTPS for images. '
+                'Set WHATSAPP_BASE_URL=https://... in your .env to enable image sending.'
             )
-
-            if total_failed == 0:
-                messages.success(request, f'Message sent to {total_sent} contact(s).')
-            elif total_sent == 0:
-                messages.error(request, f'All {total_failed} messages failed. Check Twilio credentials.')
-            else:
-                messages.warning(request, f'Sent to {total_sent}, failed for {total_failed}.')
-
-            if image_https_warning:
-                messages.warning(
-                    request,
-                    'Image was saved but NOT sent via WhatsApp — Twilio requires an HTTPS URL for images. '
-                    'Set WHATSAPP_BASE_URL=https://yourdomain.com in your .env file to enable image sending.'
-                )
-
-        except Exception as e:
-            logger.error(f"Twilio client init failed: {e}")
-            wa_message.status = 'failed'
-            wa_message.save()
-            messages.error(request, f'Twilio error: {e}')
 
         return redirect('whatsapp_send')
 

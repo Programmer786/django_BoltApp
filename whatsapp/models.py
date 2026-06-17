@@ -36,10 +36,15 @@ class WhatsAppMessage(models.Model):
         ('text', 'Custom Text'),
         ('template', 'Template'),
     ]
+    VIA_CHOICES = [
+        ('twilio', 'Twilio API'),
+        ('selenium', 'WhatsApp Web'),
+    ]
 
     sent_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     message_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
     mode = models.CharField(max_length=10, choices=MODE_CHOICES, default='text')
+    via = models.CharField(max_length=10, choices=VIA_CHOICES, default='twilio')
     body = models.TextField(blank=True, null=True)
     image_url = models.TextField(blank=True, null=True)
     content_sid = models.CharField(max_length=100, blank=True, null=True)
