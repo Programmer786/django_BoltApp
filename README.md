@@ -271,6 +271,26 @@ source venv/bin/activate
 gunicorn cms_bolt.wsgi:application
 ```
 
+## Now push this to the VPS and run one command on the server to make the session folder writable:
+```bash
+
+# On your VPS — run this once
+cd /var/www/django_project
+
+# Create writable session + cache dirs for the current user (root)
+mkdir -p .whatsapp_session ~/.cache/selenium ~/.wdm
+
+# If Django runs as www-data instead of root, fix ownership
+# chown -R www-data:www-data .whatsapp_session
+Then click Retry in the modal. Here's what changed:
+
+Attempt	Method	Cache location	Why
+1st	Selenium built-in (selenium-manager)	~/.cache/selenium/	Root-writable, no extra packages
+2nd	webdriver-manager with explicit path	~/.wdm/ (home dir)	Forces it away from /var/www/.wdm
+Previous (broken)	webdriver-manager default	/var/www/.wdm	Process home was /var/www → Errno 13
+The root cause was that Django's process had HOME=/var/www, so webdriver-manager tried to create .wdm there and got a permission error. The new code uses os.path.expanduser('~') only as a last resort fallback, and prefers Selenium's own built-in manager which writes to /root/.cache/selenium/ on your VPS.
+```
+
 ## How it works on VPS now Whatsapp QR Code
 ```bash
 
