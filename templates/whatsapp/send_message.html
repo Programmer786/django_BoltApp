@@ -41,10 +41,28 @@
 
   /* ── Bulk list ── */
   .bulk-list { max-height: 180px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 10px; }
-  .bulk-list .form-check { padding: 10px 14px; margin: 0; border-bottom: 1px solid #f5f5f5; transition: background .15s; }
+  .bulk-list .form-check {
+    padding: 10px 14px; margin: 0; border-bottom: 1px solid #f5f5f5;
+    transition: background .15s; display: flex; align-items: center; gap: 10px;
+  }
   .bulk-list .form-check:last-child { border-bottom: none; }
   .bulk-list .form-check:hover { background: #f8fffe; }
-  .bulk-list .form-check-input:checked { background-color: var(--wa); border-color: var(--wa); }
+
+  /* Explicit checkbox appearance — visible in both checked and unchecked states */
+  .bulk-list .form-check-input {
+    width: 18px; height: 18px; flex-shrink: 0; margin: 0; cursor: pointer;
+    border: 2px solid #b0b0b0; border-radius: 4px;
+    background-color: #fff; appearance: none; -webkit-appearance: none;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: all .15s;
+  }
+  .bulk-list .form-check-input:checked {
+    background-color: var(--wa); border-color: var(--wa);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23fff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round' d='M3 8l3.5 3.5L13 4.5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: center; background-size: 11px;
+  }
+  .bulk-list .form-check-input:hover { border-color: var(--wa); }
+  .bulk-list .form-check-label { cursor: pointer; user-select: none; font-size: .87rem; }
 
   /* ── Pre-built template cards ── */
   .tpl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -201,8 +219,8 @@
               {% for c in contacts %}
               <div class="form-check">
                 <input class="form-check-input bulk-cb" type="checkbox" name="bulk_contacts" value="{{ c.id }}" id="bc{{ c.id }}">
-                <label class="form-check-label" for="bc{{ c.id }}" style="font-size:.87rem;cursor:pointer;">
-                  <strong>{{ c.name }}</strong> <span style="color:#aaa;">{{ c.phone }}</span>
+                <label class="form-check-label" for="bc{{ c.id }}">
+                  <strong>{{ c.name }}</strong> <span style="color:#aaa;font-weight:400;">{{ c.phone }}</span>
                 </label>
               </div>
               {% empty %}
