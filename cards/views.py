@@ -248,8 +248,8 @@ def export_cards_csv(request):
     company_name = request.GET.get('company_name', '').strip()
     trade = request.GET.get('trade', '').strip()
 
-    # Start with base queryset
-    card_list = Card.objects.all()
+    # Start with base queryset — select_related avoids N+1 on user/profile per row
+    card_list = Card.objects.select_related('user', 'user__profile').all()
 
     # Apply filters
     if status == 'True':
@@ -356,18 +356,13 @@ def export_cards_csv(request):
         for col_num, cell_value in enumerate(row_data, 1):
             ws.cell(row=row_num, column=col_num, value=cell_value)
 
-    # Auto-size columns after writing all data
+    # Auto-size columns based on actual data
     for col in ws.columns:
-        max_length = 0
-        column = col[0].column_letter
-        for cell in col:
-            try:
-                if len(str(cell.value)) > max_length:
-                    max_length = len(str(cell.value))
-            except:
-                pass
-        adjusted_width = (max_length + 2) * 1.2
-        ws.column_dimensions[column].width = min(adjusted_width, 30)
+        max_length = max(
+            (len(str(cell.value)) for cell in col if cell.value is not None),
+            default=10
+        )
+        ws.column_dimensions[col[0].column_letter].width = min(max_length + 2, 40)
 
     # Save the workbook to the response
     output = BytesIO()

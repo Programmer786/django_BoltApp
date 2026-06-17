@@ -255,8 +255,8 @@ def export_certificates_csv(request):
     company_name = request.GET.get('company_name', '').strip()
     equipment_type = request.GET.get('equipment_type', '').strip()
     
-    # Start with base queryset
-    certificate_list = Certificate.objects.all()
+    # Start with base queryset — select_related avoids N+1 on user/profile per row
+    certificate_list = Certificate.objects.select_related('user', 'user__profile').all()
     
     # Apply filters
     if status == 'True':
@@ -306,20 +306,7 @@ def export_certificates_csv(request):
         cell = ws.cell(row=1, column=col_num, value=header)
         cell.font = openpyxl.styles.Font(bold=True)
         cell.fill = openpyxl.styles.PatternFill("solid", fgColor="DDDDDD")
-    
-    # Auto-size columns
-    for col in ws.columns:
-        max_length = 0
-        column = col[0].column_letter
-        for cell in col:
-            try:
-                if len(str(cell.value)) > max_length:
-                    max_length = len(str(cell.value))
-            except:
-                pass
-        adjusted_width = (max_length + 2) * 1.2
-        ws.column_dimensions[column].width = min(adjusted_width, 30)
-    
+
     def format_date(date_value):
         if not date_value:
             return ''
@@ -379,13 +366,21 @@ def export_certificates_csv(request):
         # Write each cell in the row
         for col_num, cell_value in enumerate(row_data, 1):
             ws.cell(row=row_num, column=col_num, value=cell_value)
-    
+
+    # Auto-size columns based on actual data (runs after all rows are written)
+    for col in ws.columns:
+        max_length = max(
+            (len(str(cell.value)) for cell in col if cell.value is not None),
+            default=10
+        )
+        ws.column_dimensions[col[0].column_letter].width = min(max_length + 2, 40)
+
     # Save the workbook to the response
     output = BytesIO()
     wb.save(output)
     response.write(output.getvalue())
     output.close()
-    
+
     return response
 
 

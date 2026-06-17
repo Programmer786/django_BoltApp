@@ -349,7 +349,7 @@ def export_calibration_data_excel(request, model_name, city):
     if model_name != "calibration":
         return HttpResponse("Invalid category", status=400)
 
-    queryset = Calibration.objects.filter(user__profile__city__iexact=city)
+    queryset = Calibration.objects.select_related('user', 'user__profile').filter(user__profile__city__iexact=city)
 
     wb = openpyxl.Workbook()
     ws = wb.active

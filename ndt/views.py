@@ -357,7 +357,7 @@ def export_ndt_data_excel(request, model_name, city):
     if model_name != "ndt":
         return HttpResponse("Invalid category", status=400)
 
-    queryset = NonDestructiveTesting.objects.filter(user__profile__city__iexact=city)
+    queryset = NonDestructiveTesting.objects.select_related('user', 'user__profile').filter(user__profile__city__iexact=city)
 
     wb = openpyxl.Workbook()
     ws = wb.active
