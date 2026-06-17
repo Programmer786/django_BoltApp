@@ -381,3 +381,39 @@ def send_message(request):
         'history': history,
         'total_contacts': contacts.count(),
     })
+
+
+@superuser_required
+@require_POST
+def delete_history(request):
+    """Delete all WhatsApp message history, including saved image files."""
+    import os
+    from django.core.files.storage import default_storage
+
+    messages_qs = WhatsAppMessage.objects.all()
+    total = messages_qs.count()
+
+    # Remove uploaded image files from disk
+    removed_files = 0
+    for m in messages_qs.exclude(image_url__isnull=True).exclude(image_url=''):
+        # image_url looks like http://host/media/whatsapp_images/<name>
+        marker = '/media/'
+        if marker in (m.image_url or ''):
+            rel_path = m.image_url.split(marker, 1)[1]  # whatsapp_images/<name>
+            try:
+                if default_storage.exists(rel_path):
+                    default_storage.delete(rel_path)
+                    removed_files += 1
+            except Exception as e:
+                logger.warning(f"Could not delete image {rel_path}: {e}")
+
+    # Logs are cascade-deleted with their parent message
+    messages_qs.delete()
+
+    log_activity(
+        user=request.user,
+        action=f"WhatsApp history cleared — {total} message(s), {removed_files} image(s) removed",
+        request=request,
+    )
+    messages.success(request, f'History cleared — {total} message(s) and {removed_files} image(s) deleted.')
+    return redirect('whatsapp_send')
