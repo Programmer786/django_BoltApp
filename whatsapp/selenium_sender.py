@@ -44,7 +44,6 @@ _SEL = {
 # ── Driver management ──────────────────────────────────────────────────────────
 
 def _base_dir():
-    """Project root — always writable (Django process runs from here)."""
     try:
         from django.conf import settings
         return str(settings.BASE_DIR)
@@ -53,6 +52,11 @@ def _base_dir():
 
 
 def _profile_dir():
+    import platform
+    # On Linux the gunicorn user (www-data) cannot write to the project dir
+    # unless ownership was fixed manually.  /tmp is always writable by everyone.
+    if platform.system() != 'Windows':
+        return '/tmp/wa_session'
     return os.path.join(_base_dir(), '.whatsapp_session')
 
 
@@ -70,19 +74,34 @@ def _chrome_opts():
 
     opts = webdriver.ChromeOptions()
     opts.add_argument(f'--user-data-dir={_profile_dir()}')
+
+    # Core stability flags — required on VPS/container environments
     opts.add_argument('--no-sandbox')
+    opts.add_argument('--disable-setuid-sandbox')
     opts.add_argument('--disable-dev-shm-usage')
     opts.add_argument('--disable-gpu')
+    opts.add_argument('--disable-software-rasterizer')
+
+    # Reduce resource usage
     opts.add_argument('--window-size=1280,900')
     opts.add_argument('--disable-extensions')
+    opts.add_argument('--disable-default-apps')
+    opts.add_argument('--disable-background-networking')
+    opts.add_argument('--disable-sync')
+    opts.add_argument('--no-first-run')
+    opts.add_argument('--disable-logging')
+    opts.add_argument('--log-level=3')
+
+    # Bot-detection bypass
     opts.add_argument('--disable-blink-features=AutomationControlled')
     opts.add_experimental_option('excludeSwitches', ['enable-automation'])
     opts.add_experimental_option('useAutomationExtension', False)
 
-    # VPS Linux — no display → headless. QR captured as screenshot and shown in web UI.
     if platform.system() != 'Windows':
         opts.add_argument('--headless=new')
-        opts.add_argument('--remote-debugging-port=9222')
+        opts.add_argument('--no-zygote')          # prevents crash on VPS
+        opts.add_argument('--single-process')     # safer in restricted environments
+        # NOTE: no --remote-debugging-port — port conflicts cause "Chrome exited"
 
     return opts
 
@@ -97,28 +116,27 @@ def _apply_stealth(driver):
 
 
 def _build_driver():
+    import platform
     from selenium import webdriver
 
-    base = _base_dir()
+    is_linux = platform.system() != 'Windows'
     profile = _profile_dir()
-    wdm_cache = os.path.join(base, '.wdm')       # /var/www/django_project/.wdm
-    sel_cache = os.path.join(base, '.selenium')  # /var/www/django_project/.selenium
+
+    # /tmp is world-writable — gunicorn (www-data), root, any user can write.
+    # Project dir created by root is NOT writable by www-data.
+    drv_cache = '/tmp/wa_drivers' if is_linux else os.path.join(_base_dir(), '.wdm')
 
     os.makedirs(profile, exist_ok=True)
-    os.makedirs(wdm_cache, exist_ok=True)
-    os.makedirs(sel_cache, exist_ok=True)
+    os.makedirs(drv_cache, exist_ok=True)
 
-    # Pin BOTH driver managers to the project dir — never HOME (/var/www)
-    # SE_CACHE_PATH → selenium-manager (selenium 4.6+)
-    # WDM_LOCAL / path arg → webdriver-manager
-    os.environ['SE_CACHE_PATH'] = sel_cache
-    os.environ['WDM_LOCAL'] = '0'  # disable local-dir mode so path= arg takes effect
+    # selenium-manager (selenium 4.6+) reads SE_CACHE_PATH
+    os.environ['SE_CACHE_PATH'] = drv_cache
 
     opts = _chrome_opts()
     last_err = None
 
-    # ── Attempt 1: selenium-manager (bundled with selenium 4.6+) ──────────────
-    # Uses SE_CACHE_PATH — writes to project dir, not HOME.
+    # ── Attempt 1: selenium-manager (built into selenium 4.6+) ────────────────
+    # Writes ChromeDriver to SE_CACHE_PATH = /tmp/wa_drivers
     try:
         driver = webdriver.Chrome(options=opts)
         _apply_stealth(driver)
@@ -129,16 +147,24 @@ def _build_driver():
         last_err = exc
         logger.warning(f"selenium-manager attempt failed: {exc}")
 
-    # ── Attempt 2: webdriver-manager with explicit project-dir cache ──────────
-    # path= forces the .wdm download into the project, not /var/www/.wdm.
+    # ── Attempt 2: webdriver-manager — HOME=/tmp so ~/.wdm = /tmp/.wdm ────────
+    # /tmp is world-writable; no path= arg (removed in webdriver-manager 4.x)
     try:
         from webdriver_manager.chrome import ChromeDriverManager
         from selenium.webdriver.chrome.service import Service
 
-        driver = webdriver.Chrome(
-            service=Service(ChromeDriverManager(path=wdm_cache).install()),
-            options=opts,
-        )
+        old_home = os.environ.get('HOME')
+        if is_linux:
+            os.environ['HOME'] = '/tmp'  # /tmp/.wdm is world-writable
+        try:
+            driver_path = ChromeDriverManager().install()
+        finally:
+            if old_home is not None:
+                os.environ['HOME'] = old_home
+            else:
+                os.environ.pop('HOME', None)
+
+        driver = webdriver.Chrome(service=Service(driver_path), options=opts)
         _apply_stealth(driver)
         driver.get('https://web.whatsapp.com')
         time.sleep(5)
