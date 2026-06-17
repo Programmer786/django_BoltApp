@@ -192,6 +192,8 @@ EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 TWILIO_ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID', '')
 TWILIO_AUTH_TOKEN = os.getenv('TWILIO_AUTH_TOKEN', '')
 TWILIO_WHATSAPP_NUMBER = os.getenv('TWILIO_WHATSAPP_NUMBER', 'whatsapp:+14155238886')
+# Must be HTTPS for Twilio to deliver images — leave blank to disable image sending
+WHATSAPP_BASE_URL = os.getenv('WHATSAPP_BASE_URL', '')
 
 # Session Settings – Expire login session after 10 minutes
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Keep session even if the browser is closed (False means browser not closes)

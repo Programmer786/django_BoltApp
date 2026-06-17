@@ -196,6 +196,7 @@ def send_message(request):
 
         # Handle image upload → save and build public URL
         image_url = None
+        image_https_warning = False
         uploaded_image = request.FILES.get('message_image')
         if uploaded_image:
             try:
@@ -208,9 +209,17 @@ def send_message(request):
                 filename = f"whatsapp_images/{uuid.uuid4().hex}{ext}"
                 default_storage.save(filename, ContentFile(uploaded_image.read()))
 
-                domain = getattr(settings, 'DOMAIN_NAME', '147.93.90.97')
-                protocol = 'https' if not getattr(settings, 'DEBUG', True) else 'http'
-                image_url = f"{protocol}://{domain}/media/{filename}"
+                # Use WHATSAPP_BASE_URL from env (must be HTTPS for Twilio media delivery)
+                base_url = getattr(settings, 'WHATSAPP_BASE_URL', '').rstrip('/')
+                if not base_url:
+                    domain = getattr(settings, 'DOMAIN_NAME', '147.93.90.97')
+                    base_url = f"http://{domain}"
+                image_url = f"{base_url}/media/{filename}"
+
+                if not image_url.startswith('https://'):
+                    image_https_warning = True  # image saved but can't send via Twilio
+                    logger.warning(f"WhatsApp image URL is not HTTPS — image won't be sent via Twilio: {image_url}")
+
             except Exception as e:
                 logger.error(f"WhatsApp image upload failed: {e}")
 
@@ -256,7 +265,9 @@ def send_message(request):
                             kwargs['content_variables'] = content_variables
                     else:
                         kwargs['body'] = body
-                        if image_url:
+                        # Only pass media_url if HTTPS — Twilio WhatsApp rejects HTTP
+                        # and will fail the entire message, not just the image
+                        if image_url and image_url.startswith('https://'):
                             kwargs['media_url'] = [image_url]
 
                     msg = client.messages.create(**kwargs)
@@ -304,6 +315,13 @@ def send_message(request):
                 messages.error(request, f'All {total_failed} messages failed. Check Twilio credentials.')
             else:
                 messages.warning(request, f'Sent to {total_sent}, failed for {total_failed}.')
+
+            if image_https_warning:
+                messages.warning(
+                    request,
+                    'Image was saved but NOT sent via WhatsApp — Twilio requires an HTTPS URL for images. '
+                    'Set WHATSAPP_BASE_URL=https://yourdomain.com in your .env file to enable image sending.'
+                )
 
         except Exception as e:
             logger.error(f"Twilio client init failed: {e}")

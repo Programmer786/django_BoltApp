@@ -257,6 +257,12 @@
             <!-- Image upload -->
             <div class="mt-3">
               <div class="section-label">Attach Image <span class="text-muted fw-400" style="text-transform:none;font-size:.75rem;">(optional · JPEG/PNG/GIF · max 5 MB)</span></div>
+              {% if not request.is_secure %}
+              <div class="d-flex align-items-start gap-2 mb-2 p-2 rounded-3" style="background:#fff8e1;border:1px solid #ffe082;font-size:.78rem;color:#5d4037;">
+                <i class="fas fa-exclamation-triangle mt-1" style="color:#f57f17;flex-shrink:0;"></i>
+                <span><strong>HTTPS required for image delivery.</strong> Your server uses HTTP — images will be saved but Twilio cannot send them. Set <code>WHATSAPP_BASE_URL=https://...</code> in <code>.env</code> to enable. Text messages still work normally.</span>
+              </div>
+              {% endif %}
               <label for="imageInput" class="img-upload-zone d-block" id="imgZone">
                 <i class="fas fa-image img-placeholder-icon" id="imgIcon"></i>
                 <img id="imgPreview" class="img-preview" src="" alt="preview">
