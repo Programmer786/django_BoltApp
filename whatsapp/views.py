@@ -118,6 +118,59 @@ def delete_contact(request, contact_id):
 
 
 @superuser_required
+@require_POST
+def add_contact(request):
+    name = request.POST.get('name', '').strip()
+    phone_raw = request.POST.get('phone', '').strip()
+
+    if not name or not phone_raw:
+        messages.error(request, 'Name and phone number are required.')
+        return redirect('whatsapp_contacts')
+
+    phone = phone_raw.replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
+    if not phone.startswith('+'):
+        phone = '+' + phone
+
+    if WhatsAppContact.objects.filter(phone=phone).exists():
+        messages.warning(request, f'A contact with phone {phone} already exists.')
+        return redirect('whatsapp_contacts')
+
+    WhatsAppContact.objects.create(name=name, phone=phone, created_by=request.user)
+    log_activity(user=request.user, action=f"Added WhatsApp contact: {name} ({phone})", request=request)
+    messages.success(request, f'Contact "{name}" added successfully.')
+    return redirect('whatsapp_contacts')
+
+
+@superuser_required
+@require_POST
+def edit_contact(request, contact_id):
+    contact = get_object_or_404(WhatsAppContact, id=contact_id)
+    name = request.POST.get('name', '').strip()
+    phone_raw = request.POST.get('phone', '').strip()
+
+    if not name or not phone_raw:
+        messages.error(request, 'Name and phone number are required.')
+        return redirect('whatsapp_contacts')
+
+    phone = phone_raw.replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
+    if not phone.startswith('+'):
+        phone = '+' + phone
+
+    # Check duplicate phone — allow same contact to keep its own phone
+    if WhatsAppContact.objects.filter(phone=phone).exclude(id=contact_id).exists():
+        messages.warning(request, f'Another contact already uses {phone}.')
+        return redirect('whatsapp_contacts')
+
+    old_name = contact.name
+    contact.name = name
+    contact.phone = phone
+    contact.save()
+    log_activity(user=request.user, action=f"Edited WhatsApp contact: {old_name} → {name} ({phone})", request=request)
+    messages.success(request, f'Contact updated successfully.')
+    return redirect('whatsapp_contacts')
+
+
+@superuser_required
 def send_message(request):
     contacts = WhatsAppContact.objects.all().order_by('name')
     history = WhatsAppMessage.objects.prefetch_related('logs').order_by('-sent_at')[:30]
@@ -129,6 +182,10 @@ def send_message(request):
         content_sid = request.POST.get('content_sid', '').strip()
         content_variables = request.POST.get('content_variables', '').strip()
 
+        # prebuilt mode is just custom text (editable template body)
+        if mode == 'prebuilt':
+            mode = 'text'
+
         # Validate
         if mode == 'text' and not body:
             messages.error(request, 'Message body is required.')
@@ -136,6 +193,26 @@ def send_message(request):
         if mode == 'template' and not content_sid:
             messages.error(request, 'Template SID is required.')
             return redirect('whatsapp_send')
+
+        # Handle image upload → save and build public URL
+        image_url = None
+        uploaded_image = request.FILES.get('message_image')
+        if uploaded_image:
+            try:
+                import os
+                import uuid
+                from django.core.files.storage import default_storage
+                from django.core.files.base import ContentFile
+
+                ext = os.path.splitext(uploaded_image.name)[1].lower()
+                filename = f"whatsapp_images/{uuid.uuid4().hex}{ext}"
+                default_storage.save(filename, ContentFile(uploaded_image.read()))
+
+                domain = getattr(settings, 'DOMAIN_NAME', '147.93.90.97')
+                protocol = 'https' if not getattr(settings, 'DEBUG', True) else 'http'
+                image_url = f"{protocol}://{domain}/media/{filename}"
+            except Exception as e:
+                logger.error(f"WhatsApp image upload failed: {e}")
 
         # Resolve recipients
         if msg_type == 'single':
@@ -157,6 +234,7 @@ def send_message(request):
             message_type=msg_type,
             mode=mode,
             body=body if mode == 'text' else None,
+            image_url=image_url,
             content_sid=content_sid if mode == 'template' else None,
             content_variables=content_variables if mode == 'template' else None,
         )
@@ -178,6 +256,8 @@ def send_message(request):
                             kwargs['content_variables'] = content_variables
                     else:
                         kwargs['body'] = body
+                        if image_url:
+                            kwargs['media_url'] = [image_url]
 
                     msg = client.messages.create(**kwargs)
                     WhatsAppMessageLog.objects.create(

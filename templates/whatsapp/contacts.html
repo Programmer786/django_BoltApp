@@ -7,52 +7,38 @@
 
   .wa-header {
     background: linear-gradient(135deg, var(--wa-dark) 0%, var(--wa) 100%);
-    border-radius: 16px;
-    color: #fff;
-    padding: 28px 32px;
-    margin-bottom: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 16px;
+    border-radius: 16px; color: #fff;
+    padding: 28px 32px; margin-bottom: 28px;
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;
   }
   .wa-header h1 { margin: 0; font-size: 1.6rem; font-weight: 700; }
   .wa-header p  { margin: 4px 0 0; opacity: .85; font-size: .95rem; }
   .wa-badge {
-    background: rgba(255,255,255,.2);
-    border-radius: 50px;
-    padding: 8px 20px;
-    font-size: 1rem;
-    font-weight: 600;
-    white-space: nowrap;
+    background: rgba(255,255,255,.2); border-radius: 50px;
+    padding: 8px 20px; font-size: 1rem; font-weight: 600; white-space: nowrap;
   }
+  .wa-header .btn-add {
+    background: #fff; color: var(--wa-dark); border: none;
+    border-radius: 50px; padding: 10px 22px; font-weight: 700; font-size: .9rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,.12); transition: all .2s; white-space: nowrap;
+  }
+  .wa-header .btn-add:hover { background: var(--wa-light); transform: translateY(-1px); }
 
   .card-wa { border: none; border-radius: 16px; box-shadow: 0 2px 16px rgba(0,0,0,.06); }
   .card-wa .card-header {
-    background: #fff;
-    border-bottom: 1px solid #f0f0f0;
-    border-radius: 16px 16px 0 0 !important;
-    padding: 18px 24px;
-    font-weight: 600;
-    font-size: .95rem;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+    background: #fff; border-bottom: 1px solid #f0f0f0;
+    border-radius: 16px 16px 0 0 !important; padding: 18px 24px;
+    font-weight: 600; font-size: .95rem; display: flex; align-items: center; gap: 10px;
   }
 
   /* Upload zone */
   .upload-zone {
-    border: 2px dashed var(--wa);
-    border-radius: 14px;
-    padding: 36px 24px;
-    text-align: center;
-    cursor: pointer;
-    transition: background .2s;
+    border: 2px dashed var(--wa); border-radius: 14px;
+    padding: 36px 24px; text-align: center; cursor: pointer; transition: background .2s;
   }
   .upload-zone:hover { background: rgba(37,211,102,.06); }
   .upload-zone .upload-icon { font-size: 2.5rem; color: var(--wa); margin-bottom: 10px; }
-  .upload-zone p  { color: #666; margin: 0; font-size: .9rem; }
+  .upload-zone p { color: #666; margin: 0; font-size: .9rem; }
 
   /* Search */
   .search-wrap { position: relative; }
@@ -60,43 +46,51 @@
   .search-wrap input { padding-left: 40px; border-radius: 50px; border: 1px solid #e0e0e0; }
   .search-wrap input:focus { border-color: var(--wa); box-shadow: 0 0 0 3px rgba(37,211,102,.12); }
 
-  /* Contact avatar */
+  /* Avatar */
   .contact-avatar {
-    width: 42px; height: 42px;
-    border-radius: 50%;
+    width: 42px; height: 42px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    font-weight: 700; font-size: .85rem; color: #fff;
-    flex-shrink: 0;
+    font-weight: 700; font-size: .85rem; color: #fff; flex-shrink: 0;
   }
-  .avatar-colors { --c1:#25D366;--c2:#128C7E;--c3:#34B7F1;--c4:#075E54;--c5:#FF6B6B; }
 
   .contact-row:hover { background: #f8fffe; }
   .contact-row td { vertical-align: middle; padding: 12px 16px; }
 
-  /* Delete btn */
+  /* Action buttons */
+  .btn-edit {
+    background: transparent; border: 1px solid #b3e5fc; color: #0277bd;
+    border-radius: 8px; padding: 5px 10px; font-size: .82rem; transition: all .2s; margin-right: 4px;
+  }
+  .btn-edit:hover { background: #0277bd; color: #fff; border-color: #0277bd; }
   .btn-del {
     background: transparent; border: 1px solid #ffcdd2; color: #e53935;
     border-radius: 8px; padding: 5px 10px; font-size: .82rem; transition: all .2s;
   }
   .btn-del:hover { background: #e53935; color: #fff; border-color: #e53935; }
 
-  /* Status pill */
-  .pill {
-    padding: 3px 12px; border-radius: 50px; font-size: .75rem; font-weight: 600; display: inline-block;
-  }
+  .pill { padding: 3px 12px; border-radius: 50px; font-size: .75rem; font-weight: 600; display: inline-block; }
   .pill-green { background: #e8f5e9; color: #2e7d32; }
 
-  .sample-link { color: var(--wa); text-decoration: none; font-size: .85rem; }
-  .sample-link:hover { text-decoration: underline; }
+  /* Modal input focus */
+  .modal-input:focus { border-color: var(--wa); box-shadow: 0 0 0 3px rgba(37,211,102,.15); outline: none; }
+
+  /* Modal header */
+  .modal-wa .modal-header { background: linear-gradient(135deg, var(--wa-dark), var(--wa)); color: #fff; border-radius: 12px 12px 0 0; }
+  .modal-wa .modal-header .btn-close { filter: brightness(0) invert(1); }
+  .modal-wa .modal-content { border: none; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,.15); }
 </style>
 
-<div class="wa-header avatar-colors">
+<!-- Header -->
+<div class="wa-header">
   <div>
     <h1><i class="fab fa-whatsapp me-2"></i> Contacts Library</h1>
     <p>Manage WhatsApp contacts — upload Excel or add individually</p>
   </div>
-  <div class="wa-badge">
-    <i class="fas fa-users me-1"></i> {{ total_contacts }} Total
+  <div class="d-flex align-items-center gap-3 flex-wrap">
+    <div class="wa-badge"><i class="fas fa-users me-1"></i> {{ total_contacts }} Total</div>
+    <button class="btn-add" data-bs-toggle="modal" data-bs-target="#addContactModal">
+      <i class="fas fa-plus me-2"></i> Add Contact
+    </button>
   </div>
 </div>
 
@@ -111,7 +105,7 @@
 
 <div class="row g-4">
 
-  <!-- Upload Excel -->
+  <!-- Upload Excel (left panel) -->
   <div class="col-lg-4">
     <div class="card card-wa h-100">
       <div class="card-header">
@@ -144,7 +138,7 @@
     </div>
   </div>
 
-  <!-- Contacts Table -->
+  <!-- Contacts Table (right panel) -->
   <div class="col-lg-8">
     <div class="card card-wa">
       <div class="card-header justify-content-between">
@@ -169,7 +163,7 @@
                 <th style="padding:12px 16px;font-size:.8rem;color:#888;font-weight:600;border:none;">CONTACT</th>
                 <th style="padding:12px 16px;font-size:.8rem;color:#888;font-weight:600;border:none;">PHONE</th>
                 <th style="padding:12px 16px;font-size:.8rem;color:#888;font-weight:600;border:none;">ADDED</th>
-                <th style="padding:12px 16px;font-size:.8rem;color:#888;font-weight:600;border:none;">ACTION</th>
+                <th style="padding:12px 16px;font-size:.8rem;color:#888;font-weight:600;border:none;">ACTIONS</th>
               </tr>
             </thead>
             <tbody>
@@ -189,10 +183,26 @@
                 </td>
                 <td style="color:#888;font-size:.82rem;">{{ contact.created_at|date:"d M Y" }}</td>
                 <td>
-                  <form method="POST" action="{% url 'whatsapp_delete_contact' contact.id %}" onsubmit="return confirm('Delete {{ contact.name }}?')">
-                    {% csrf_token %}
-                    <button type="submit" class="btn-del"><i class="fas fa-trash"></i></button>
-                  </form>
+                  <div class="d-flex align-items-center">
+                    <!-- Edit button -->
+                    <button type="button" class="btn-edit"
+                      data-bs-toggle="modal"
+                      data-bs-target="#editContactModal"
+                      data-id="{{ contact.id }}"
+                      data-name="{{ contact.name }}"
+                      data-phone="{{ contact.phone }}"
+                      title="Edit">
+                      <i class="fas fa-pen"></i>
+                    </button>
+                    <!-- Delete button -->
+                    <form method="POST" action="{% url 'whatsapp_delete_contact' contact.id %}"
+                          onsubmit="return confirm('Delete {{ contact.name }}?')">
+                      {% csrf_token %}
+                      <button type="submit" class="btn-del" title="Delete">
+                        <i class="fas fa-trash"></i>
+                      </button>
+                    </form>
+                  </div>
                 </td>
               </tr>
               {% endfor %}
@@ -225,22 +235,120 @@
         <div class="text-center py-5">
           <i class="fas fa-address-book" style="font-size:3rem;color:#e0e0e0;"></i>
           <p class="text-muted mt-3 mb-1 fw-600">No contacts found</p>
-          <p class="text-muted" style="font-size:.85rem;">Upload an Excel file to get started</p>
+          <p class="text-muted" style="font-size:.85rem;">
+            <button class="btn btn-sm" style="background:var(--wa);color:#fff;border-radius:8px;padding:6px 16px;" data-bs-toggle="modal" data-bs-target="#addContactModal">
+              <i class="fas fa-plus me-1"></i> Add your first contact
+            </button>
+          </p>
         </div>
         {% endif %}
       </div>
     </div>
   </div>
 
-</div><!-- row -->
+</div><!-- /row -->
+
+
+<!-- ===== ADD CONTACT MODAL ===== -->
+<div class="modal fade" id="addContactModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content modal-wa">
+      <div class="modal-header">
+        <h5 class="modal-title fw-700"><i class="fas fa-user-plus me-2"></i> Add New Contact</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="{% url 'whatsapp_add_contact' %}">
+        {% csrf_token %}
+        <div class="modal-body p-4">
+          <div class="mb-3">
+            <label class="form-label fw-600">Full Name <span class="text-danger">*</span></label>
+            <input type="text" name="name" class="form-control modal-input" placeholder="e.g. Ahmed Ali" required
+              style="border-radius:10px;padding:10px 14px;">
+          </div>
+          <div class="mb-1">
+            <label class="form-label fw-600">Phone Number <span class="text-danger">*</span></label>
+            <div class="input-group">
+              <span class="input-group-text" style="background:#f0fdf4;border-color:#e0e0e0;border-radius:10px 0 0 10px;">
+                <i class="fab fa-whatsapp" style="color:var(--wa);font-size:1.1rem;"></i>
+              </span>
+              <input type="text" name="phone" class="form-control modal-input" placeholder="+966590628999" required
+                style="border-radius:0 10px 10px 0;padding:10px 14px;">
+            </div>
+            <small class="text-muted" style="font-size:.78rem;">Include country code — e.g. +966 for Saudi Arabia, +92 for Pakistan</small>
+          </div>
+        </div>
+        <div class="modal-footer border-0 pt-0 px-4 pb-4">
+          <button type="button" class="btn btn-light fw-600" data-bs-dismiss="modal" style="border-radius:10px;padding:10px 22px;">Cancel</button>
+          <button type="submit" class="btn fw-700" style="background:var(--wa);color:#fff;border-radius:10px;padding:10px 28px;box-shadow:0 3px 10px rgba(37,211,102,.3);">
+            <i class="fas fa-check me-2"></i> Save Contact
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+<!-- ===== EDIT CONTACT MODAL ===== -->
+<div class="modal fade" id="editContactModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content modal-wa">
+      <div class="modal-header">
+        <h5 class="modal-title fw-700"><i class="fas fa-pen me-2"></i> Edit Contact</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" id="editContactForm" action="">
+        {% csrf_token %}
+        <div class="modal-body p-4">
+          <div class="mb-3">
+            <label class="form-label fw-600">Full Name <span class="text-danger">*</span></label>
+            <input type="text" name="name" id="editName" class="form-control modal-input" required
+              style="border-radius:10px;padding:10px 14px;">
+          </div>
+          <div class="mb-1">
+            <label class="form-label fw-600">Phone Number <span class="text-danger">*</span></label>
+            <div class="input-group">
+              <span class="input-group-text" style="background:#f0fdf4;border-color:#e0e0e0;border-radius:10px 0 0 10px;">
+                <i class="fab fa-whatsapp" style="color:var(--wa);font-size:1.1rem;"></i>
+              </span>
+              <input type="text" name="phone" id="editPhone" class="form-control modal-input" required
+                style="border-radius:0 10px 10px 0;padding:10px 14px;">
+            </div>
+            <small class="text-muted" style="font-size:.78rem;">Include country code — e.g. +966 for Saudi Arabia, +92 for Pakistan</small>
+          </div>
+        </div>
+        <div class="modal-footer border-0 pt-0 px-4 pb-4">
+          <button type="button" class="btn btn-light fw-600" data-bs-dismiss="modal" style="border-radius:10px;padding:10px 22px;">Cancel</button>
+          <button type="submit" class="btn fw-700" style="background:#0277bd;color:#fff;border-radius:10px;padding:10px 28px;box-shadow:0 3px 10px rgba(2,119,189,.3);">
+            <i class="fas fa-save me-2"></i> Update Contact
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 
 <script>
+  // Excel file input label
   const input = document.getElementById('excelInput');
   const fileNameEl = document.getElementById('fileName');
   input.addEventListener('change', function() {
     fileNameEl.textContent = this.files[0] ? this.files[0].name : 'Supports .xlsx and .xls';
     fileNameEl.style.color = this.files[0] ? '#25D366' : '';
     fileNameEl.style.fontWeight = this.files[0] ? '600' : '';
+  });
+
+  // Populate Edit modal from data attributes
+  const editModal = document.getElementById('editContactModal');
+  editModal.addEventListener('show.bs.modal', function(event) {
+    const btn = event.relatedTarget;
+    const id    = btn.dataset.id;
+    const name  = btn.dataset.name;
+    const phone = btn.dataset.phone;
+    document.getElementById('editName').value  = name;
+    document.getElementById('editPhone').value = phone;
+    document.getElementById('editContactForm').action = '/whatsapp/contacts/' + id + '/edit/';
   });
 </script>
 

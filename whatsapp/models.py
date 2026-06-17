@@ -41,6 +41,7 @@ class WhatsAppMessage(models.Model):
     message_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
     mode = models.CharField(max_length=10, choices=MODE_CHOICES, default='text')
     body = models.TextField(blank=True, null=True)
+    image_url = models.TextField(blank=True, null=True)
     content_sid = models.CharField(max_length=100, blank=True, null=True)
     content_variables = models.TextField(blank=True, null=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='sent')
