@@ -37,6 +37,30 @@ _SEL = {
         'button[data-testid="compose-btn-send"]',
         'span[data-testid="send"]',
         'button[aria-label="Send"]',
+        'div[role="button"][aria-label="Send"]',
+    ],
+    # Image attachment flow
+    'attach_btn': [
+        'div[title="Attach"]',
+        'span[data-testid="clip"]',
+        'div[data-testid="conversation-clip"]',
+        'button[title="Attach"]',
+        'span[data-icon="plus"]',
+        'span[data-icon="clip"]',
+        'span[data-icon="attach-menu-plus"]',
+    ],
+    'image_input': [
+        'input[accept*="image"]',
+        'input[type="file"][accept*="image"]',
+    ],
+    'any_file_input': [
+        'input[type="file"]',
+    ],
+    'caption_input': [
+        'div[data-testid="media-caption-input-container"] div[contenteditable="true"]',
+        'div[contenteditable="true"][data-tab="10"]',
+        'div[contenteditable="true"][aria-label*="aption"]',
+        'div[contenteditable="true"]',
     ],
 }
 
@@ -322,36 +346,99 @@ def get_status():
             return {'available': True, 'logged_in': False, 'qr_image': None, 'error': str(exc)}
 
 
-def send_wa_message(phone, text):
+def _set_contenteditable_text(driver, element, text):
     """
-    Open WhatsApp Web chat for `phone` and send `text`.
+    Insert `text` (including emoji / non-BMP chars) into a WhatsApp Web
+    contenteditable box. ChromeDriver's send_keys can't type emoji, so we
+    dispatch a synthetic paste/input event with the text instead.
+    """
+    if not text:
+        return
+    element.click()
+    time.sleep(0.3)
+    js = """
+    const el = arguments[0];
+    const txt = arguments[1];
+    el.focus();
+    // Use the clipboard-paste event WhatsApp listens for — handles emoji
+    const dt = new DataTransfer();
+    dt.setData('text/plain', txt);
+    const evt = new ClipboardEvent('paste', {clipboardData: dt, bubbles: true, cancelable: true});
+    el.dispatchEvent(evt);
+    """
+    try:
+        driver.execute_script(js, element, text)
+        time.sleep(0.4)
+    except Exception:
+        # Fallback: type BMP chars only (emoji stripped)
+        bmp = ''.join(c for c in text if ord(c) <= 0xFFFF)
+        element.send_keys(bmp)
+
+
+def send_wa_message(phone, text, image_path=None):
+    """
+    Open WhatsApp Web chat for `phone` and send `text` (and optional image).
     Returns (success: bool, error: str|None).
-    This is blocking and uses a lock — safe for concurrent Django requests.
+    Blocking; uses a re-entrant lock — safe for concurrent Django requests.
     """
+    from selenium.webdriver.common.keys import Keys
+
     with _lock:
         try:
             driver = _get_driver()
             clean = phone.lstrip('+').replace(' ', '').replace('-', '')
+
+            # ── With image: open chat, attach file, type caption, send ────────
+            if image_path and os.path.exists(image_path):
+                driver.get(f"https://web.whatsapp.com/send?phone={clean}")
+
+                # Make sure chat is loaded
+                if _find(driver, _SEL['msg_input'], timeout=30) is None:
+                    return False, 'Chat did not load — is WhatsApp Web logged in?'
+                time.sleep(1.0)
+
+                # Reveal the hidden file input. Try clicking the attach (+) button
+                # first; if that fails, the image input often exists already.
+                _click(driver, _SEL['attach_btn'], timeout=5)
+                time.sleep(0.8)
+
+                file_input = _find(driver, _SEL['image_input'], timeout=5) \
+                    or _find(driver, _SEL['any_file_input'], timeout=5)
+                if file_input is None:
+                    return False, 'Could not find image upload input on WhatsApp Web.'
+
+                file_input.send_keys(os.path.abspath(image_path))
+                time.sleep(2.5)  # wait for image preview to render
+
+                # Type caption (emoji-safe) into the caption box
+                if text:
+                    caption = _find(driver, _SEL['caption_input'], timeout=8)
+                    if caption is not None:
+                        _set_contenteditable_text(driver, caption, text)
+                        time.sleep(0.5)
+
+                # Send (button, then Enter fallback)
+                if not _click(driver, _SEL['send_btn'], timeout=8):
+                    body = _find(driver, _SEL['caption_input'], timeout=3)
+                    if body is not None:
+                        body.send_keys(Keys.ENTER)
+                time.sleep(2.0)
+                return True, None
+
+            # ── Text only: URL pre-fills text (handles emoji natively) ────────
             url = (
                 f"https://web.whatsapp.com/send?phone={clean}"
                 f"&text={urllib.parse.quote(text or '')}"
             )
             driver.get(url)
 
-            # Wait for message input
             msg_box = _find(driver, _SEL['msg_input'], timeout=30)
             if msg_box is None:
                 return False, 'Message input not found — is WhatsApp Web logged in?'
-
             time.sleep(1.0)
 
-            # Click Send button
-            sent = _click(driver, _SEL['send_btn'], timeout=8)
-            if not sent:
-                # Fallback: press Enter
-                from selenium.webdriver.common.keys import Keys
+            if not _click(driver, _SEL['send_btn'], timeout=8):
                 msg_box.send_keys(Keys.ENTER)
-
             time.sleep(1.5)
             return True, None
 

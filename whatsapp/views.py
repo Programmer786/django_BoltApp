@@ -206,6 +206,7 @@ def send_message(request):
 
         # Handle image upload → save and build public URL
         image_url = None
+        image_local_path = None  # absolute path on disk — used by Selenium sender
         image_https_warning = False
         uploaded_image = request.FILES.get('message_image')
         if uploaded_image:
@@ -217,7 +218,8 @@ def send_message(request):
 
                 ext = os.path.splitext(uploaded_image.name)[1].lower()
                 filename = f"whatsapp_images/{uuid.uuid4().hex}{ext}"
-                default_storage.save(filename, ContentFile(uploaded_image.read()))
+                saved_name = default_storage.save(filename, ContentFile(uploaded_image.read()))
+                image_local_path = default_storage.path(saved_name)  # absolute disk path
 
                 # Use WHATSAPP_BASE_URL from env (must be HTTPS for Twilio media delivery)
                 base_url = getattr(settings, 'WHATSAPP_BASE_URL', '').rstrip('/')
@@ -226,8 +228,9 @@ def send_message(request):
                     base_url = f"http://{domain}"
                 image_url = f"{base_url}/media/{filename}"
 
-                if not image_url.startswith('https://'):
-                    image_https_warning = True  # image saved but can't send via Twilio
+                # HTTPS only matters for Twilio — Selenium uploads the local file directly
+                if sender == 'twilio' and not image_url.startswith('https://'):
+                    image_https_warning = True
                     logger.warning(f"WhatsApp image URL is not HTTPS — image won't be sent via Twilio: {image_url}")
 
             except Exception as e:
@@ -278,7 +281,7 @@ def send_message(request):
 
             total_sent = total_failed = 0
             for contact in recipient_qs:
-                success, error = send_wa_message(contact.phone, body or '')
+                success, error = send_wa_message(contact.phone, body or '', image_path=image_local_path)
                 WhatsAppMessageLog.objects.create(
                     message=wa_message,
                     contact=contact,
