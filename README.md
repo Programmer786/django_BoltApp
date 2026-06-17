@@ -353,7 +353,33 @@ Then reload:
 sudo systemctl daemon-reload && sudo systemctl restart gunicorn
 ```
 
-### Step 6 — Connect
+### Step 6 — Raise the Nginx proxy timeout (CRITICAL for image sending)
+
+Sending an image via WhatsApp Web takes 20–40s (attach + upload + caption + send). Nginx's default proxy timeout is 60s, so image sends fail with **504 Gateway Time-out** unless raised to match gunicorn's 120s.
+
+```bash
+sudo nano /etc/nginx/sites-available/django_project
+```
+
+In the `location /` block, add the three timeout lines:
+
+```nginx
+    location / {
+        include proxy_params;
+        proxy_pass http://unix:/var/www/django_project/gunicorn.sock;
+        proxy_read_timeout 180s;
+        proxy_connect_timeout 180s;
+        proxy_send_timeout 180s;
+    }
+```
+
+Then:
+
+```bash
+sudo nginx -t && sudo systemctl restart nginx
+```
+
+### Step 7 — Connect
 
 In the app: **Send Message → Send Via: WhatsApp Web (Local) → Check Status → Scan QR**. Scan the QR with your phone (**WhatsApp → Linked Devices → Link a Device**). Once it shows **Connected**, you can send messages.
 
@@ -366,6 +392,7 @@ In the app: **Send Message → Send Via: WhatsApp Web (Local) → Check Status �
 | `session not created` version mismatch | ChromeDriver ≠ Chrome version | Step 2 installs the exact matching driver to `/usr/local/bin/chromedriver` |
 | Worker `SIGTERM` / `SyntaxError: Unexpected token '<'` | Request took longer than gunicorn's 30s default timeout (returns HTML 500, not JSON) | `--timeout 120` in Step 5 |
 | QR works once then fails | Multiple workers fighting over one Chrome profile | `--workers 1 --threads 4` (Step 5) + re-entrant lock in code |
+| `504 Gateway Time-out` when sending an image | Nginx's 60s proxy timeout shorter than the image-send time | `proxy_read_timeout 180s` in Step 6 |
 
 ### Troubleshooting
 

@@ -346,33 +346,116 @@ def get_status():
             return {'available': True, 'logged_in': False, 'qr_image': None, 'error': str(exc)}
 
 
-def _set_contenteditable_text(driver, element, text):
+def _paste_text(driver, element, text):
     """
     Insert `text` (including emoji / non-BMP chars) into a WhatsApp Web
-    contenteditable box. ChromeDriver's send_keys can't type emoji, so we
-    dispatch a synthetic paste/input event with the text instead.
+    contenteditable. ChromeDriver's send_keys can't type emoji, so we
+    dispatch a synthetic paste event WhatsApp listens for. No click — the
+    caller focuses the element to avoid 'click intercepted' on overlays.
     """
     if not text:
         return
-    element.click()
-    time.sleep(0.3)
     js = """
-    const el = arguments[0];
-    const txt = arguments[1];
+    const el = arguments[0], txt = arguments[1];
     el.focus();
-    // Use the clipboard-paste event WhatsApp listens for — handles emoji
     const dt = new DataTransfer();
     dt.setData('text/plain', txt);
-    const evt = new ClipboardEvent('paste', {clipboardData: dt, bubbles: true, cancelable: true});
-    el.dispatchEvent(evt);
+    el.dispatchEvent(new ClipboardEvent('paste',
+        {clipboardData: dt, bubbles: true, cancelable: true}));
     """
     try:
         driver.execute_script(js, element, text)
         time.sleep(0.4)
     except Exception:
-        # Fallback: type BMP chars only (emoji stripped)
-        bmp = ''.join(c for c in text if ord(c) <= 0xFFFF)
+        bmp = ''.join(c for c in text if ord(c) <= 0xFFFF)  # strip emoji fallback
         element.send_keys(bmp)
+
+
+def _collect_file_inputs(driver):
+    """Return file inputs ordered best-first: image-accepting ones, then the rest."""
+    from selenium.webdriver.common.by import By
+    inputs = driver.find_elements(By.CSS_SELECTOR, 'input[type="file"]')
+    image_first, others = [], []
+    for el in inputs:
+        acc = (el.get_attribute('accept') or '').lower()
+        (image_first if 'image' in acc else others).append(el)
+    return image_first + others
+
+
+def _upload_and_open_preview(driver, abspath, timeout_each=8):
+    """
+    Try each file input until the media preview opens (Send button appears).
+    WhatsApp Web has several file inputs; only the right one triggers the
+    image preview. Returns the Send button element, or None if all failed.
+    """
+    from selenium.webdriver.common.keys import Keys
+
+    # Best-effort: open the attach (+) menu so media inputs become active
+    _click(driver, _SEL['attach_btn'], timeout=3)
+    time.sleep(0.8)
+
+    inputs = _collect_file_inputs(driver)
+    if not inputs:
+        return None
+
+    for inp in inputs:
+        try:
+            inp.send_keys(abspath)
+        except Exception:
+            continue
+        btn = _wait_send_button(driver, timeout=timeout_each)
+        if btn is not None:
+            return btn
+        # Reset any partial state before trying the next input
+        try:
+            from selenium.webdriver.common.action_chains import ActionChains
+            ActionChains(driver).send_keys(Keys.ESCAPE).perform()
+            time.sleep(0.5)
+            _click(driver, _SEL['attach_btn'], timeout=2)
+            time.sleep(0.5)
+        except Exception:
+            pass
+    return None
+
+
+def _wait_send_button(driver, timeout=20):
+    """Wait for the media-preview Send button and return its clickable element."""
+    from selenium.webdriver.common.by import By
+    selectors = [
+        'div[role="button"][aria-label="Send"]',
+        'span[data-icon="send"]',
+        'span[data-testid="send"]',
+        'button[aria-label="Send"]',
+    ]
+    end = time.time() + timeout
+    while time.time() < end:
+        for sel in selectors:
+            els = driver.find_elements(By.CSS_SELECTOR, sel)
+            if els and els[0].is_displayed():
+                el = els[0]
+                # If we matched the icon span, climb to its clickable ancestor
+                if sel.startswith('span'):
+                    try:
+                        btn = el.find_element(By.XPATH,
+                            './ancestor::div[@role="button"][1] | ./ancestor::button[1]')
+                        return btn
+                    except Exception:
+                        return el
+                return el
+        time.sleep(0.5)
+    return None
+
+
+def _wait_gone(driver, css, timeout=15):
+    """Return True once the element matching `css` is gone/hidden (= sent)."""
+    from selenium.webdriver.common.by import By
+    end = time.time() + timeout
+    while time.time() < end:
+        els = driver.find_elements(By.CSS_SELECTOR, css)
+        if not els or not any(e.is_displayed() for e in els):
+            return True
+        time.sleep(0.5)
+    return False
 
 
 def send_wa_message(phone, text, image_path=None):
@@ -381,48 +464,71 @@ def send_wa_message(phone, text, image_path=None):
     Returns (success: bool, error: str|None).
     Blocking; uses a re-entrant lock — safe for concurrent Django requests.
     """
+    from selenium.webdriver.common.by import By
     from selenium.webdriver.common.keys import Keys
+    from selenium.webdriver.common.action_chains import ActionChains
 
     with _lock:
         try:
             driver = _get_driver()
             clean = phone.lstrip('+').replace(' ', '').replace('-', '')
 
-            # ── With image: open chat, attach file, type caption, send ────────
+            # ── With image: attach file → caption → send ──────────────────────
             if image_path and os.path.exists(image_path):
                 driver.get(f"https://web.whatsapp.com/send?phone={clean}")
 
-                # Make sure chat is loaded
                 if _find(driver, _SEL['msg_input'], timeout=30) is None:
                     return False, 'Chat did not load — is WhatsApp Web logged in?'
-                time.sleep(1.0)
+                time.sleep(1.5)
 
-                # Reveal the hidden file input. Try clicking the attach (+) button
-                # first; if that fails, the image input often exists already.
-                _click(driver, _SEL['attach_btn'], timeout=5)
-                time.sleep(0.8)
+                # Clear any leftover menu/overlay from a previous attempt
+                try:
+                    ActionChains(driver).send_keys(Keys.ESCAPE).perform()
+                    time.sleep(0.4)
+                except Exception:
+                    pass
 
-                file_input = _find(driver, _SEL['image_input'], timeout=5) \
-                    or _find(driver, _SEL['any_file_input'], timeout=5)
-                if file_input is None:
-                    return False, 'Could not find image upload input on WhatsApp Web.'
+                # Try each file input until the preview actually opens
+                send_btn = _upload_and_open_preview(driver, os.path.abspath(image_path))
+                if send_btn is None:
+                    return False, 'Image preview did not open — upload may have been rejected.'
 
-                file_input.send_keys(os.path.abspath(image_path))
-                time.sleep(2.5)  # wait for image preview to render
+                # Caption box ONLY appears inside the media preview overlay.
+                # Match by aria-placeholder to avoid grabbing the main compose box.
+                caption = None
+                for sel in ('div[contenteditable="true"][aria-placeholder*="aption"]',
+                            'div[contenteditable="true"][aria-label*="aption"]',
+                            'div[data-testid="media-caption-input-container"] div[contenteditable="true"]'):
+                    els = driver.find_elements(By.CSS_SELECTOR, sel)
+                    if els:
+                        caption = els[0]
+                        break
 
-                # Type caption (emoji-safe) into the caption box
-                if text:
-                    caption = _find(driver, _SEL['caption_input'], timeout=8)
-                    if caption is not None:
-                        _set_contenteditable_text(driver, caption, text)
-                        time.sleep(0.5)
+                if text and caption is not None:
+                    _paste_text(driver, caption, text)
+                    time.sleep(0.5)
+                    # re-locate send btn (DOM may have changed after caption)
+                    send_btn = _wait_send_button(driver, timeout=5) or send_btn
 
-                # Send (button, then Enter fallback)
-                if not _click(driver, _SEL['send_btn'], timeout=8):
-                    body = _find(driver, _SEL['caption_input'], timeout=3)
-                    if body is not None:
-                        body.send_keys(Keys.ENTER)
-                time.sleep(2.0)
+                # Click send — try native click, then JS, then Enter
+                clicked = False
+                try:
+                    send_btn.click()
+                    clicked = True
+                except Exception:
+                    try:
+                        driver.execute_script("arguments[0].click();", send_btn)
+                        clicked = True
+                    except Exception:
+                        pass
+                if not clicked and caption is not None:
+                    caption.send_keys(Keys.ENTER)
+
+                # VERIFY send: the preview send button should disappear once sent.
+                if not _wait_gone(driver, 'span[data-icon="send"]', timeout=15):
+                    return False, 'Image send not confirmed — preview still open after click.'
+
+                time.sleep(1.5)
                 return True, None
 
             # ── Text only: URL pre-fills text (handles emoji natively) ────────
