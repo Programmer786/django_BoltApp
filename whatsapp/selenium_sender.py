@@ -14,7 +14,7 @@ import urllib.parse
 logger = logging.getLogger(__name__)
 
 _driver = None
-_lock = threading.Lock()   # one Selenium operation at a time
+_lock = threading.RLock()   # re-entrant: one Selenium operation at a time, same thread may re-enter
 
 # Multiple selector fallbacks — WhatsApp Web updates selectors occasionally
 _SEL = {
@@ -99,9 +99,9 @@ def _chrome_opts():
 
     if platform.system() != 'Windows':
         opts.add_argument('--headless=new')
-        opts.add_argument('--no-zygote')          # prevents crash on VPS
-        opts.add_argument('--single-process')     # safer in restricted environments
-        # NOTE: no --remote-debugging-port — port conflicts cause "Chrome exited"
+        opts.add_argument('--no-zygote')
+        opts.add_argument('--disable-gpu-sandbox')
+        # --single-process removed: deprecated in Chrome 115+ and causes crashes
 
     return opts
 
@@ -120,6 +120,13 @@ def _build_driver():
     from selenium import webdriver
 
     is_linux = platform.system() != 'Windows'
+
+    # Chrome's crashpad needs a writable HOME to create its crash database.
+    # www-data's HOME is /var/www (not writable) → Chrome exits immediately.
+    # /tmp is world-writable and fixes this.
+    if is_linux:
+        os.environ['HOME'] = '/tmp'
+
     profile = _profile_dir()
 
     # /tmp is world-writable — gunicorn (www-data), root, any user can write.
@@ -129,14 +136,42 @@ def _build_driver():
     os.makedirs(profile, exist_ok=True)
     os.makedirs(drv_cache, exist_ok=True)
 
+    # Remove stale Chrome lock files left by previous crashed instances
+    for _lock in ('SingletonLock', 'SingletonSocket', 'SingletonCookie', 'lockfile'):
+        _lp = os.path.join(profile, _lock)
+        try:
+            if os.path.exists(_lp):
+                os.remove(_lp)
+        except Exception:
+            pass
+
     # selenium-manager (selenium 4.6+) reads SE_CACHE_PATH
     os.environ['SE_CACHE_PATH'] = drv_cache
 
     opts = _chrome_opts()
     last_err = None
 
-    # ── Attempt 1: selenium-manager (built into selenium 4.6+) ────────────────
-    # Writes ChromeDriver to SE_CACHE_PATH = /tmp/wa_drivers
+    # ── Attempt 1: system ChromeDriver installed via apt / manual download ─────
+    # Most reliable — exact version match guaranteed.
+    # Install: see README or run the one-liner in selenium_sender.py header.
+    for cd_path in ('/usr/local/bin/chromedriver', '/usr/bin/chromedriver',
+                    '/usr/bin/chromium-driver'):
+        if not os.path.exists(cd_path):
+            continue
+        try:
+            from selenium.webdriver.chrome.service import Service as ChromeService
+            driver = webdriver.Chrome(
+                service=ChromeService(cd_path), options=opts
+            )
+            _apply_stealth(driver)
+            driver.get('https://web.whatsapp.com')
+            time.sleep(3)
+            return driver
+        except Exception as exc:
+            last_err = exc
+            logger.warning(f"system chromedriver ({cd_path}) failed: {exc}")
+
+    # ── Attempt 2: selenium-manager (built into selenium 4.6+) ────────────────
     try:
         driver = webdriver.Chrome(options=opts)
         _apply_stealth(driver)
@@ -147,15 +182,14 @@ def _build_driver():
         last_err = exc
         logger.warning(f"selenium-manager attempt failed: {exc}")
 
-    # ── Attempt 2: webdriver-manager — HOME=/tmp so ~/.wdm = /tmp/.wdm ────────
-    # /tmp is world-writable; no path= arg (removed in webdriver-manager 4.x)
+    # ── Attempt 3: webdriver-manager — HOME=/tmp so ~/.wdm = /tmp/.wdm ────────
     try:
         from webdriver_manager.chrome import ChromeDriverManager
         from selenium.webdriver.chrome.service import Service
 
         old_home = os.environ.get('HOME')
         if is_linux:
-            os.environ['HOME'] = '/tmp'  # /tmp/.wdm is world-writable
+            os.environ['HOME'] = '/tmp'
         try:
             driver_path = ChromeDriverManager().install()
         finally:
@@ -178,9 +212,10 @@ def _build_driver():
 
 def _get_driver():
     global _driver
-    if _driver is None or not _is_alive(_driver):
-        _driver = _build_driver()
-    return _driver
+    with _lock:
+        if _driver is None or not _is_alive(_driver):
+            _driver = _build_driver()
+        return _driver
 
 
 def close_driver():
@@ -249,40 +284,42 @@ def get_status():
             'error': 'selenium not installed — run: pip install selenium webdriver-manager',
         }
 
-    try:
-        driver = _get_driver()
-    except Exception as exc:
-        err = str(exc).split('\n')[0]  # first line only — cleaner for UI
-        logger.error(f"WhatsApp Web driver start failed: {exc}")
-        return {'available': True, 'logged_in': False, 'qr_image': None, 'error': err}
+    # Serialize all driver access — only one thread may touch Chrome at a time
+    with _lock:
+        try:
+            driver = _get_driver()
+        except Exception as exc:
+            err = str(exc).split('\n')[0]  # first line only — cleaner for UI
+            logger.error(f"WhatsApp Web driver start failed: {exc}")
+            return {'available': True, 'logged_in': False, 'qr_image': None, 'error': err}
 
-    try:
-        # Fast check: are we already logged in?
-        logged_in_el = _find(driver, _SEL['logged_in'], timeout=6)
-        if logged_in_el:
-            return {'available': True, 'logged_in': True, 'qr_image': None, 'error': None}
+        try:
+            # Fast check: are we already logged in?
+            logged_in_el = _find(driver, _SEL['logged_in'], timeout=6)
+            if logged_in_el:
+                return {'available': True, 'logged_in': True, 'qr_image': None, 'error': None}
 
-        # Wait for QR canvas
-        qr_b64 = None
-        qr_el = _find(driver, _SEL['qr'], timeout=25)
-        if qr_el:
-            try:
-                qr_b64 = base64.b64encode(qr_el.screenshot_as_png).decode('utf-8')
-            except Exception:
-                pass
+            # Wait for QR canvas
+            qr_b64 = None
+            qr_el = _find(driver, _SEL['qr'], timeout=15)
+            if qr_el:
+                try:
+                    qr_b64 = base64.b64encode(qr_el.screenshot_as_png).decode('utf-8')
+                except Exception:
+                    pass
 
-        if qr_b64 is None:
-            # Fallback: full-page screenshot (user can see what Chrome rendered)
-            try:
-                qr_b64 = base64.b64encode(driver.get_screenshot_as_png()).decode('utf-8')
-            except Exception:
-                pass
+            if qr_b64 is None:
+                # Fallback: full-page screenshot (user can see what Chrome rendered)
+                try:
+                    qr_b64 = base64.b64encode(driver.get_screenshot_as_png()).decode('utf-8')
+                except Exception:
+                    pass
 
-        return {'available': True, 'logged_in': False, 'qr_image': qr_b64, 'error': None}
+            return {'available': True, 'logged_in': False, 'qr_image': qr_b64, 'error': None}
 
-    except Exception as exc:
-        logger.error(f"WhatsApp Web get_status error: {exc}")
-        return {'available': True, 'logged_in': False, 'qr_image': None, 'error': str(exc)}
+        except Exception as exc:
+            logger.error(f"WhatsApp Web get_status error: {exc}")
+            return {'available': True, 'logged_in': False, 'qr_image': None, 'error': str(exc)}
 
 
 def send_wa_message(phone, text):

@@ -271,46 +271,124 @@ source venv/bin/activate
 gunicorn cms_bolt.wsgi:application
 ```
 
-## Now push this to the VPS and run one command on the server to make the session folder writable:
+## 15. WhatsApp Web (Selenium) Setup on VPS
+
+The app can send WhatsApp messages two ways:
+
+- **Twilio API** — cloud-based, needs a Twilio account (configured in `.env`).
+- **WhatsApp Web (Local)** — uses headless Chrome + Selenium to drive `web.whatsapp.com`. Free, no Twilio needed. Setup steps below.
+
+### How it works
+
+The VPS has **no GUI**, so Chrome runs **headless** (invisible, in memory). When you click **Scan QR** in the app, Chrome loads WhatsApp Web, the QR code is captured as a **screenshot → base64**, and shown inside the Django modal. You scan it with your phone — no VPS display required. Once scanned, the login session is saved in `/tmp/wa_session`, so you don't need to scan again unless the session expires.
+
+### Step 1 — Install Google Chrome
+
 ```bash
-
-# On your VPS — run this once
-cd /var/www/django_project
-
-# Create writable session + cache dirs for the current user (root)
-mkdir -p .whatsapp_session ~/.cache/selenium ~/.wdm
-
-# If Django runs as www-data instead of root, fix ownership
-# chown -R www-data:www-data .whatsapp_session
-Then click Retry in the modal. Here's what changed:
-
-Attempt	Method	Cache location	Why
-1st	Selenium built-in (selenium-manager)	~/.cache/selenium/	Root-writable, no extra packages
-2nd	webdriver-manager with explicit path	~/.wdm/ (home dir)	Forces it away from /var/www/.wdm
-Previous (broken)	webdriver-manager default	/var/www/.wdm	Process home was /var/www → Errno 13
-The root cause was that Django's process had HOME=/var/www, so webdriver-manager tried to create .wdm there and got a permission error. The new code uses os.path.expanduser('~') only as a last resort fallback, and prefers Selenium's own built-in manager which writes to /root/.cache/selenium/ on your VPS.
-```
-
-## How it works on VPS now Whatsapp QR Code
-```bash
-
-Chrome starts silently in the background (no window, no display needed)
---headless=new (Chrome 112+) renders the page in memory
-The QR code is captured as a screenshot → base64 and sent to your Django web interface
-You scan the QR from the Django admin page on your phone — no VPS GUI required
-WhatsApp bot detection is bypassed with --disable-blink-features=AutomationControlled + navigator.webdriver override
-One-time VPS setup — run these on your server:
-
-
-# Install Google Chrome on Ubuntu/Debian VPS
 wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
 echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
 sudo apt-get update && sudo apt-get install -y google-chrome-stable
 
-# Verify
+# Verify — note the version number (e.g. 149.0.7827.155)
 google-chrome --version
+```
 
-# Install Python packages (if not already)
+### Step 2 — Install matching ChromeDriver
+
+ChromeDriver **must match** the installed Chrome version. This downloads the exact match automatically:
+
+```bash
+CHROME_VER=$(google-chrome --version | grep -oP '[\d]+\.[\d]+\.[\d]+\.[\d]+')
+wget -q "https://storage.googleapis.com/chrome-for-testing-public/${CHROME_VER}/linux64/chromedriver-linux64.zip" -O /tmp/cd.zip \
+  && unzip -q /tmp/cd.zip -d /tmp/ \
+  && sudo mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver \
+  && sudo chmod +x /usr/local/bin/chromedriver \
+  && chromedriver --version
+```
+
+> Re-run this step every time Chrome auto-updates to a new major version, or the driver/Chrome versions will mismatch and Chrome will fail to start.
+
+### Step 3 — Install Chrome system libraries
+
+These shared libraries are required or Chrome exits immediately:
+
+```bash
+sudo apt-get install -y libglib2.0-0t64 libnss3 libnspr4 libdbus-1-3 \
+  libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 libdrm2 libxkbcommon0 \
+  libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 \
+  libasound2t64 fonts-liberation libpangocairo-1.0-0
+```
+
+### Step 4 — Install Python packages
+
+```bash
+cd /var/www/django_project && source venv/bin/activate
 pip install selenium webdriver-manager
-After that, go to Send Message → WhatsApp Web (Local) → Check Status → Scan QR — the QR will appear in the Django modal and you scan it with your phone.
+```
+
+### Step 5 — Configure Gunicorn: 1 worker + threads (CRITICAL)
+
+Chrome can only run **one instance per profile**. Multiple gunicorn workers would each launch Chrome on the same profile and conflict. Use **one worker with multiple threads** instead — one shared Chrome, the threads keep the site responsive. Also raise the timeout, since launching Chrome + loading WhatsApp Web takes ~30s.
+
+```bash
+sudo nano /etc/systemd/system/gunicorn.service
+```
+
+The `ExecStart` block must be:
+
+```ini
+ExecStart=/var/www/django_project/venv/bin/gunicorn \
+    --workers 1 \
+    --threads 4 \
+    --timeout 120 \
+    --bind unix:/var/www/django_project/gunicorn.sock \
+    --access-logfile /var/log/gunicorn/access.log \
+    --error-logfile /var/log/gunicorn/error.log \
+    cms_bolt.wsgi:application
+```
+
+Then reload:
+
+```bash
+sudo systemctl daemon-reload && sudo systemctl restart gunicorn
+```
+
+### Step 6 — Connect
+
+In the app: **Send Message → Send Via: WhatsApp Web (Local) → Check Status → Scan QR**. Scan the QR with your phone (**WhatsApp → Linked Devices → Link a Device**). Once it shows **Connected**, you can send messages.
+
+### Key gotchas (already handled in `whatsapp/selenium_sender.py`)
+
+| Symptom | Cause | Fix in code |
+| --- | --- | --- |
+| `Permission denied: '/var/www/.wdm'` | gunicorn user `www-data` can't write to `/var/www` | Driver cache pinned to `/tmp/wa_drivers`; profile in `/tmp/wa_session` |
+| `Chrome instance exited` / `crashpad: --database is required` | `www-data`'s `HOME=/var/www` is not writable; Chrome's crash reporter fails | Code sets `os.environ['HOME'] = '/tmp'` on Linux |
+| `session not created` version mismatch | ChromeDriver ≠ Chrome version | Step 2 installs the exact matching driver to `/usr/local/bin/chromedriver` |
+| Worker `SIGTERM` / `SyntaxError: Unexpected token '<'` | Request took longer than gunicorn's 30s default timeout (returns HTML 500, not JSON) | `--timeout 120` in Step 5 |
+| QR works once then fails | Multiple workers fighting over one Chrome profile | `--workers 1 --threads 4` (Step 5) + re-entrant lock in code |
+
+### Troubleshooting
+
+```bash
+# View the real Python error behind a 500 / "Unexpected token '<'"
+tail -30 /var/log/gunicorn/error.log
+
+# Test Chrome works standalone (should print page HTML)
+google-chrome --headless=new --no-sandbox --disable-setuid-sandbox \
+  --disable-dev-shm-usage --no-zygote --dump-dom https://example.com 2>/dev/null | head -3
+
+# Test the WhatsApp status function as the gunicorn user (www-data)
+sudo -u www-data /var/www/django_project/venv/bin/python3 -c "
+import os, django
+os.environ.setdefault('DJANGO_SETTINGS_MODULE','cms_bolt.settings')
+os.chdir('/var/www/django_project')
+django.setup()
+from whatsapp.selenium_sender import get_status
+r = get_status()
+print('logged_in:', r['logged_in'], '| has_qr:', bool(r['qr_image']), '| error:', r['error'])
+"
+
+# Clear stuck Chrome processes / locked profile
+pkill -9 chrome; pkill -9 chromedriver; rm -rf /tmp/wa_session/Singleton*
+sudo systemctl restart gunicorn
 ```
