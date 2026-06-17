@@ -214,10 +214,10 @@
           <div class="mb-4">
             <div class="section-label">Send Via</div>
             <div class="sender-toggle">
-              <input type="radio" name="sender" id="senderTwilio" value="twilio" checked>
-              <label for="senderTwilio"><i class="fas fa-cloud me-1"></i> Twilio API</label>
-              <input type="radio" name="sender" id="senderSelenium" value="selenium">
+              <input type="radio" name="sender" id="senderSelenium" value="selenium" checked>
               <label for="senderSelenium"><i class="fab fa-whatsapp me-1"></i> WhatsApp Web (Local)</label>
+              <input type="radio" name="sender" id="senderTwilio" value="twilio">
+              <label for="senderTwilio"><i class="fas fa-cloud me-1"></i> Twilio API</label>
             </div>
 
             <!-- WhatsApp Web status panel (hidden by default) -->
@@ -769,6 +769,12 @@
     }
   }));
 
+  // Show the WhatsApp Web panel on load if Selenium is the default selection
+  const defaultSender = document.querySelector('[name=sender]:checked');
+  if (defaultSender && defaultSender.value === 'selenium') {
+    waWebPanel.classList.remove('d-none');
+  }
+
   /* ── Confirm bulk send ── */
   document.getElementById('sendForm').addEventListener('submit', function(e) {
     const isBulk = document.querySelector('[name=message_type]:checked').value === 'bulk';
@@ -985,6 +991,12 @@
     clearInterval(pollTimer);
     clearTimeout(qrRefreshTimer);
   });
+
+  // Auto-check status on page load if WhatsApp Web is the default sender
+  const sel = document.querySelector('[name=sender]:checked');
+  if (sel && sel.value === 'selenium') {
+    checkWaStatus();
+  }
 })();
 </script>
 
