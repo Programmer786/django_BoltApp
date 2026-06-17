@@ -271,3 +271,26 @@ source venv/bin/activate
 gunicorn cms_bolt.wsgi:application
 ```
 
+## How it works on VPS now Whatsapp QR Code
+```bash
+
+Chrome starts silently in the background (no window, no display needed)
+--headless=new (Chrome 112+) renders the page in memory
+The QR code is captured as a screenshot → base64 and sent to your Django web interface
+You scan the QR from the Django admin page on your phone — no VPS GUI required
+WhatsApp bot detection is bypassed with --disable-blink-features=AutomationControlled + navigator.webdriver override
+One-time VPS setup — run these on your server:
+
+
+# Install Google Chrome on Ubuntu/Debian VPS
+wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+sudo apt-get update && sudo apt-get install -y google-chrome-stable
+
+# Verify
+google-chrome --version
+
+# Install Python packages (if not already)
+pip install selenium webdriver-manager
+After that, go to Send Message → WhatsApp Web (Local) → Check Status → Scan QR — the QR will appear in the Django modal and you scan it with your phone.
+```
