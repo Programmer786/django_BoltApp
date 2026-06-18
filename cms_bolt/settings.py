@@ -195,6 +195,11 @@ TWILIO_WHATSAPP_NUMBER = os.getenv('TWILIO_WHATSAPP_NUMBER', 'whatsapp:+14155238
 # Must be HTTPS for Twilio to deliver images — leave blank to disable image sending
 WHATSAPP_BASE_URL = os.getenv('WHATSAPP_BASE_URL', '')
 
+# Meta WhatsApp Business Cloud API (Graph API)
+META_WA_ACCESS_TOKEN = os.getenv('META_WA_ACCESS_TOKEN', '')
+META_WA_PHONE_NUMBER_ID = os.getenv('META_WA_PHONE_NUMBER_ID', '')
+META_WA_API_VERSION = os.getenv('META_WA_API_VERSION', 'v21.0')
+
 # Session Settings – Expire login session after 10 minutes
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Keep session even if the browser is closed (False means browser not closes)
 SESSION_COOKIE_AGE = 3600  # 60 minutes in seconds

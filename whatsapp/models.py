@@ -39,6 +39,7 @@ class WhatsAppMessage(models.Model):
     VIA_CHOICES = [
         ('twilio', 'Twilio API'),
         ('selenium', 'WhatsApp Web'),
+        ('meta', 'Meta Cloud API'),
     ]
 
     sent_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)

@@ -278,8 +278,25 @@
             <div class="sender-toggle">
               <input type="radio" name="sender" id="senderSelenium" value="selenium" checked>
               <label for="senderSelenium"><i class="fab fa-whatsapp me-1"></i> WhatsApp Web (Local)</label>
+              <input type="radio" name="sender" id="senderMeta" value="meta">
+              <label for="senderMeta"><i class="fab fa-facebook me-1"></i> Meta Cloud API</label>
               <input type="radio" name="sender" id="senderTwilio" value="twilio">
               <label for="senderTwilio"><i class="fas fa-cloud me-1"></i> Twilio API</label>
+            </div>
+
+            <!-- Meta Cloud API info panel (hidden by default) -->
+            <div id="metaPanel" class="wa-web-panel mt-3 d-none">
+              <div class="d-flex align-items-start gap-2">
+                <i class="fab fa-facebook" style="color:#1877f2;font-size:1.3rem;margin-top:2px;"></i>
+                <div style="font-size:.78rem;color:#444;">
+                  <strong>Meta Business Cloud API.</strong> Sends via the official Graph API — images work without HTTPS.
+                  <span class="text-muted d-block mt-1">
+                    Note: free-form text/image messages only deliver within 24h of the recipient messaging you.
+                    Outside that window, switch Message Mode to the <strong>3rd tab</strong> and put your approved
+                    <strong>template name</strong> (e.g. <code>hello_world</code>) in the SID field.
+                  </span>
+                </div>
+              </div>
             </div>
 
             <!-- WhatsApp Web status panel (hidden by default) -->
@@ -622,6 +639,10 @@
               <span class="badge" style="background:#e8f5e9;color:#2e7d32;font-size:.72rem;padding:4px 10px;">
                 <i class="fab fa-whatsapp me-1"></i>WA Web
               </span>
+              {% elif msg.via == 'meta' %}
+              <span class="badge" style="background:#e7f0fe;color:#1877f2;font-size:.72rem;padding:4px 10px;">
+                <i class="fab fa-facebook me-1"></i>Meta
+              </span>
               {% else %}
               <span class="badge" style="background:#e3f2fd;color:#1565c0;font-size:.72rem;padding:4px 10px;">
                 <i class="fas fa-cloud me-1"></i>Twilio
@@ -881,13 +902,19 @@
   const httpsWarning = document.getElementById('httpsWarning');
   const senderRadios = document.querySelectorAll('[name=sender]');
 
+  const metaPanel = document.getElementById('metaPanel');
   function applySender(val) {
+    // Reset panels
+    waWebPanel.classList.add('d-none');
+    if (metaPanel) metaPanel.classList.add('d-none');
+
     if (val === 'selenium') {
       waWebPanel.classList.remove('d-none');
-      // WhatsApp Web uploads the local file directly — HTTPS not needed
-      if (httpsWarning) httpsWarning.classList.add('d-none');
+      if (httpsWarning) httpsWarning.classList.add('d-none');  // local upload, no HTTPS needed
+    } else if (val === 'meta') {
+      if (metaPanel) metaPanel.classList.remove('d-none');
+      if (httpsWarning) httpsWarning.classList.add('d-none');  // Meta uploads media directly
     } else {
-      waWebPanel.classList.add('d-none');
       // Twilio needs HTTPS — show the warning again (server-rendered if HTTP)
       if (httpsWarning && '{{ request.is_secure|yesno:"1,0" }}' === '0') {
         httpsWarning.classList.remove('d-none');

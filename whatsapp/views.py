@@ -295,6 +295,39 @@ def send_message(request):
                 else:
                     total_failed += 1
 
+        # ── Meta WhatsApp Business Cloud API ────────────────────────────────────
+        elif sender == 'meta':
+            from .meta_sender import send_meta_message, is_configured
+
+            if not is_configured():
+                messages.error(request, 'Meta Cloud API is not configured. Set META_WA_ACCESS_TOKEN and META_WA_PHONE_NUMBER_ID in .env.')
+                wa_message.status = 'failed'
+                wa_message.save()
+                return redirect('whatsapp_send')
+
+            total_sent = total_failed = 0
+            for contact in recipient_qs:
+                success, error, msg_id = send_meta_message(
+                    contact.phone,
+                    body or '',
+                    image_path=image_local_path,
+                    mode=mode,
+                    template_name=content_sid,  # reused field holds the template name for Meta
+                )
+                WhatsAppMessageLog.objects.create(
+                    message=wa_message,
+                    contact=contact,
+                    phone=contact.phone,
+                    contact_name=contact.name,
+                    sid=msg_id,
+                    status='sent' if success else 'failed',
+                    error=error,
+                )
+                if success:
+                    total_sent += 1
+                else:
+                    total_failed += 1
+
         # ── Twilio API ─────────────────────────────────────────────────────────
         else:
             try:
@@ -359,8 +392,9 @@ def send_message(request):
             request=request,
         )
 
+        channel_name = {'selenium': 'WhatsApp Web', 'meta': 'Meta Cloud API', 'twilio': 'Twilio'}.get(sender, 'Twilio')
         if total_failed == 0:
-            messages.success(request, f'Message sent to {total_sent} contact(s) via {"WhatsApp Web" if sender == "selenium" else "Twilio"}.')
+            messages.success(request, f'Message sent to {total_sent} contact(s) via {channel_name}.')
         elif total_sent == 0:
             messages.error(request, f'All {total_failed} messages failed.')
         else:
