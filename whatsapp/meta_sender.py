@@ -51,9 +51,10 @@ def _upload_media(base, headers, image_path):
 
 
 def send_meta_message(phone, text, image_path=None, mode='text',
-                      template_name=None, template_lang='en_US'):
+                      template_name=None, template_lang='en_US', template_vars=None):
     """
     Send a WhatsApp message via Meta Cloud API.
+    `template_vars` is an optional list of strings mapped to body {{1}}, {{2}}…
     Returns (success: bool, error: str|None, message_id: str|None).
     """
     try:
@@ -74,14 +75,22 @@ def send_meta_message(phone, text, image_path=None, mode='text',
         # ── Template message ──────────────────────────────────────────────
         if mode == 'template':
             name = (template_name or '').strip() or 'hello_world'
+            template_obj = {
+                'name': name,
+                'language': {'code': template_lang or 'en_US'},
+            }
+            # Map variable values to body parameters {{1}}, {{2}}…
+            clean_vars = [v for v in (template_vars or []) if v not in (None, '')]
+            if clean_vars:
+                template_obj['components'] = [{
+                    'type': 'body',
+                    'parameters': [{'type': 'text', 'text': str(v)} for v in clean_vars],
+                }]
             payload = {
                 'messaging_product': 'whatsapp',
                 'to': to,
                 'type': 'template',
-                'template': {
-                    'name': name,
-                    'language': {'code': template_lang or 'en_US'},
-                },
+                'template': template_obj,
             }
 
         # ── Image message (upload file → send by media id) ────────────────

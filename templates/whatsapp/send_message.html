@@ -383,7 +383,7 @@
               <input type="radio" name="mode" id="modePrebuilt" value="prebuilt">
               <label for="modePrebuilt"><i class="fas fa-th-large me-1"></i> Templates</label>
               <input type="radio" name="mode" id="modeTwilio" value="template">
-              <label for="modeTwilio"><i class="fas fa-magic me-1"></i> Twilio</label>
+              <label for="modeTwilio" id="modeTwilioLabel"><i class="fas fa-magic me-1"></i> Twilio</label>
             </div>
           </div>
 
@@ -507,22 +507,63 @@
             </div>
           </div>
 
-          <!-- 4c. Twilio Template -->
+          <!-- 4c. Template (Twilio SID or Meta template name) -->
           <div id="twilioSection" class="d-none mb-4">
-            <div class="p-3 rounded-3 mb-3" style="background:#f0fdf4;border:1px solid #bbf7d0;">
+            <div class="p-3 rounded-3 mb-3" id="tplInfoTwilio" style="background:#f0fdf4;border:1px solid #bbf7d0;">
               <p class="mb-0" style="font-size:.8rem;color:#555;">
                 <i class="fas fa-info-circle me-1 text-success"></i>
                 Enter a Twilio Content Template SID and optional JSON variables.
               </p>
             </div>
-            <div class="section-label">Template Content SID</div>
-            <input type="text" name="content_sid" class="form-control mb-3"
+            <div class="p-3 rounded-3 mb-3 d-none" id="tplInfoMeta" style="background:#eef5ff;border:1px solid #bcd6ff;">
+              <p class="mb-0" style="font-size:.8rem;color:#555;">
+                <i class="fab fa-facebook me-1" style="color:#1877f2;"></i>
+                Enter your <strong>approved Meta template name</strong> (e.g. <code>hello_world</code>) and its language.
+                Use <code>{name}</code> in Variables to auto-fill each contact's name.
+              </p>
+            </div>
+
+            <div class="section-label" id="tplSidLabel">Template Content SID</div>
+            <input type="text" name="content_sid" id="tplSidInput" class="form-control mb-3"
               placeholder="HXb5b62575e6e4ff6129ad7c8efe1f983e"
               style="border-radius:10px;">
-            <div class="section-label">Content Variables <span class="text-muted fw-400" style="text-transform:none;">(JSON)</span></div>
-            <input type="text" name="content_variables" class="form-control"
-              placeholder='{"1":"12/1","2":"3pm"}'
-              style="border-radius:10px;">
+
+            <!-- Twilio-only: JSON variables -->
+            <div id="twilioVarsWrap">
+              <div class="section-label">Content Variables <span class="text-muted fw-400" style="text-transform:none;">(JSON)</span></div>
+              <input type="text" name="content_variables" class="form-control"
+                placeholder='{"1":"12/1","2":"3pm"}'
+                style="border-radius:10px;">
+            </div>
+
+            <!-- Meta-only: language + body variables -->
+            <div id="metaTplWrap" class="d-none">
+              <div class="row g-2">
+                <div class="col-5">
+                  <div class="section-label">Language</div>
+                  <select name="template_lang" class="form-control" style="border-radius:10px;">
+                    <option value="en_US" selected>en_US</option>
+                    <option value="en">en</option>
+                    <option value="en_GB">en_GB</option>
+                    <option value="ur">ur (Urdu)</option>
+                    <option value="ar">ar (Arabic)</option>
+                    <option value="es">es</option>
+                    <option value="hi">hi</option>
+                    <option value="fr">fr</option>
+                  </select>
+                </div>
+                <div class="col-7">
+                  <div class="section-label">Variables <span class="text-muted fw-400" style="text-transform:none;">(comma-separated)</span></div>
+                  <input type="text" name="template_vars" class="form-control"
+                    placeholder="{name}, 12/01, 3pm"
+                    style="border-radius:10px;">
+                </div>
+              </div>
+              <p class="text-muted mt-2 mb-0" style="font-size:.74rem;">
+                Maps to <code>{{1}}</code>, <code>{{2}}</code>… in order. <code>{name}</code> = each contact's name.
+                Leave blank if the template has no variables (like <code>hello_world</code>).
+              </p>
+            </div>
           </div>
 
           <button type="submit" class="btn-send" id="sendBtn">
@@ -920,6 +961,29 @@
         httpsWarning.classList.remove('d-none');
       }
     }
+    applyTemplateChannel(val);
+  }
+
+  // Switch the 3rd Message-Mode tab + template fields for Meta vs Twilio
+  function applyTemplateChannel(val) {
+    const isMeta = (val === 'meta');
+    const modeLabel = document.getElementById('modeTwilioLabel');
+    const sidLabel  = document.getElementById('tplSidLabel');
+    const sidInput  = document.getElementById('tplSidInput');
+    const twVars    = document.getElementById('twilioVarsWrap');
+    const metaWrap  = document.getElementById('metaTplWrap');
+    const infoTw    = document.getElementById('tplInfoTwilio');
+    const infoMeta  = document.getElementById('tplInfoMeta');
+
+    if (modeLabel) modeLabel.innerHTML = isMeta
+      ? '<i class="fab fa-facebook me-1"></i> Template'
+      : '<i class="fas fa-magic me-1"></i> Twilio';
+    if (sidLabel) sidLabel.textContent = isMeta ? 'Template Name' : 'Template Content SID';
+    if (sidInput) sidInput.placeholder = isMeta ? 'hello_world' : 'HXb5b62575e6e4ff6129ad7c8efe1f983e';
+    if (twVars)   twVars.classList.toggle('d-none', isMeta);
+    if (metaWrap) metaWrap.classList.toggle('d-none', !isMeta);
+    if (infoTw)   infoTw.classList.toggle('d-none', isMeta);
+    if (infoMeta) infoMeta.classList.toggle('d-none', !isMeta);
   }
 
   senderRadios.forEach(r => r.addEventListener('change', function() {

@@ -191,6 +191,8 @@ def send_message(request):
         body = request.POST.get('body', '').strip()
         content_sid = request.POST.get('content_sid', '').strip()
         content_variables = request.POST.get('content_variables', '').strip()
+        template_lang = request.POST.get('template_lang', 'en_US').strip() or 'en_US'
+        template_vars_raw = request.POST.get('template_vars', '').strip()  # e.g. "{name}, 12/01"
 
         # prebuilt mode is just custom text (editable template body)
         if mode == 'prebuilt':
@@ -307,12 +309,21 @@ def send_message(request):
 
             total_sent = total_failed = 0
             for contact in recipient_qs:
+                # Resolve template variables per contact ({name} → contact name)
+                tpl_vars = None
+                if mode == 'template' and template_vars_raw:
+                    tpl_vars = [
+                        v.strip().replace('{name}', contact.name)
+                        for v in template_vars_raw.split(',')
+                    ]
                 success, error, msg_id = send_meta_message(
                     contact.phone,
                     body or '',
                     image_path=image_local_path,
                     mode=mode,
                     template_name=content_sid,  # reused field holds the template name for Meta
+                    template_lang=template_lang,
+                    template_vars=tpl_vars,
                 )
                 WhatsAppMessageLog.objects.create(
                     message=wa_message,
