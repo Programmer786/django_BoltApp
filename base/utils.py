@@ -26,6 +26,46 @@ def get_manager_city(user):
     return None
 
 
+def can_access_record(user, record):
+    """
+    True if `user` may view/edit `record` (a Card/Certificate/Training/NDT/
+    Calibration instance, or anything exposing a `.city` property and a
+    `.user_id`). Superusers: everything. Managers: only their own city.
+    Everyone else (regular employees): only records they created.
+    """
+    if getattr(user, 'is_superuser', False):
+        return True
+    manager_city = get_manager_city(user)
+    if manager_city:
+        return getattr(record, 'city', None) == manager_city
+    return getattr(record, 'user_id', None) == getattr(user, 'id', None)
+
+
+def can_manage_record(user, record):
+    """
+    True if `user` may perform a privileged workflow action (approve,
+    reject, cancel, hold, unhold, activate) on `record`. Superusers: yes.
+    Managers: only for their own city. Regular employees: never, even for
+    their own records — approval is a manager/admin action.
+    """
+    if getattr(user, 'is_superuser', False):
+        return True
+    manager_city = get_manager_city(user)
+    return bool(manager_city) and getattr(record, 'city', None) == manager_city
+
+
+def assert_city_allowed(user, city):
+    """
+    True if `user` may access data scoped to `city` (used for
+    city-parameterized bulk endpoints such as Excel exports). Superusers
+    may request any city; managers only their own; everyone else, none.
+    """
+    if getattr(user, 'is_superuser', False):
+        return True
+    manager_city = get_manager_city(user)
+    return bool(manager_city) and manager_city.strip().lower() == (city or '').strip().lower()
+
+
 def validate_image(image):
     """ Validates the image file type and size. """
     if not image.name.lower().endswith(('.jpg', '.jpeg', '.png')):
@@ -77,9 +117,15 @@ def get_next_numeric_sr_no():
     return "1"
 
 
-def log_activity(user, action, request=None):
-    ip = None
-    browser = None
+def log_activity(user, action, request=None, ip_address=None, browser_info=None):
+    """
+    `request` is the normal path (extracts IP/browser from it). Pass
+    `ip_address`/`browser_info` directly when logging from a background
+    thread that has no live request object (e.g. after a request handler
+    has already returned).
+    """
+    ip = ip_address
+    browser = browser_info
 
     if request:
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
@@ -99,3 +145,18 @@ def log_activity(user, action, request=None):
 
 def format_decimal(value):
     return float(Decimal(value).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)) if value else 0.0
+
+
+_FORMULA_LEAD_CHARS = ('=', '+', '-', '@', '\t', '\r')
+
+
+def safe_cell(value):
+    """
+    Neutralize spreadsheet formula injection: if a value that's about to be
+    written into an Excel/CSV cell starts with a character a spreadsheet
+    app would interpret as a formula trigger, prefix it with a leading
+    apostrophe so it's forced to render as plain text instead of executing.
+    """
+    if isinstance(value, str) and value.startswith(_FORMULA_LEAD_CHARS):
+        return "'" + value
+    return value

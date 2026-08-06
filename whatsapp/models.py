@@ -24,6 +24,8 @@ class WhatsAppContact(models.Model):
 
 class WhatsAppMessage(models.Model):
     STATUS_CHOICES = [
+        ('queued', 'Queued'),
+        ('sending', 'Sending'),
         ('sent', 'Sent'),
         ('partial', 'Partial'),
         ('failed', 'Failed'),
@@ -50,9 +52,10 @@ class WhatsAppMessage(models.Model):
     image_url = models.TextField(blank=True, null=True)
     content_sid = models.CharField(max_length=100, blank=True, null=True)
     content_variables = models.TextField(blank=True, null=True)
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='sent')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='queued')
     total_sent = models.IntegerField(default=0)
     total_failed = models.IntegerField(default=0)
+    total_recipients = models.IntegerField(default=0)
     sent_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

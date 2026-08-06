@@ -1034,7 +1034,12 @@
     });
   }
 
-  /* ── Confirm bulk send + progress overlay ── */
+  /* ── Confirm bulk send + progress overlay ──
+     Sending happens server-side in a background thread (see whatsapp/views.py
+     _send_whatsapp_bulk), so this request returns almost immediately. The
+     overlay shown here is just "submitting…" feedback until the redirect
+     lands; the real progress bar is driven by pollSendProgress() below,
+     which polls the server for actual sent/failed counts. */
   document.getElementById('sendForm').addEventListener('submit', function(e) {
     const isBulk = document.querySelector('[name=message_type]:checked').value === 'bulk';
     let cnt = 1;
@@ -1050,36 +1055,67 @@
         if (!confirm('WhatsApp Web may not be connected. Send anyway?')) { e.preventDefault(); return; }
       }
     }
-    // Show the progress overlay (page reloads when the server responds)
-    startSendProgress(cnt, sender, !!document.getElementById('imageInput').files.length);
+    showSubmittingOverlay(cnt);
   });
 
-  function startSendProgress(count, sender, hasImage) {
+  function showSubmittingOverlay(count) {
+    const overlay = document.getElementById('sendOverlay');
+    const label   = document.getElementById('sendLabel');
+    const sub     = document.getElementById('sendSub');
+    if (!overlay) return;
+    overlay.classList.remove('d-none');
+    label.textContent = `Queuing ${count} message${count > 1 ? 's' : ''}…`;
+    sub.textContent = 'Submitting to the server…';
+  }
+
+  // Real progress: poll the server for actual sent/failed counts on the
+  // in-flight WhatsAppMessage (id passed via ?tracking= after the redirect).
+  const trackingId = "{{ tracking_message_id }}";
+  if (trackingId) {
+    pollSendProgress(trackingId);
+  }
+
+  function pollSendProgress(messageId) {
     const overlay = document.getElementById('sendOverlay');
     const bar     = document.getElementById('sendBar');
     const pct     = document.getElementById('sendPct');
     const label   = document.getElementById('sendLabel');
-    const sub      = document.getElementById('sendSub');
+    const sub     = document.getElementById('sendSub');
     if (!overlay) return;
 
-    // Estimate total time: WhatsApp Web ~12s/contact (+5s if image); Twilio ~1.5s
-    const per = sender === 'selenium' ? (hasImage ? 17 : 12) : 1.5;
-    const totalMs = Math.max(3, count * per) * 1000;
-
     overlay.classList.remove('d-none');
-    label.textContent = `Sending to ${count} contact${count > 1 ? 's' : ''}…`;
-    sub.textContent = sender === 'selenium'
-      ? 'Delivering via WhatsApp Web — please keep this tab open.'
-      : 'Delivering via Twilio…';
+    label.textContent = 'Sending…';
+    sub.textContent = 'Delivering messages — please keep this tab open.';
 
-    // Animate to 92% over the estimate; the reload finishes it to 100%
-    let p = 0;
-    const step = 92 / (totalMs / 200);
+    const STATUS_LABELS = {
+      sent: 'All messages delivered.',
+      partial: 'Finished — some messages failed.',
+      failed: 'Send failed.',
+    };
+
     const timer = setInterval(() => {
-      p = Math.min(92, p + step);
-      bar.style.width = p + '%';
-      pct.textContent = Math.round(p) + '%';
-    }, 200);
+      fetch(`/whatsapp/message/${messageId}/status/`)
+        .then(res => res.json())
+        .then(data => {
+          const done = data.total_sent + data.total_failed;
+          const total = data.total_recipients || 1;
+          const p = Math.min(100, Math.round((done / total) * 100));
+          bar.style.width = p + '%';
+          pct.textContent = p + '%';
+          label.textContent = `Sent ${done} of ${total}…`;
+
+          if (['sent', 'partial', 'failed'].includes(data.status)) {
+            clearInterval(timer);
+            bar.style.width = '100%';
+            pct.textContent = '100%';
+            label.textContent = STATUS_LABELS[data.status] || 'Done.';
+            sub.textContent = `${data.total_sent} sent, ${data.total_failed} failed.`;
+            // Reload (without the tracking param) to refresh the history list
+            setTimeout(() => { window.location.href = window.location.pathname; }, 1400);
+          }
+        })
+        .catch(() => { /* transient network error — next poll will retry */ });
+    }, 1500);
     window.addEventListener('beforeunload', () => clearInterval(timer));
   }
 

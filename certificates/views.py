@@ -24,7 +24,10 @@ from reportlab.pdfgen import canvas
 import openpyxl
 from openpyxl.styles import Alignment, Font, PatternFill
 
-from base.utils import current_date, get_manager_city, get_next_numeric_sr_no, items_per_page
+from base.utils import (
+    current_date, get_manager_city, get_next_numeric_sr_no, items_per_page,
+    can_access_record, can_manage_record, assert_city_allowed, safe_cell,
+)
 from .models import Certificate
 
 logger = logging.getLogger(__name__)
@@ -247,6 +250,12 @@ def report_certificates(request):
 
 @login_required
 def export_certificates_csv(request):
+    # Only staff/superusers may bulk-export; managers are locked to their own city
+    manager_city = get_manager_city(request.user)
+    if not (request.user.is_superuser or request.user.is_staff):
+        messages.error(request, 'You do not have permission to export certificates.')
+        return redirect('manage_certificates')
+
     # Get filter parameters from the request
     from_date = request.GET.get('from_date')
     to_date = request.GET.get('to_date')
@@ -254,7 +263,10 @@ def export_certificates_csv(request):
     status = request.GET.get('status')
     company_name = request.GET.get('company_name', '').strip()
     equipment_type = request.GET.get('equipment_type', '').strip()
-    
+
+    if manager_city:
+        selected_city = manager_city
+
     # Start with base queryset — select_related avoids N+1 on user/profile per row
     certificate_list = Certificate.objects.select_related('user', 'user__profile').all()
     
@@ -365,7 +377,7 @@ def export_certificates_csv(request):
         
         # Write each cell in the row
         for col_num, cell_value in enumerate(row_data, 1):
-            ws.cell(row=row_num, column=col_num, value=cell_value)
+            ws.cell(row=row_num, column=col_num, value=safe_cell(cell_value))
 
     # Auto-size columns based on actual data (runs after all rows are written)
     for col in ws.columns:
@@ -486,6 +498,9 @@ def add_certificate_manual(request):
 @login_required
 def update_certificate(request, uid):
     cert = get_object_or_404(Certificate, uid=uid)
+    if not can_access_record(request.user, cert):
+        messages.error(request, 'You do not have permission to edit this certificate.')
+        return redirect('manage_certificates')
 
     if request.method == 'POST':
         try:
@@ -644,6 +659,9 @@ def pending_certificates(request):
 @login_required
 def approve_reject_certificate(request, uid):
     cert = get_object_or_404(Certificate, uid=uid)
+    if not can_manage_record(request.user, cert):
+        messages.error(request, 'You do not have permission to approve or reject this certificate.')
+        return redirect('pending_certificates')
 
     if request.method == 'POST':
         # Check which button was clicked
@@ -671,6 +689,9 @@ def approve_reject_certificate(request, uid):
 def export_certificate_data_excel(request, model_name, city):
     if model_name != "certificate":
         return HttpResponse("Invalid category", status=400)
+    if not assert_city_allowed(request.user, city):
+        messages.error(request, 'You do not have permission to export this city.')
+        return redirect('manage_certificates')
 
     queryset = Certificate.objects.filter(user__profile__city__iexact=city)
 
@@ -682,8 +703,8 @@ def export_certificate_data_excel(request, model_name, city):
     headers = [
         "S.No", "LH Serial No", "Cert No", "Sticker No", "Eq Serial No", "Equipment Type",
         "Company Name", "Inspection Date", "Expiry Date", "Remaining Months", "Plate No",
-        "Manufacturer", "Inspected By", "Status", "Note", "Prepared By", "Wasted Serial",
-        "Invoice No", "Amount", "Cash/Bank", "Client Representative Name",
+        "Manufacturer", "Inspected By", "Status", "Note", "Requested By", "Prepared By", "Wasted Serial",
+        "Invoice No", "Total Amount", "Paid Amount", "Cash/Bank", "Client Representative Name",
         "Client Representative Number", "Email", "Remarks"
     ]
     ws.append(headers)
@@ -699,7 +720,7 @@ def export_certificate_data_excel(request, model_name, city):
 
     # Add data rows
     for idx, obj in enumerate(queryset, start=1):
-        ws.append([
+        ws.append([safe_cell(v) for v in [
             idx,
             obj.lh_serial_no,
             obj.cert_no,
@@ -715,16 +736,18 @@ def export_certificate_data_excel(request, model_name, city):
             obj.inspected_by,
             obj.status,
             obj.note,
+            obj.requested_by,
             obj.prepared_by,
             obj.wasted_serial,
             obj.invoice_no,
+            obj.total_amount,
             obj.amount,
             obj.cash_bank,
             obj.client_rep_name,
             obj.client_rep_number,
             obj.email,
             obj.remarks,
-        ])
+        ]])
 
     # Export as Excel file
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
@@ -736,7 +759,10 @@ def export_certificate_data_excel(request, model_name, city):
 
 @login_required
 def generate_certificate_pdf(request, cert_uid):
-    cert = Certificate.objects.get(uid=cert_uid)
+    cert = get_object_or_404(Certificate, uid=cert_uid)
+    if not can_access_record(request.user, cert):
+        messages.error(request, 'You do not have permission to download this certificate.')
+        return redirect('manage_certificates')
 
     # Load the background certificate design
     template_path = os.path.join(settings.BASE_DIR, 'public', 'static', 'certificates', 'Format.pdf')
@@ -907,6 +933,9 @@ def unpaid_certificates(request):
 @login_required
 def update_unpaid_certificate(request, uid):
     cert = get_object_or_404(Certificate, uid=uid)
+    if not can_access_record(request.user, cert):
+        messages.error(request, 'You do not have permission to edit this certificate.')
+        return redirect('unpaid_certificates')
 
     if request.method == 'POST':
         if Decimal(request.POST.get('amount')) > Decimal(request.POST.get('total_amount')):
@@ -1145,7 +1174,10 @@ def cancel_certificate(request, uid):
     try:
         if request.method == 'POST':
             certificate = get_object_or_404(Certificate, uid=uid)
-            
+            if not can_manage_record(request.user, certificate):
+                messages.error(request, 'You do not have permission to cancel this certificate.')
+                return redirect('manage_certificates')
+
             # Check if certificate is already cancelled
             if certificate.isCancel:
                 messages.warning(request, f'Certificate {certificate.cert_no} is already cancelled.')
@@ -1189,7 +1221,10 @@ def activate_certificate(request, uid):
     try:
         if request.method == 'POST':
             certificate = get_object_or_404(Certificate, uid=uid)
-            
+            if not can_manage_record(request.user, certificate):
+                messages.error(request, 'You do not have permission to activate this certificate.')
+                return redirect('cancelled_certificates')
+
             # Check if the certificate is already active
             if certificate.isApprove and not certificate.isCancel:
                 messages.warning(request, f'Certificate {certificate.cert_no} is already active.')
@@ -1281,7 +1316,10 @@ def hold_certificate(request, uid):
     try:
         if request.method == 'POST':
             certificate = get_object_or_404(Certificate, uid=uid)
-            
+            if not can_manage_record(request.user, certificate):
+                messages.error(request, 'You do not have permission to hold this certificate.')
+                return redirect('manage_certificates')
+
             if certificate.isHold:
                 messages.warning(request, f'Certificate {certificate.cert_no} is already on hold.')
                 return redirect('manage_certificates')
@@ -1322,6 +1360,9 @@ def unhold_certificate(request, uid):
     try:
         if request.method == 'POST':
             certificate = get_object_or_404(Certificate, uid=uid, isHold=True)
+            if not can_manage_record(request.user, certificate):
+                messages.error(request, 'You do not have permission to release this certificate from hold.')
+                return redirect('holded_certificates')
 
             # Check if the certificate is already unhold
             if not certificate.isHold:

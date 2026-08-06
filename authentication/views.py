@@ -79,6 +79,15 @@ def register_page(request):
             return HttpResponseRedirect(request.path_info)
 
         try:
+            validate_password(password, User(
+                username=username, email=email,
+                first_name=first_name, last_name=last_name,
+            ))
+        except ValidationError as e:
+            messages.error(request, ' '.join(e.messages))
+            return HttpResponseRedirect(request.path_info)
+
+        try:
             # Create user (no 'city' here)
             user_obj = User.objects.create(
                 first_name=first_name,
@@ -321,6 +330,9 @@ def manage_accounts(request):
         users_list = users_list.filter(profile__city=city_filter)
 
     total_accounts = users_list.count()
+    total_managers = users_list.filter(is_staff=True).count()
+    total_employees = users_list.filter(is_staff=False).count()
+    total_active = users_list.filter(is_active=True).count()
 
     # Pagination
     paginator = Paginator(users_list, 10)
@@ -339,6 +351,9 @@ def manage_accounts(request):
     context = {
         'users': users,
         'total_accounts': total_accounts,
+        'total_managers': total_managers,
+        'total_employees': total_employees,
+        'total_active': total_active,
         'manager_city': manager_city,
         'search_q': q,
         'city_filter': city_filter,
@@ -468,6 +483,15 @@ def add_account(request):
 
         if User.objects.filter(email=email).exists():
             messages.warning(request, 'Email is already taken.')
+            return redirect('manage_accounts')
+
+        try:
+            validate_password(password, User(
+                username=username, email=email,
+                first_name=first_name, last_name=last_name,
+            ))
+        except ValidationError as e:
+            messages.error(request, ' '.join(e.messages))
             return redirect('manage_accounts')
 
         try:

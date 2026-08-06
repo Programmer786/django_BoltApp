@@ -7,7 +7,10 @@ from django.core.paginator import PageNotAnInteger, EmptyPage, Paginator
 from django.contrib import messages
 from django.views.decorators.http import require_POST, require_http_methods
 from django.utils.timezone import now  # Make sure this import is present
-from base.utils import items_per_page, current_date, get_next_numeric_sr_no, get_manager_city
+from base.utils import (
+    items_per_page, current_date, get_next_numeric_sr_no, get_manager_city,
+    can_access_record, can_manage_record, assert_city_allowed, safe_cell,
+)
 from ndt.models import NonDestructiveTesting
 from django.utils import timezone
 from datetime import timedelta
@@ -223,6 +226,9 @@ def add_ndt_manual(request):
 @login_required
 def update_ndt(request, uid):
     ndt = get_object_or_404(NonDestructiveTesting, uid=uid)
+    if not can_access_record(request.user, ndt):
+        messages.error(request, 'You do not have permission to edit this NDT report.')
+        return redirect('manage_ndt')
 
     if request.method == 'POST':
         if Decimal(request.POST.get('amount')) > Decimal(request.POST.get('total_amount')):
@@ -329,6 +335,9 @@ def pending_ndt(request):
 @login_required
 def approve_reject_ndt(request, uid):
     ndt = get_object_or_404(NonDestructiveTesting, uid=uid)
+    if not can_manage_record(request.user, ndt):
+        messages.error(request, 'You do not have permission to approve or reject this NDT report.')
+        return redirect('pending_ndt')
 
     if request.method == 'POST':
         # Check which button was clicked
@@ -356,6 +365,9 @@ def approve_reject_ndt(request, uid):
 def export_ndt_data_excel(request, model_name, city):
     if model_name != "ndt":
         return HttpResponse("Invalid category", status=400)
+    if not assert_city_allowed(request.user, city):
+        messages.error(request, 'You do not have permission to export this city.')
+        return redirect('manage_ndt')
 
     queryset = NonDestructiveTesting.objects.select_related('user', 'user__profile').filter(user__profile__city__iexact=city)
 
@@ -366,8 +378,8 @@ def export_ndt_data_excel(request, model_name, city):
     headers = [
         "S.No", "LH Serial No", "Report No", "ID/Serial No", "Material", "Structure Description", "Inspection Type",
         "Inspection Date", "Expiry Date", "Remaining Months", "Company Name", "Joint Type",
-        "Inspected By", "Status", "Note", "Prepared By", "Wasted Serial No", "Approved By", "Received By",
-        "Invoice No", "Amount", "Cash/Bank", "Client Representative Name",
+        "Inspected By", "Status", "Note", "Requested By", "Prepared By", "Wasted Serial No", "Approved By", "Received By",
+        "Invoice No", "Total Amount", "Paid Amount", "Cash/Bank", "Client Representative Name",
         "Client Representative Number", "Email", "Remarks"
     ]
     ws.append(headers)
@@ -383,7 +395,7 @@ def export_ndt_data_excel(request, model_name, city):
 
     # Fill rows with data
     for idx, obj in enumerate(queryset, start=1):
-        ws.append([
+        ws.append([safe_cell(v) for v in [
             idx,
             obj.lh_serial_no,
             obj.report_no,
@@ -399,18 +411,20 @@ def export_ndt_data_excel(request, model_name, city):
             obj.inspected_by,
             obj.status,
             obj.note,
+            obj.requested_by,
             obj.prepared_by,
             obj.wasted_serial,
             obj.approved_by,
             obj.received_by,
             obj.invoice_no,
+            obj.total_amount,
             obj.amount,
             obj.cash_bank,
             obj.client_rep_name,
             obj.client_rep_number,
             obj.email,
             obj.remarks,
-        ])
+        ]])
 
     # Export as Excel
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
@@ -491,6 +505,9 @@ def unpaid_ndt(request):
 @login_required
 def update_unpaid_ndt(request, uid):
     ndt = get_object_or_404(NonDestructiveTesting, uid=uid)
+    if not can_access_record(request.user, ndt):
+        messages.error(request, 'You do not have permission to edit this NDT report.')
+        return redirect('unpaid_ndt')
 
     if request.method == 'POST':
         if Decimal(request.POST.get('amount')) > Decimal(request.POST.get('total_amount')):

@@ -7,7 +7,10 @@ from django.core.paginator import PageNotAnInteger, EmptyPage, Paginator
 from django.contrib import messages
 from django.views.decorators.http import require_POST, require_http_methods
 from django.utils.timezone import now  # Make sure this import is present
-from base.utils import items_per_page, current_date, get_manager_city
+from base.utils import (
+    items_per_page, current_date, get_manager_city,
+    can_access_record, can_manage_record, assert_city_allowed, safe_cell,
+)
 from calibration.models import Calibration
 from django.utils import timezone
 from datetime import timedelta
@@ -221,6 +224,9 @@ def add_calibration_manual(request):
 @login_required
 def update_calibration(request, uid):
     calibration = get_object_or_404(Calibration, uid=uid)
+    if not can_access_record(request.user, calibration):
+        messages.error(request, 'You do not have permission to edit this calibration.')
+        return redirect('manage_calibration')
 
     if request.method == 'POST':
         if Decimal(request.POST.get('amount')) > Decimal(request.POST.get('total_amount')):
@@ -321,6 +327,9 @@ def pending_calibration(request):
 @login_required
 def approve_reject_calibration(request, uid):
     calibration = get_object_or_404(Calibration, uid=uid)
+    if not can_manage_record(request.user, calibration):
+        messages.error(request, 'You do not have permission to approve or reject this calibration.')
+        return redirect('pending_calibration')
 
     if request.method == 'POST':
         # Check which button was clicked
@@ -348,6 +357,9 @@ def approve_reject_calibration(request, uid):
 def export_calibration_data_excel(request, model_name, city):
     if model_name != "calibration":
         return HttpResponse("Invalid category", status=400)
+    if not assert_city_allowed(request.user, city):
+        messages.error(request, 'You do not have permission to export this city.')
+        return redirect('manage_calibration')
 
     queryset = Calibration.objects.select_related('user', 'user__profile').filter(user__profile__city__iexact=city)
 
@@ -358,7 +370,7 @@ def export_calibration_data_excel(request, model_name, city):
     headers = [
         "S.No", "LH Serial No", "Cert No", "Sticker No", "Equipement Name", "Company Name",
         "Received on", "Technician", "Date of Calibration", "Next Date of Cal", "Validity", "Status",
-        "Note", "Prepared By", "Wasted Serial No", "Invoice No", "Amount", "Cash/Bank",
+        "Note", "Requested By", "Prepared By", "Wasted Serial No", "Invoice No", "Total Amount", "Paid Amount", "Cash/Bank",
         "Client Representative Name", "Client Representative Number", "Email", "Remarks"
     ]
     ws.append(headers)
@@ -374,7 +386,7 @@ def export_calibration_data_excel(request, model_name, city):
 
     # Add data rows
     for idx, obj in enumerate(queryset, start=1):
-        ws.append([
+        ws.append([safe_cell(v) for v in [
             idx,
             obj.lh_serial_no,
             obj.cert_no,
@@ -388,16 +400,18 @@ def export_calibration_data_excel(request, model_name, city):
             obj.validity,
             obj.status,
             obj.note,
+            obj.requested_by,
             obj.prepared_by,
             obj.wasted_serial,
             obj.invoice_no,
+            obj.total_amount,
             obj.amount,
             obj.cash_bank,
             obj.client_rep_name,
             obj.client_rep_number,
             obj.email,
             obj.remarks,
-        ])
+        ]])
 
     # Export to Excel response
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
@@ -478,6 +492,9 @@ def unpaid_calibration(request):
 @login_required
 def update_unpaid_calibration(request, uid):
     calibration = get_object_or_404(Calibration, uid=uid)
+    if not can_access_record(request.user, calibration):
+        messages.error(request, 'You do not have permission to edit this calibration.')
+        return redirect('unpaid_calibrations')
 
     if request.method == 'POST':
         if Decimal(request.POST.get('amount')) > Decimal(request.POST.get('total_amount')):

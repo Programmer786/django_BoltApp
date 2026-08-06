@@ -1,14 +1,18 @@
 import functools
 import logging
+import threading
 
 import openpyxl
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
+from django.db import connection
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from base.utils import log_activity
@@ -249,7 +253,8 @@ def send_message(request):
             selected_ids = request.POST.getlist('bulk_contacts')
             recipient_qs = WhatsAppContact.objects.filter(id__in=selected_ids) if selected_ids else WhatsAppContact.objects.all()
 
-        if not recipient_qs.exists():
+        recipient_ids = list(recipient_qs.values_list('id', flat=True))
+        if not recipient_ids:
             messages.error(request, 'No contacts to send to.')
             return redirect('whatsapp_send')
 
@@ -262,7 +267,81 @@ def send_message(request):
             image_url=image_url,
             content_sid=content_sid if mode == 'template' else None,
             content_variables=content_variables if mode == 'template' else None,
+            status='queued',
+            total_recipients=len(recipient_ids),
         )
+
+        if image_https_warning and sender == 'twilio':
+            messages.warning(
+                request,
+                'Image was saved but will NOT be sent — Twilio requires HTTPS for images. '
+                'Set WHATSAPP_BASE_URL=https://... in your .env to enable image sending.'
+            )
+
+        # The actual sending happens in a background thread so this request
+        # returns immediately instead of blocking the web worker for the
+        # entire bulk send (WhatsApp Web sends run ~12-17s per contact).
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        ip_address = x_forwarded_for.split(',')[0] if x_forwarded_for else request.META.get('REMOTE_ADDR')
+        browser_info = request.META.get('HTTP_USER_AGENT', '')
+
+        thread = threading.Thread(
+            target=_send_whatsapp_bulk,
+            args=(
+                wa_message.id, sender, mode, body, image_local_path, image_url,
+                content_sid, content_variables, template_lang, template_vars_raw,
+                recipient_ids, msg_type, request.user.id, ip_address, browser_info,
+            ),
+            daemon=True,
+        )
+        thread.start()
+
+        messages.info(request, f'Sending to {len(recipient_ids)} contact(s) — track progress below.')
+        return redirect(f"{reverse('whatsapp_send')}?tracking={wa_message.id}")
+
+    return render(request, 'whatsapp/send_message.html', {
+        'sidebar_active': 'whatsapp_send',
+        'contacts': contacts,
+        'history': history,
+        'total_contacts': contacts.count(),
+        'tracking_message_id': request.GET.get('tracking', ''),
+    })
+
+
+def _send_whatsapp_bulk(wa_message_id, sender, mode, body, image_local_path, image_url,
+                         content_sid, content_variables, template_lang, template_vars_raw,
+                         recipient_ids, msg_type, user_id, ip_address, browser_info):
+    """
+    Runs the actual per-contact sending off the request thread. Updates
+    WhatsAppMessage.total_sent/total_failed after every contact so the
+    frontend can poll real progress instead of a simulated timer.
+    """
+    try:
+        wa_message = WhatsAppMessage.objects.get(id=wa_message_id)
+        wa_message.status = 'sending'
+        wa_message.save(update_fields=['status'])
+
+        recipient_qs = WhatsAppContact.objects.filter(id__in=recipient_ids)
+        total_sent = total_failed = 0
+
+        def record(contact, success, error=None, sid=None):
+            nonlocal total_sent, total_failed
+            WhatsAppMessageLog.objects.create(
+                message=wa_message,
+                contact=contact,
+                phone=contact.phone,
+                contact_name=contact.name,
+                sid=sid,
+                status='sent' if success else 'failed',
+                error=error,
+            )
+            if success:
+                total_sent += 1
+            else:
+                total_failed += 1
+            wa_message.total_sent = total_sent
+            wa_message.total_failed = total_failed
+            wa_message.save(update_fields=['total_sent', 'total_failed'])
 
         # ── WhatsApp Web (Selenium) ────────────────────────────────────────────
         if sender == 'selenium':
@@ -270,46 +349,31 @@ def send_message(request):
 
             status = get_status()
             if not status['available']:
-                messages.error(request, f"Selenium error: {status['error']}")
+                logger.error(f"Selenium error: {status['error']}")
                 wa_message.status = 'failed'
-                wa_message.save()
-                return redirect('whatsapp_send')
-
+                wa_message.save(update_fields=['status'])
+                return
             if not status['logged_in']:
-                messages.error(request, 'WhatsApp Web is not connected. Please scan the QR code first.')
+                logger.error('WhatsApp Web is not connected — QR not scanned.')
                 wa_message.status = 'failed'
-                wa_message.save()
-                return redirect('whatsapp_send')
+                wa_message.save(update_fields=['status'])
+                return
 
-            total_sent = total_failed = 0
             for contact in recipient_qs:
                 success, error = send_wa_message(contact.phone, body or '', image_path=image_local_path)
-                WhatsAppMessageLog.objects.create(
-                    message=wa_message,
-                    contact=contact,
-                    phone=contact.phone,
-                    contact_name=contact.name,
-                    status='sent' if success else 'failed',
-                    error=error,
-                )
-                if success:
-                    total_sent += 1
-                else:
-                    total_failed += 1
+                record(contact, success, error=error)
 
         # ── Meta WhatsApp Business Cloud API ────────────────────────────────────
         elif sender == 'meta':
             from .meta_sender import send_meta_message, is_configured
 
             if not is_configured():
-                messages.error(request, 'Meta Cloud API is not configured. Set META_WA_ACCESS_TOKEN and META_WA_PHONE_NUMBER_ID in .env.')
+                logger.error('Meta Cloud API is not configured (META_WA_ACCESS_TOKEN/META_WA_PHONE_NUMBER_ID missing).')
                 wa_message.status = 'failed'
-                wa_message.save()
-                return redirect('whatsapp_send')
+                wa_message.save(update_fields=['status'])
+                return
 
-            total_sent = total_failed = 0
             for contact in recipient_qs:
-                # Resolve template variables per contact ({name} → contact name)
                 tpl_vars = None
                 if mode == 'template' and template_vars_raw:
                     tpl_vars = [
@@ -325,106 +389,67 @@ def send_message(request):
                     template_lang=template_lang,
                     template_vars=tpl_vars,
                 )
-                WhatsAppMessageLog.objects.create(
-                    message=wa_message,
-                    contact=contact,
-                    phone=contact.phone,
-                    contact_name=contact.name,
-                    sid=msg_id,
-                    status='sent' if success else 'failed',
-                    error=error,
-                )
-                if success:
-                    total_sent += 1
-                else:
-                    total_failed += 1
+                record(contact, success, error=error, sid=msg_id)
 
         # ── Twilio API ─────────────────────────────────────────────────────────
         else:
             try:
                 from twilio.rest import Client
                 client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-
-                total_sent = total_failed = 0
-                for contact in recipient_qs:
-                    try:
-                        kwargs = {
-                            'from_': settings.TWILIO_WHATSAPP_NUMBER,
-                            'to': f'whatsapp:{contact.phone}',
-                        }
-                        if mode == 'template':
-                            kwargs['content_sid'] = content_sid
-                            if content_variables:
-                                kwargs['content_variables'] = content_variables
-                        else:
-                            kwargs['body'] = body
-                            if image_url and image_url.startswith('https://'):
-                                kwargs['media_url'] = [image_url]
-
-                        msg = client.messages.create(**kwargs)
-                        WhatsAppMessageLog.objects.create(
-                            message=wa_message,
-                            contact=contact,
-                            phone=contact.phone,
-                            contact_name=contact.name,
-                            sid=msg.sid,
-                            status='sent',
-                        )
-                        total_sent += 1
-
-                    except Exception as e:
-                        logger.error(f"Twilio send to {contact.phone} failed: {e}")
-                        WhatsAppMessageLog.objects.create(
-                            message=wa_message,
-                            contact=contact,
-                            phone=contact.phone,
-                            contact_name=contact.name,
-                            status='failed',
-                            error=str(e),
-                        )
-                        total_failed += 1
-
             except Exception as e:
                 logger.error(f"Twilio client init failed: {e}")
                 wa_message.status = 'failed'
-                wa_message.save()
-                messages.error(request, f'Twilio error: {e}')
-                return redirect('whatsapp_send')
+                wa_message.save(update_fields=['status'])
+                return
 
-        # ── Final status + activity log ────────────────────────────────────────
-        wa_message.total_sent = total_sent
-        wa_message.total_failed = total_failed
+            for contact in recipient_qs:
+                try:
+                    kwargs = {
+                        'from_': settings.TWILIO_WHATSAPP_NUMBER,
+                        'to': f'whatsapp:{contact.phone}',
+                    }
+                    if mode == 'template':
+                        kwargs['content_sid'] = content_sid
+                        if content_variables:
+                            kwargs['content_variables'] = content_variables
+                    else:
+                        kwargs['body'] = body
+                        if image_url and image_url.startswith('https://'):
+                            kwargs['media_url'] = [image_url]
+
+                    msg = client.messages.create(**kwargs)
+                    record(contact, True, sid=msg.sid)
+
+                except Exception as e:
+                    logger.error(f"Twilio send to {contact.phone} failed: {e}")
+                    record(contact, False, error=str(e))
+
         wa_message.status = 'sent' if total_failed == 0 else ('failed' if total_sent == 0 else 'partial')
-        wa_message.save()
+        wa_message.save(update_fields=['status'])
 
+        user = User.objects.filter(id=user_id).first()
         log_activity(
-            user=request.user,
+            user=user,
             action=f"WhatsApp [{sender}] sent — {total_sent} ok, {total_failed} failed ({msg_type})",
-            request=request,
+            ip_address=ip_address,
+            browser_info=browser_info,
         )
+    except Exception:
+        logger.exception(f"WhatsApp background send failed for message {wa_message_id}")
+        WhatsAppMessage.objects.filter(id=wa_message_id).update(status='failed')
+    finally:
+        connection.close()
 
-        channel_name = {'selenium': 'WhatsApp Web', 'meta': 'Meta Cloud API', 'twilio': 'Twilio'}.get(sender, 'Twilio')
-        if total_failed == 0:
-            messages.success(request, f'Message sent to {total_sent} contact(s) via {channel_name}.')
-        elif total_sent == 0:
-            messages.error(request, f'All {total_failed} messages failed.')
-        else:
-            messages.warning(request, f'Sent to {total_sent}, failed for {total_failed}.')
 
-        if image_https_warning and sender == 'twilio':
-            messages.warning(
-                request,
-                'Image was saved but NOT sent — Twilio requires HTTPS for images. '
-                'Set WHATSAPP_BASE_URL=https://... in your .env to enable image sending.'
-            )
-
-        return redirect('whatsapp_send')
-
-    return render(request, 'whatsapp/send_message.html', {
-        'sidebar_active': 'whatsapp_send',
-        'contacts': contacts,
-        'history': history,
-        'total_contacts': contacts.count(),
+@superuser_required
+def whatsapp_message_status(request, message_id):
+    """AJAX — polled by the send page to show real (not simulated) send progress."""
+    msg = get_object_or_404(WhatsAppMessage, id=message_id)
+    return JsonResponse({
+        'status': msg.status,
+        'total_sent': msg.total_sent,
+        'total_failed': msg.total_failed,
+        'total_recipients': msg.total_recipients,
     })
 
 

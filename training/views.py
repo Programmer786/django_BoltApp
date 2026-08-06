@@ -8,7 +8,10 @@ from django.core.paginator import PageNotAnInteger, EmptyPage, Paginator
 from django.contrib import messages
 from django.views.decorators.http import require_POST, require_http_methods
 from django.utils.timezone import now  # Make sure this import is present
-from base.utils import items_per_page, current_date, get_next_numeric_sr_no, get_manager_city
+from base.utils import (
+    items_per_page, current_date, get_next_numeric_sr_no, get_manager_city,
+    can_access_record, can_manage_record, assert_city_allowed, safe_cell,
+)
 from training.models import Training
 from django.utils import timezone
 from datetime import timedelta
@@ -249,6 +252,12 @@ def report_training(request):
 
 @login_required
 def export_training_csv(request):
+    # Only staff/superusers may bulk-export; managers are locked to their own city
+    manager_city = get_manager_city(request.user)
+    if not (request.user.is_superuser or request.user.is_staff):
+        messages.error(request, 'You do not have permission to export trainings.')
+        return redirect('manage_training')
+
     # Get filter parameters from the request
     from_date = request.GET.get('from_date')
     to_date = request.GET.get('to_date')
@@ -256,6 +265,9 @@ def export_training_csv(request):
     status = request.GET.get('status')
     company_name = request.GET.get('company_name', '').strip()
     trade = request.GET.get('trade', '').strip()
+
+    if manager_city:
+        selected_city = manager_city
 
     # Start with base queryset — select_related avoids N+1 on user/profile per row
     training_list = Training.objects.select_related('user', 'user__profile').all()
@@ -360,7 +372,7 @@ def export_training_csv(request):
 
         # Write each cell in the row
         for col_num, cell_value in enumerate(row_data, 1):
-            ws.cell(row=row_num, column=col_num, value=cell_value)
+            ws.cell(row=row_num, column=col_num, value=safe_cell(cell_value))
 
     # Auto-size columns based on actual data
     for col in ws.columns:
@@ -474,6 +486,9 @@ def add_training_manual(request):
 @login_required
 def update_training(request, uid):
     training = get_object_or_404(Training, uid=uid)
+    if not can_access_record(request.user, training):
+        messages.error(request, 'You do not have permission to edit this training.')
+        return redirect('manage_training')
 
     if request.method == 'POST':
         cert_no = request.POST.get('cert_no') or None
@@ -610,6 +625,9 @@ def pending_training(request):
 @login_required
 def approve_reject_training(request, uid):
     training = get_object_or_404(Training, uid=uid)
+    if not can_manage_record(request.user, training):
+        messages.error(request, 'You do not have permission to approve or reject this training.')
+        return redirect('pending_training')
 
     if request.method == 'POST':
         # Check which button was clicked
@@ -637,6 +655,9 @@ def approve_reject_training(request, uid):
 def export_training_data_excel(request, model_name, city):
     if model_name != "training":
         return HttpResponse("Invalid category", status=400)
+    if not assert_city_allowed(request.user, city):
+        messages.error(request, 'You do not have permission to export this city.')
+        return redirect('manage_training')
 
     queryset = Training.objects.filter(user__profile__city__iexact=city)
 
@@ -649,7 +670,7 @@ def export_training_data_excel(request, model_name, city):
         "S.No", "Card No", "Certificate No", "Name of Trainee", "Company Name", "Iqama No",
         "Issue Date", "Expiry Date", "Remaining Months", "Trade", "Hologram No",
         "Assessed By Resource Person", "Status", "Note", "Wasted Serial", "Requested By",
-        "Prepared By", "Invoice No", "Amount", "Cash/Bank", "Client Representative Name",
+        "Prepared By", "Invoice No", "Total Amount", "Paid Amount", "Cash/Bank", "Client Representative Name",
         "Client Representative Number", "Email", "Remarks"
     ]
     ws.append(headers)
@@ -665,7 +686,7 @@ def export_training_data_excel(request, model_name, city):
 
     # Add rows
     for idx, obj in enumerate(queryset, start=1):
-        ws.append([
+        ws.append([safe_cell(v) for v in [
             idx,
             obj.card_no,
             obj.cert_no,
@@ -684,13 +705,14 @@ def export_training_data_excel(request, model_name, city):
             obj.requested_by,
             obj.prepared_by,
             obj.invoice_no,
+            obj.total_amount,
             obj.amount,
             obj.cash_bank,
             obj.client_rep_name,
             obj.client_rep_number,
             obj.email,
             obj.remarks,
-        ])
+        ]])
 
     # Return response
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
@@ -771,6 +793,9 @@ def unpaid_training(request):
 @login_required
 def update_unpaid_training(request, uid):
     training = get_object_or_404(Training, uid=uid)
+    if not can_access_record(request.user, training):
+        messages.error(request, 'You do not have permission to edit this training.')
+        return redirect('unpaid_training')
 
     if request.method == 'POST':
         if Decimal(request.POST.get('amount')) > Decimal(request.POST.get('total_amount')):
@@ -1015,7 +1040,10 @@ def cancel_training(request, uid):
     try:
         if request.method == 'POST':
             training = get_object_or_404(Training, uid=uid)
-            
+            if not can_manage_record(request.user, training):
+                messages.error(request, 'You do not have permission to cancel this training.')
+                return redirect('manage_training')
+
             # Check if training is already cancelled
             if training.isCancel:
                 messages.warning(request, f'Training {training.card_no} is already cancelled.')
@@ -1058,7 +1086,10 @@ def activate_training(request, uid):
     try:
         if request.method == 'POST':
             training = get_object_or_404(Training, uid=uid)
-            
+            if not can_manage_record(request.user, training):
+                messages.error(request, 'You do not have permission to activate this training.')
+                return redirect('cancelled_training')
+
             # Check if training is already active
             if training.isApprove and not training.isCancel:
                 messages.warning(request, f'Training {training.card_no} is already active.')
@@ -1165,11 +1196,14 @@ def hold_training(request, uid):
     try:
         if request.method == 'POST':
             training = get_object_or_404(Training, uid=uid)
-            
+            if not can_manage_record(request.user, training):
+                messages.error(request, 'You do not have permission to hold this training.')
+                return redirect('manage_training')
+
             if training.isHold:
                 messages.warning(request, f'Training {training.card_no} is already on hold.')
                 return redirect('manage_training')
-                
+
             if training.isCancel:
                 messages.warning(request, f'Cannot put a cancelled training on hold.')
                 return redirect('manage_training')
@@ -1208,7 +1242,10 @@ def unhold_training(request, uid):
     try:
         if request.method == 'POST':
             training = get_object_or_404(Training, uid=uid, isHold=True)
-            
+            if not can_manage_record(request.user, training):
+                messages.error(request, 'You do not have permission to release this training from hold.')
+                return redirect('holded_training')
+
             activate_notes = request.POST.get('activate_notes', '')
             training.isHold = False
             training._request_user = request.user
