@@ -213,6 +213,9 @@
 </head>
 
 <body>
+	{% include 'base/loader.html' %}
+	{% include 'base/table-scroll.html' %}
+
 	<!-- BEGIN #app -->
 	<div id="app" class="app">
         <!-- ======= Header ======= -->
@@ -306,6 +309,7 @@
 		}
 	</script>
 	
+
 	<!-- For Profile Image change -->
 	<script>
 		function displayImg(input, imgElement) {

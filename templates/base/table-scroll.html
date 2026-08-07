@@ -1,0 +1,285 @@
+{% comment %}
+Adds left/right scroll buttons to any horizontally scrollable table.
+
+Works with all three table setups in this project:
+  - plain .table-responsive wrappers
+  - bootstrap-table (data-toggle="table"), which builds its own scroll
+    container at runtime, so we re-scan after it initialises
+  - wide tables with no scroll container at all (their parent gets one)
+
+Opt out by putting data-no-table-scroll on the table or any ancestor.
+{% endcomment %}
+<style>
+    .tscroll-wrap { position: relative; }
+    .tscroll-btn {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 5;
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        border: 1px solid #cbd5e1;
+        background: rgba(255, 255, 255, .95);
+        color: #334155;
+        box-shadow: 0 3px 12px rgba(0, 0, 0, .16);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        opacity: .55;
+        transition: opacity .18s ease, background .18s ease, color .18s ease, box-shadow .18s ease;
+        padding: 0;
+        font-size: 14px;
+    }
+    .tscroll-wrap:hover .tscroll-btn { opacity: 1; }
+    .tscroll-btn:hover {
+        background: #2563eb;
+        border-color: #2563eb;
+        color: #fff;
+        box-shadow: 0 4px 16px rgba(37, 99, 235, .4);
+    }
+    .tscroll-btn:active { transform: translateY(-50%) scale(.93); }
+    .tscroll-btn:focus-visible { outline: 3px solid rgba(37, 99, 235, .45); outline-offset: 2px; }
+    .tscroll-btn[hidden] { display: none; }
+    .tscroll-btn.left  { left: 6px; }
+    .tscroll-btn.right { right: 6px; }
+
+    /* Subtle edge hint so it's obvious there's more table off-screen */
+    .tscroll-wrap::before,
+    .tscroll-wrap::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 34px;
+        pointer-events: none;
+        z-index: 4;
+        opacity: 0;
+        transition: opacity .2s ease;
+    }
+    .tscroll-wrap::before {
+        left: 0;
+        background: linear-gradient(to right, rgba(15, 23, 42, .10), transparent);
+    }
+    .tscroll-wrap::after {
+        right: 0;
+        background: linear-gradient(to left, rgba(15, 23, 42, .10), transparent);
+    }
+    .tscroll-wrap.can-left::before  { opacity: 1; }
+    .tscroll-wrap.can-right::after { opacity: 1; }
+
+    @media print {
+        .tscroll-btn { display: none !important; }
+    }
+</style>
+
+<script>
+(function () {
+    const TOLERANCE = 4;       // px slack when deciding "is there more to scroll"
+    const HOLD_STEP = 18;      // px per tick while holding a button down
+
+    function isScrollable(el) {
+        const ox = getComputedStyle(el).overflowX;
+        return (ox === 'auto' || ox === 'scroll') && el.scrollWidth > el.clientWidth + TOLERANCE;
+    }
+
+    // bootstrap-table splits a table into a cloned header container and a body
+    // container. Only the body drives the data; scrolling the header alone
+    // just desyncs the two.
+    function preferBody(el) {
+        if (el.classList &&
+            (el.classList.contains('fixed-table-header') || el.classList.contains('fixed-table-footer'))) {
+            const body = el.parentElement && el.parentElement.querySelector('.fixed-table-body');
+            if (body && isScrollable(body)) return body;
+        }
+        return el;
+    }
+
+    // Find the element that actually scrolls for a given table.
+    function scrollerFor(table, allowForce) {
+        let el = table.parentElement;
+        while (el && el !== document.body) {
+            if (isScrollable(el)) return preferBody(el);
+            el = el.parentElement;
+        }
+        // bootstrap-table builds its own scroll container on init. Until that
+        // happens, forcing overflow on the parent would leave a second,
+        // redundant scrollbar behind — so wait for the plugin instead.
+        if (table.getAttribute('data-toggle') === 'table' &&
+            !table.closest('.bootstrap-table') && !allowForce) {
+            return null;
+        }
+        const parent = table.parentElement;
+        if (parent && table.scrollWidth > parent.clientWidth + TOLERANCE) {
+            parent.style.overflowX = 'auto';
+            parent.dataset.tscrollForced = '1';
+            if (parent.scrollWidth > parent.clientWidth + TOLERANCE) return parent;
+            parent.style.overflowX = '';
+            delete parent.dataset.tscrollForced;
+        }
+        return null;
+    }
+
+    function detach(scroller) {
+        const wrap = scroller.parentElement;
+        if (wrap) {
+            wrap.querySelectorAll(':scope > .tscroll-btn').forEach(function (b) { b.remove(); });
+            wrap.classList.remove('tscroll-wrap', 'can-left', 'can-right');
+        }
+        delete scroller.dataset.tscrollReady;
+    }
+
+    // Drop buttons whose scroller has been removed from the page or no longer
+    // scrolls (e.g. bootstrap-table replaced the container we first hooked).
+    function purgeStale() {
+        document.querySelectorAll('[data-tscroll-ready="1"]').forEach(function (scroller) {
+            if (!document.contains(scroller) ||
+                scroller.scrollWidth <= scroller.clientWidth + TOLERANCE) {
+                if (scroller.dataset.tscrollForced === '1') {
+                    scroller.style.overflowX = '';
+                    delete scroller.dataset.tscrollForced;
+                }
+                detach(scroller);
+            }
+        });
+    }
+
+    function attach(scroller) {
+        if (!scroller || scroller.dataset.tscrollReady === '1') return;
+        if (scroller.closest('[data-no-table-scroll]')) return;
+
+        // The buttons need a positioned parent to anchor to.
+        const wrap = scroller.parentElement;
+        if (!wrap) return;
+        // Never let one wrapper end up with two sets of buttons.
+        if (wrap.querySelector(':scope > .tscroll-btn')) return;
+
+        scroller.dataset.tscrollReady = '1';
+        wrap.classList.add('tscroll-wrap');
+
+        const left  = document.createElement('button');
+        const right = document.createElement('button');
+        left.type = right.type = 'button';
+        left.className  = 'tscroll-btn left';
+        right.className = 'tscroll-btn right';
+        left.innerHTML  = '<i class="fas fa-chevron-left"></i>';
+        right.innerHTML = '<i class="fas fa-chevron-right"></i>';
+        left.setAttribute('aria-label', 'Scroll table left');
+        right.setAttribute('aria-label', 'Scroll table right');
+        wrap.appendChild(left);
+        wrap.appendChild(right);
+
+        function page() { return Math.max(160, Math.round(scroller.clientWidth * 0.8)); }
+
+        // Keep bootstrap-table's cloned header/footer aligned with the body.
+        // The plugin normally does this itself, but syncing explicitly means
+        // the columns can never drift apart when we scroll programmatically.
+        function syncMirrors() {
+            const container = scroller.parentElement;
+            if (!container) return;
+            // Queried fresh each time — the plugin can rebuild the header.
+            container.querySelectorAll(':scope > .fixed-table-header, :scope > .fixed-table-footer')
+                .forEach(function (m) { m.scrollLeft = scroller.scrollLeft; });
+        }
+
+        function update() {
+            syncMirrors();
+            const maxScroll = scroller.scrollWidth - scroller.clientWidth;
+            const canLeft  = scroller.scrollLeft > TOLERANCE;
+            const canRight = scroller.scrollLeft < maxScroll - TOLERANCE;
+            left.hidden  = !canLeft;
+            right.hidden = !canRight;
+            wrap.classList.toggle('can-left', canLeft);
+            wrap.classList.toggle('can-right', canRight);
+            // Nothing to scroll at all — drop the buttons entirely.
+            if (maxScroll <= TOLERANCE) {
+                left.hidden = right.hidden = true;
+                wrap.classList.remove('can-left', 'can-right');
+            }
+        }
+
+        function jump(dir) {
+            scroller.scrollBy({ left: dir * page(), behavior: 'smooth' });
+        }
+
+        // Click = jump one screen. Hold = keep scrolling.
+        [[left, -1], [right, 1]].forEach(function (pair) {
+            const btn = pair[0], dir = pair[1];
+            let holdTimer = null, holdInterval = null, held = false;
+
+            btn.addEventListener('click', function () {
+                if (held) { held = false; return; }   // don't double-move after a hold
+                jump(dir);
+            });
+
+            function startHold() {
+                holdTimer = setTimeout(function () {
+                    held = true;
+                    holdInterval = setInterval(function () {
+                        scroller.scrollLeft += dir * HOLD_STEP;
+                    }, 16);
+                }, 300);
+            }
+            function endHold() {
+                clearTimeout(holdTimer);
+                clearInterval(holdInterval);
+            }
+            btn.addEventListener('mousedown', startHold);
+            btn.addEventListener('touchstart', startHold, { passive: true });
+            ['mouseup', 'mouseleave', 'touchend', 'touchcancel', 'blur'].forEach(function (ev) {
+                btn.addEventListener(ev, endHold);
+            });
+        });
+
+        scroller.addEventListener('scroll', update, { passive: true });
+        window.addEventListener('resize', update);
+        update();
+    }
+
+    function scan(allowForce) {
+        purgeStale();
+        document.querySelectorAll('table').forEach(function (table) {
+            if (table.closest('[data-no-table-scroll]')) return;
+            // Skip bootstrap-table's cloned header/footer tables — the real
+            // data table in .fixed-table-body is the one worth hooking.
+            if (table.closest('.fixed-table-header, .fixed-table-footer')) return;
+            attach(scrollerFor(table, allowForce));
+        });
+    }
+
+    function init() {
+        scan(false);
+        // bootstrap-table builds its scroll container after we run, and
+        // DataTables/tab panes can reveal tables later — re-scan a few times.
+        // The last pass allows the force-a-scroller fallback, for wide tables
+        // where no plugin ever took over.
+        setTimeout(function () { scan(false); }, 300);
+        setTimeout(function () { scan(false); }, 900);
+        setTimeout(function () { scan(true);  }, 2000);
+
+        if (window.MutationObserver) {
+            let pending = null;
+            const mo = new MutationObserver(function (muts) {
+                for (const m of muts) {
+                    // Ignore our own button insertions, or we'd loop forever.
+                    if (![].some.call(m.addedNodes, function (n) {
+                        return n.nodeType === 1 && n.classList && n.classList.contains('tscroll-btn');
+                    }) && m.addedNodes.length) {
+                        clearTimeout(pending);
+                        pending = setTimeout(function () { scan(false); }, 150);
+                        return;
+                    }
+                }
+            });
+            mo.observe(document.body, { childList: true, subtree: true });
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();
+</script>
