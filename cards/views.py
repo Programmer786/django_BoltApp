@@ -11,6 +11,7 @@ from django.views.decorators.http import require_POST, require_http_methods
 from base.utils import (
     items_per_page, current_date, get_manager_city,
     can_access_record, can_manage_record, assert_city_allowed, safe_cell,
+    handle_amount_field_update,
 )
 from cards.models import Card
 from django.utils import timezone
@@ -819,37 +820,10 @@ def update_unpaid_card(request, uid):
 
 
 @login_required
+@require_POST
 def update_card_field(request, uid):
-    if request.method == 'POST':
-        try:
-            card = Card.objects.get(uid=uid)
-            if not can_access_record(request.user, card):
-                return JsonResponse({'status': 'error', 'message': 'You do not have permission to edit this card.'}, status=403)
-            data = json.loads(request.body)
-            field = data.get('field')
-            value = data.get('value')
-
-            if field in ['amount', 'total_amount']:
-                value = Decimal(value)
-                if field == 'amount' and value > card.total_amount:
-                    return JsonResponse({'status': 'error', 'message': 'Paid amount cannot exceed total amount.'})
-                setattr(card, field, value)
-                card._request_user = request.user
-                card._request = request
-                card._activity_message = f"Updated {field} inline"
-                card.save()
-                return JsonResponse({'status': 'success'})
-            else:
-                return JsonResponse({'status': 'error', 'message': 'Invalid field.'})
-
-        except Card.DoesNotExist:
-            return JsonResponse({'status': 'error', 'message': 'Card not found.'})
-        except InvalidOperation:
-            return JsonResponse({'status': 'error', 'message': 'Invalid decimal input.'})
-        except Exception as e:
-            return JsonResponse({'status': 'error', 'message': str(e)})
-
-    return JsonResponse({'status': 'error', 'message': 'Invalid request method.'})
+    """Inline Total/Paid Amount edit from the Paid & Unpaid tables."""
+    return handle_amount_field_update(request, Card, uid)
 
 
 @login_required

@@ -24,6 +24,9 @@ class Profile(BaseModel):
     city = models.CharField(max_length=100, blank=True, null=True)
     phone = models.CharField(max_length=20, blank=True, null=True)
     address = models.CharField(max_length=200, blank=True, null=True)
+    # Granted by a superuser from Manage Accounts; lets a manager edit the
+    # Total/Paid Amount cells directly in the Paid & Unpaid tables.
+    can_edit_amounts = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.user.username}'s Profile"

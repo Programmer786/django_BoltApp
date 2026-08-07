@@ -13,4 +13,5 @@ urlpatterns = [
     path('calibration/update_unpaid/<uuid:uid>/', views.update_unpaid_calibration, name='update_unpaid_calibration'),
     path('report-calibration/', views.report_calibration, name="report_calibration"),
     path('report-paid-calibration/', views.report_paid_calibration, name="report_paid_calibration"),
+    path('calibration/update-field/<uuid:uid>/', views.update_calibration_field, name='update_calibration_field'),
 ]

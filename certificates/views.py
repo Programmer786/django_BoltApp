@@ -27,6 +27,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from base.utils import (
     current_date, get_manager_city, get_next_numeric_sr_no, items_per_page,
     can_access_record, can_manage_record, assert_city_allowed, safe_cell,
+    handle_amount_field_update,
 )
 from .models import Certificate
 
@@ -1445,3 +1446,9 @@ def holded_certificates(request):
         'sidebar_active': 'holded_certificates',
     }
     return render(request, 'certificates/holded_certificates.html', context)
+
+@login_required
+@require_POST
+def update_certificate_field(request, uid):
+    """Inline Total/Paid Amount edit from the Paid & Unpaid tables."""
+    return handle_amount_field_update(request, Certificate, uid)

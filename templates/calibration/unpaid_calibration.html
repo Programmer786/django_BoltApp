@@ -149,8 +149,13 @@
                             <td>{{ calibration.prepared_by }}</td>
                             <td>{{ calibration.wasted_serial }}</td>
                             <td>{{ calibration.invoice_no }}</td>
+                            {% if can_edit_amounts %}
+                            <td class="editable-amount" data-url="{% url 'update_calibration_field' calibration.uid %}" data-field="total_amount">{{ calibration.total_amount }}</td>
+                            <td class="editable-amount" data-url="{% url 'update_calibration_field' calibration.uid %}" data-field="amount">{{ calibration.amount }}</td>
+                            {% else %}
                             <td>{{ calibration.total_amount }}</td>
                             <td>{{ calibration.amount }}</td>
+                            {% endif %}
                             <td>{{ calibration.cash_bank }}</td>
                             <td>{{ calibration.client_rep_name }}</td>
                             <td>{{ calibration.client_rep_number }}</td>
@@ -313,6 +318,8 @@
 </script>
 
 
+
+{% if can_edit_amounts %}{% include 'base/inline-amount-edit.html' %}{% endif %}
 
 {% endblock %}
 <!-- BEGIN #Body_of_this_page -->

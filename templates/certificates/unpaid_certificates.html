@@ -162,8 +162,13 @@
                             <td>{{ cert.prepared_by }}</td>
                             <td>{{ cert.wasted_serial }}</td>
                             <td>{{ cert.invoice_no }}</td>
+                            {% if can_edit_amounts %}
+                            <td class="editable-amount" data-url="{% url 'update_certificate_field' cert.uid %}" data-field="total_amount">{{ cert.total_amount }}</td>
+                            <td class="editable-amount" data-url="{% url 'update_certificate_field' cert.uid %}" data-field="amount">{{ cert.amount }}</td>
+                            {% else %}
                             <td>{{ cert.total_amount }}</td>
                             <td>{{ cert.amount }}</td>
+                            {% endif %}
                             <td>{{ cert.cash_bank }}</td>
                             <td>{{ cert.client_rep_name }}</td>
                             <td>{{ cert.client_rep_number }}</td>
@@ -400,6 +405,8 @@
 </script>
 
 
+
+{% if can_edit_amounts %}{% include 'base/inline-amount-edit.html' %}{% endif %}
 
 {% endblock %}
 <!-- BEGIN #Body_of_this_page -->

@@ -19,6 +19,7 @@ urlpatterns = [
     path('users/<int:user_id>/toggle-status/', views.toggle_user_status, name='toggle_user_status'),
     path('users/<int:user_id>/change-password/', views.admin_change_password, name='admin_change_password'),
     path('users/<int:user_id>/edit/', views.edit_user, name='edit_user'),
+    path('users/<int:user_id>/verify-email/', views.verify_user_email, name='verify_user_email'),
     path('logs-activity/', views.logs_activity, name="logs_activity"),
     path('manage-notes/', views.manage_notes, name="manage_notes"),
     path('add-note/', views.add_note, name="add_note"),

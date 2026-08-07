@@ -10,6 +10,7 @@ from django.utils.timezone import now  # Make sure this import is present
 from base.utils import (
     items_per_page, current_date, get_manager_city,
     can_access_record, can_manage_record, assert_city_allowed, safe_cell,
+    handle_amount_field_update,
 )
 from calibration.models import Calibration
 from django.utils import timezone
@@ -770,3 +771,9 @@ def report_paid_calibration(request):
         'sidebar_active': 'report_paid_calibration',
     }
     return render(request, 'calibration/report_paid_calibration.html', context)
+
+@login_required
+@require_POST
+def update_calibration_field(request, uid):
+    """Inline Total/Paid Amount edit from the Paid & Unpaid tables."""
+    return handle_amount_field_update(request, Calibration, uid)

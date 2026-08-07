@@ -134,8 +134,13 @@
                             <td>{{ training.requested_by }}</td>
                             <td>{{ training.prepared_by }}</td>
                             <td>{{ training.invoice_no }}</td>
+                            {% if can_edit_amounts %}
+                            <td class="editable-amount" data-url="{% url 'update_training_field' training.uid %}" data-field="total_amount">{{ training.total_amount }}</td>
+                            <td class="editable-amount" data-url="{% url 'update_training_field' training.uid %}" data-field="amount">{{ training.amount }}</td>
+                            {% else %}
                             <td>{{ training.total_amount }}</td>
                             <td>{{ training.amount }}</td>
+                            {% endif %}
                             <td>{{ training.cash_bank }}</td>
                             <td>{{ training.client_rep_name }}</td>
                             <td>{{ training.client_rep_number }}</td>
@@ -158,6 +163,8 @@
     </div>
 </div>
 
+
+{% if can_edit_amounts %}{% include 'base/inline-amount-edit.html' %}{% endif %}
 
 {% endblock %}
 <!-- BEGIN #Body_of_this_page -->

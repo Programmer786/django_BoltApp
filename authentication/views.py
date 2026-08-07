@@ -434,6 +434,19 @@ def edit_user(request, user_id):
             # Save user and profile
             user.save()
             profile.city = city
+
+            # Amount-editing permission is granted by superusers only — a
+            # manager must never be able to grant it to anyone, themselves
+            # included, by posting the field directly.
+            if request.user.is_superuser and user.is_staff:
+                granted = request.POST.get('can_edit_amounts') == '1'
+                if granted != profile.can_edit_amounts:
+                    profile.can_edit_amounts = granted
+                    log_activity(
+                        user=request.user,
+                        action=f"{'Granted' if granted else 'Revoked'} amount-edit permission for {user.username}",
+                        request=request,
+                    )
             profile.save()
 
             log_activity(user=request.user, action=f"Edited account: {user.username} (by {request.user.username})", request=request)
@@ -483,6 +496,13 @@ def add_account(request):
 
         if User.objects.filter(email=email).exists():
             messages.warning(request, 'Email is already taken.')
+            return redirect('manage_accounts')
+
+        # The modal checks this live, but that's only a convenience — a mismatch
+        # must never get past the server either.
+        password_confirm = request.POST.get('password_confirm')
+        if password_confirm is not None and password != password_confirm:
+            messages.error(request, 'Passwords do not match. The account was not created.')
             return redirect('manage_accounts')
 
         try:
@@ -536,6 +556,39 @@ def add_account(request):
             messages.warning(request, f'User created but failed to send email: {str(e)}')
             return redirect('manage_accounts')
 
+    return redirect('manage_accounts')
+
+
+@login_required
+@require_http_methods(["POST"])
+def verify_user_email(request, user_id):
+    """
+    Manually mark an account's email as verified.
+
+    Login is gated on is_email_verified, so anyone who never received (or
+    can't act on) their activation email is locked out. This lets an admin
+    unblock them directly instead of them being stuck forever.
+    """
+    if not request.user.is_superuser:
+        messages.error(request, 'Permission denied.')
+        return redirect('manage_accounts')
+
+    user = get_object_or_404(User, id=user_id)
+    profile, _ = Profile.objects.get_or_create(user=user)
+
+    if profile.is_email_verified:
+        messages.info(request, f'{user.username} is already verified.')
+        return redirect('manage_accounts')
+
+    profile.is_email_verified = True
+    profile.save()
+
+    log_activity(
+        user=request.user,
+        action=f"Manually verified email for {user.username} (by {request.user.username})",
+        request=request,
+    )
+    messages.success(request, f'{user.username} has been verified and can now log in.')
     return redirect('manage_accounts')
 
 

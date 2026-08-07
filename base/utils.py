@@ -1,8 +1,10 @@
 import datetime
+import json
 import logging
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 
 from django.core.exceptions import ValidationError
+from django.http import JsonResponse
 from django.utils.timezone import now
 
 from authentication.models import ActivityLog
@@ -52,6 +54,90 @@ def can_manage_record(user, record):
         return True
     manager_city = get_manager_city(user)
     return bool(manager_city) and getattr(record, 'city', None) == manager_city
+
+
+def can_edit_amounts(user, record=None):
+    """
+    True if `user` may inline-edit the Total/Paid Amount cells.
+
+    Superusers always may. A manager may only when a superuser has granted
+    them the `can_edit_amounts` flag from Manage Accounts — and then only for
+    records in their own city. Regular employees never may.
+
+    Call with `record` on save (enforces the city check); call without it to
+    decide whether to render the cells as editable at all.
+    """
+    if getattr(user, 'is_superuser', False):
+        return True
+    if not getattr(user, 'is_staff', False):
+        return False
+    profile = getattr(user, 'profile', None)
+    if not (profile and profile.can_edit_amounts):
+        return False
+    return can_manage_record(user, record) if record is not None else True
+
+
+def handle_amount_field_update(request, model, uid):
+    """
+    Shared handler behind every module's inline Total/Paid Amount edit.
+
+    One implementation for cards/certificates/training/ndt/calibration so the
+    permission and validation rules can't drift apart between them.
+    """
+    obj = model.objects.filter(uid=uid).first()
+    if obj is None:
+        return JsonResponse({'status': 'error', 'message': 'Record not found.'}, status=404)
+
+    if not can_edit_amounts(request.user, obj):
+        return JsonResponse(
+            {'status': 'error', 'message': 'You do not have permission to edit amounts.'},
+            status=403,
+        )
+
+    try:
+        data = json.loads(request.body or b'{}')
+    except ValueError:
+        return JsonResponse({'status': 'error', 'message': 'Malformed request.'}, status=400)
+
+    field = data.get('field')
+    if field not in ('amount', 'total_amount'):
+        return JsonResponse({'status': 'error', 'message': 'That field is not editable.'}, status=400)
+
+    raw = str(data.get('value', '')).strip().replace(',', '')
+    try:
+        value = Decimal(raw or '0')
+    except InvalidOperation:
+        return JsonResponse({'status': 'error', 'message': 'Enter a valid number.'}, status=400)
+
+    if value < 0:
+        return JsonResponse({'status': 'error', 'message': 'Amount cannot be negative.'}, status=400)
+
+    total = obj.total_amount or Decimal('0')
+    paid = obj.amount or Decimal('0')
+    if field == 'amount' and value > total:
+        return JsonResponse(
+            {'status': 'error', 'message': f'Paid amount cannot exceed the total ({total:.2f}).'},
+            status=400,
+        )
+    if field == 'total_amount' and value < paid:
+        return JsonResponse(
+            {'status': 'error', 'message': f'Total cannot be less than the paid amount ({paid:.2f}).'},
+            status=400,
+        )
+
+    setattr(obj, field, value)
+    obj._request_user = request.user
+    obj._request = request
+    obj._activity_message = f"Updated {field.replace('_', ' ')} inline to {value:.2f}"
+    obj.save()
+
+    return JsonResponse({
+        'status': 'success',
+        'field': field,
+        'value': f'{value:.2f}',
+        'total_amount': f'{(obj.total_amount or Decimal("0")):.2f}',
+        'amount': f'{(obj.amount or Decimal("0")):.2f}',
+    })
 
 
 def assert_city_allowed(user, city):

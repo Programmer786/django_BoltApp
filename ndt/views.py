@@ -10,6 +10,7 @@ from django.utils.timezone import now  # Make sure this import is present
 from base.utils import (
     items_per_page, current_date, get_next_numeric_sr_no, get_manager_city,
     can_access_record, can_manage_record, assert_city_allowed, safe_cell,
+    handle_amount_field_update,
 )
 from ndt.models import NonDestructiveTesting
 from django.utils import timezone
@@ -787,3 +788,9 @@ def report_paid_ndt(request):
         'sidebar_active': 'report_paid_ndt',
     }
     return render(request, 'ndt/report_paid_ndt.html', context)
+
+@login_required
+@require_POST
+def update_ndt_field(request, uid):
+    """Inline Total/Paid Amount edit from the Paid & Unpaid tables."""
+    return handle_amount_field_update(request, NonDestructiveTesting, uid)

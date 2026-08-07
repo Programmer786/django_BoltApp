@@ -13,4 +13,5 @@ urlpatterns = [
     path('ndt/update_unpaid/<uuid:uid>/', views.update_unpaid_ndt, name='update_unpaid_ndt'),
     path('report-ndt/', views.report_ndt, name="report_ndt"),
     path('report-paid-ndt/', views.report_paid_ndt, name="report_paid_ndt"),
+    path('ndt/update-field/<uuid:uid>/', views.update_ndt_field, name='update_ndt_field'),
 ]

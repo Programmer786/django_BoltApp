@@ -22,4 +22,5 @@ urlpatterns = [
     path('certificate/hold/<uuid:uid>/', views.hold_certificate, name='hold_certificate'),
     path('certificate/unhold/<uuid:uid>/', views.unhold_certificate, name='unhold_certificate'),
 
+    path('certificate/update-field/<uuid:uid>/', views.update_certificate_field, name='update_certificate_field'),
 ]

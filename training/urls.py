@@ -20,4 +20,5 @@ urlpatterns = [
     path('holded-training/', views.holded_training, name="holded_training"),
     path('training/hold/<uuid:uid>/', views.hold_training, name='hold_training'),
     path('training/unhold/<uuid:uid>/', views.unhold_training, name='unhold_training'),
+    path('training/update-field/<uuid:uid>/', views.update_training_field, name='update_training_field'),
 ]

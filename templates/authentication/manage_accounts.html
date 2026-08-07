@@ -97,6 +97,48 @@
     /* ── Locked-field hint ────────────────────────────────────── */
     .field-hint { font-size: 12px; color: #94a3b8; margin-top: 4px; display: flex; align-items: center; gap: 5px; }
 
+    /* ── Admin-only permission box ────────────────────────────── */
+    .perm-box {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-left: 3px solid #16a34a;
+        border-radius: 10px;
+        padding: 12px 14px;
+    }
+    .perm-box .field-hint { display: block; line-height: 1.5; }
+    .header-role-badge.amount-perm { background: #dcfce7; color: #15803d; margin-left: 4px; }
+
+    /* ── Password match feedback ──────────────────────────────── */
+    .pw-note {
+        font-size: 12px;
+        margin-top: 5px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        color: #94a3b8;
+        transition: color .15s ease;
+    }
+    .pw-note.ok  { color: #15803d; font-weight: 600; }
+    .pw-note.bad { color: #b91c1c; font-weight: 600; }
+    .form-control.pw-ok  { border-color: #22c55e !important; box-shadow: 0 0 0 3px rgba(34,197,94,.12) !important; }
+    .form-control.pw-bad { border-color: #ef4444 !important; box-shadow: 0 0 0 3px rgba(239,68,68,.12) !important; }
+
+    /* ── Unverified-account warning ───────────────────────────── */
+    .unverified-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        margin-top: 4px;
+        font-size: 11px;
+        font-weight: 600;
+        color: #b45309;
+        background: #fffbeb;
+        border: 1px solid #fde68a;
+        border-radius: 6px;
+        padding: 2px 7px;
+        white-space: nowrap;
+    }
+
     @media (max-width: 767px) {
         .ma-stats { grid-template-columns: repeat(2, 1fr); }
         .ma-header { flex-direction: column; align-items: stretch; }
@@ -145,7 +187,8 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <form class="row g-3" action="{% url 'add_account' %}" method="POST">
+                <form class="row g-3" action="{% url 'add_account' %}" method="POST"
+                      id="createAccountForm" autocomplete="off">
                     {% csrf_token %}
                     <div class="col-md-6">
                       <label for="yourFirstName" class="form-label">First Name</label>
@@ -163,7 +206,8 @@
                       <label for="yourUsername" class="form-label">Username</label>
                       <div class="input-group has-validation">
                         <span class="input-group-text">@</span>
-                        <input type="text" name="username" class="form-control" id="yourUsername" required>
+                        <input type="text" name="username" class="form-control" id="yourUsername"
+                               autocomplete="off" required>
                         <div class="invalid-feedback">Please choose a username.</div>
                       </div>
                     </div>
@@ -209,8 +253,22 @@
 
                     <div class="col-md-6">
                       <label for="yourPassword" class="form-label">Password</label>
-                      <input type="password" name="password" class="form-control" id="yourPassword" minlength="8" required>
-                      <div class="invalid-feedback">Please enter a password (min. 8 characters).</div>
+                      <div class="input-group">
+                        <input type="password" name="password" class="form-control" id="yourPassword"
+                               minlength="8" autocomplete="new-password" required>
+                        <button class="btn btn-outline-secondary" type="button" id="toggleNewPassword"
+                                tabindex="-1" aria-label="Show password">
+                          <i class="fas fa-eye"></i>
+                        </button>
+                      </div>
+                      <div class="pw-note" id="pwLengthNote">Minimum 8 characters.</div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <label for="yourPassword2" class="form-label">Confirm Password</label>
+                      <input type="password" name="password_confirm" class="form-control" id="yourPassword2"
+                             minlength="8" autocomplete="new-password" required>
+                      <div class="pw-note" id="pwMatchNote">Re-enter the password to confirm.</div>
                     </div>
 
                     <div class="col-12">
@@ -221,7 +279,9 @@
                       </div>
                     </div>
                     <div class="col-12">
-                      <button class="btn btn-primary w-100" type="submit"><i class="fas fa-user-plus me-1"></i> Create Account</button>
+                      <button class="btn btn-primary w-100" type="submit" id="createAccountBtn">
+                        <i class="fas fa-user-plus me-1"></i> Create Account
+                      </button>
                     </div>
                 </form>
             </div>
@@ -305,6 +365,9 @@
                         <td>
                             {% if user.is_staff %}
                                 <span class="header-role-badge manager"><i class="fas fa-user-tie"></i> Manager</span>
+                                {% if user.profile.can_edit_amounts %}
+                                <span class="header-role-badge amount-perm" title="Can edit Total/Paid Amount cells in their own city"><i class="fas fa-money-bill-wave"></i> Amounts</span>
+                                {% endif %}
                             {% else %}
                                 <span class="header-role-badge employee"><i class="fas fa-user"></i> Employee</span>
                             {% endif %}
@@ -315,6 +378,11 @@
                             {% else %}
                                 <span class="status-dot is-inactive">Inactive</span>
                             {% endif %}
+                            {% if not user.profile.is_email_verified %}
+                            <div class="unverified-tag" title="This user cannot log in until their email is verified">
+                                <i class="fas fa-triangle-exclamation"></i> Not verified
+                            </div>
+                            {% endif %}
                         </td>
                         <td class="text-end">
                             <div class="dropdown row-actions">
@@ -322,6 +390,18 @@
                                     <i class="fas fa-ellipsis-vertical"></i>
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end">
+                                    {% if request.user.is_superuser and not user.profile.is_email_verified %}
+                                    <li>
+                                        <form method="post" action="{% url 'verify_user_email' user.id %}"
+                                              onsubmit="return confirm('Verify {{ user.username }} manually? They will be able to log in immediately.')">
+                                            {% csrf_token %}
+                                            <button type="submit" class="dropdown-item d-flex align-items-center text-success fw-semibold">
+                                                <i class="fas fa-circle-check fa-fw me-2"></i> Verify Email Now
+                                            </button>
+                                        </form>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    {% endif %}
                                     <li>
                                         <button type="button" class="dropdown-item d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#editUserModal{{ user.id }}">
                                             <i class="fas fa-edit fa-fw me-2 text-primary"></i> Edit Details
@@ -371,6 +451,9 @@
                         </td>
                     </tr>
                     {% endfor %}
+
+                </tbody>
+            </table>
 
                     <!-- Edit User Modals -->
                     {% for user in users %}
@@ -426,6 +509,26 @@
                                             {% endif %}
                                             <div class="invalid-feedback">Please select a city/region</div>
                                         </div>
+
+                                        {% if request.user.is_superuser and user.is_staff %}
+                                        {# Admin-only: grant this manager inline editing of Total/Paid Amount #}
+                                        <div class="col-12">
+                                            <div class="perm-box">
+                                                <div class="form-check mb-0">
+                                                    <input class="form-check-input" type="checkbox" value="1"
+                                                           name="can_edit_amounts" id="canEditAmounts{{ user.id }}"
+                                                           {% if user.profile.can_edit_amounts %}checked{% endif %}>
+                                                    <label class="form-check-label fw-semibold" for="canEditAmounts{{ user.id }}">
+                                                        <i class="fas fa-money-bill-wave me-1 text-success"></i>Allow editing amounts
+                                                    </label>
+                                                </div>
+                                                <div class="field-hint mt-1">
+                                                    Lets this manager click a Total/Paid Amount cell in the Paid &amp; Unpaid
+                                                    tables and change it directly — for records in their own city only.
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endif %}
                                     </div>
 
                                     <div class="modal-footer">
@@ -437,8 +540,6 @@
                         </div>
                     </div>
                     {% endfor %}
-                </tbody>
-            </table>
 
             <!-- Pagination -->
             {% if users.has_other_pages %}
@@ -521,6 +622,99 @@
 </div>
 
 <script>
+/* ── Create Account: live password match check ───────────────── */
+document.addEventListener('DOMContentLoaded', function () {
+    const form  = document.getElementById('createAccountForm');
+    const pw1   = document.getElementById('yourPassword');
+    const pw2   = document.getElementById('yourPassword2');
+    const note1 = document.getElementById('pwLengthNote');
+    const note2 = document.getElementById('pwMatchNote');
+    const btn   = document.getElementById('createAccountBtn');
+    const toggle = document.getElementById('toggleNewPassword');
+    if (!form || !pw1 || !pw2) return;
+
+    function setNote(el, text, state) {
+        const icon = state === 'ok'  ? '<i class="fas fa-circle-check"></i> '
+                   : state === 'bad' ? '<i class="fas fa-circle-xmark"></i> '
+                   : '';
+        el.innerHTML = icon + text;
+        el.classList.toggle('ok',  state === 'ok');
+        el.classList.toggle('bad', state === 'bad');
+    }
+
+    function mark(input, state) {
+        input.classList.toggle('pw-ok',  state === 'ok');
+        input.classList.toggle('pw-bad', state === 'bad');
+    }
+
+    // Returns true when both fields are filled, long enough, and identical.
+    function check() {
+        const a = pw1.value, b = pw2.value;
+
+        if (!a) {
+            setNote(note1, 'Minimum 8 characters.', '');
+            mark(pw1, '');
+        } else if (a.length < 8) {
+            setNote(note1, `Too short — ${a.length}/8 characters.`, 'bad');
+            mark(pw1, 'bad');
+        } else {
+            setNote(note1, 'Password length is fine.', 'ok');
+            mark(pw1, 'ok');
+        }
+
+        if (!b) {
+            setNote(note2, 'Re-enter the password to confirm.', '');
+            mark(pw2, '');
+            return false;
+        }
+        if (a === b) {
+            setNote(note2, 'Passwords match.', 'ok');
+            mark(pw2, 'ok');
+        } else {
+            setNote(note2, 'Passwords do not match.', 'bad');
+            mark(pw2, 'bad');
+        }
+
+        const valid = a.length >= 8 && a === b;
+        if (btn) {
+            btn.disabled = !valid;
+            btn.title = valid ? '' : 'Passwords must match and be at least 8 characters';
+        }
+        return valid;
+    }
+
+    pw1.addEventListener('input', check);
+    pw2.addEventListener('input', check);
+
+    if (toggle) {
+        toggle.addEventListener('click', function () {
+            const show = pw1.type === 'password';
+            pw1.type = pw2.type = show ? 'text' : 'password';
+            toggle.innerHTML = show ? '<i class="fas fa-eye-slash"></i>' : '<i class="fas fa-eye"></i>';
+        });
+    }
+
+    // Final guard — never let a mismatch reach the server
+    form.addEventListener('submit', function (e) {
+        if (!check()) {
+            e.preventDefault();
+            pw2.focus();
+        }
+    });
+
+    // Start clean each time the modal opens
+    const modal = document.getElementById('addNewAccountModal');
+    if (modal) {
+        modal.addEventListener('show.bs.modal', function () {
+            form.reset();
+            mark(pw1, ''); mark(pw2, '');
+            setNote(note1, 'Minimum 8 characters.', '');
+            setNote(note2, 'Re-enter the password to confirm.', '');
+            if (btn) btn.disabled = false;
+        });
+    }
+});
+
 document.addEventListener('DOMContentLoaded', function() {
     // Update form action URL when change password modal is shown
     document.getElementById('changePasswordModal').addEventListener('show.bs.modal', function (event) {

@@ -11,6 +11,7 @@ from django.utils.timezone import now  # Make sure this import is present
 from base.utils import (
     items_per_page, current_date, get_next_numeric_sr_no, get_manager_city,
     can_access_record, can_manage_record, assert_city_allowed, safe_cell,
+    handle_amount_field_update,
 )
 from training.models import Training
 from django.utils import timezone
@@ -1337,3 +1338,9 @@ def holded_training(request):
         'sidebar_active': 'holded_training',
     }
     return render(request, 'training/holded_training.html', context)
+
+@login_required
+@require_POST
+def update_training_field(request, uid):
+    """Inline Total/Paid Amount edit from the Paid & Unpaid tables."""
+    return handle_amount_field_update(request, Training, uid)
