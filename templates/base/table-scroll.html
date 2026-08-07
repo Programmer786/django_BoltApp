@@ -19,26 +19,29 @@ Opt out by putting data-no-table-scroll on the table or any ancestor.
         width: 38px;
         height: 38px;
         border-radius: 50%;
-        border: 1px solid #cbd5e1;
-        background: rgba(255, 255, 255, .95);
-        color: #334155;
-        box-shadow: 0 3px 12px rgba(0, 0, 0, .16);
+        /* !important: the theme's button styles otherwise win on specificity */
+        border: 1px solid var(--bs-success, #028824) !important;
+        background: var(--bs-success, #028824) !important;
+        background-color: var(--bs-success, #028824) !important;
+        color: #fff !important;
+        box-shadow: 0 3px 12px rgba(var(--bs-success-rgb, 2, 136, 36), .38);
         display: flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
-        opacity: .55;
+        opacity: .85;
         transition: opacity .18s ease, background .18s ease, color .18s ease, box-shadow .18s ease;
         padding: 0;
         font-size: 14px;
     }
     .tscroll-wrap:hover .tscroll-btn { opacity: 1; }
     .tscroll-btn:hover {
-        background: #2563eb;
-        border-color: #2563eb;
-        color: #fff;
-        box-shadow: 0 4px 16px rgba(37, 99, 235, .4);
+        filter: brightness(.85);
+        color: #fff !important;
+        box-shadow: 0 5px 18px rgba(var(--bs-success-rgb, 2, 136, 36), .55);
     }
+    /* The chevron glyph itself, in case an icon rule recolours it */
+    .tscroll-btn i { color: inherit !important; }
     .tscroll-btn:active { transform: translateY(-50%) scale(.93); }
     .tscroll-btn:focus-visible { outline: 3px solid rgba(37, 99, 235, .45); outline-offset: 2px; }
     .tscroll-btn[hidden] { display: none; }
