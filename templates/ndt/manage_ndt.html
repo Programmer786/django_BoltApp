@@ -338,7 +338,7 @@
                         <a href="{% url 'manage_ndt' %}" class="btn btn-success"><i class="fa fa-refresh" aria-hidden="true"></i> Refresh</a>
                     </form>
                 </div>
-                <table class="table text-nowrap w-100" id="myNdtTable" data-toggle="table" data-height="auto">
+                <table class="table text-nowrap w-100" id="myNdtTable">
                     <thead>
                         <tr>
                             <th></th>
@@ -416,8 +416,13 @@
                             <td>{{ ndt.received_by }}</td>
                             <td>{{ ndt.invoice_no }}</td>
                             <td>{{ ndt.invoice_date }}</td>
+                            {% if can_edit_amounts %}
+                            <td class="amount-cell"><span class="editable-amount" data-url="{% url 'update_ndt_field' ndt.uid %}" data-field="total_amount">{{ ndt.total_amount }}</span></td>
+                            <td class="amount-cell"><span class="editable-amount" data-url="{% url 'update_ndt_field' ndt.uid %}" data-field="amount">{{ ndt.amount }}</span></td>
+                            {% else %}
                             <td>{{ ndt.total_amount }}</td>
                             <td>{{ ndt.amount }}</td>
+                            {% endif %}
                             <td>{{ ndt.cash_bank }}</td>
                             <td>{{ ndt.client_rep_name }}</td>
                             <td>{{ ndt.client_rep_number }}</td>
@@ -664,6 +669,8 @@
 
 
 </script>
+
+{% if can_edit_amounts %}{% include 'base/inline-amount-edit.html' %}{% endif %}
 
 {% endblock %}
 <!-- BEGIN #Body_of_this_page -->
