@@ -36,9 +36,11 @@ Opt out by putting data-no-table-scroll on the table or any ancestor.
     }
     .tscroll-wrap:hover .tscroll-btn { opacity: 1; }
     .tscroll-btn:hover {
-        filter: brightness(.85);
+        border-color: var(--bs-primary, #1f6bff) !important;
+        background: var(--bs-primary, #1f6bff) !important;
+        background-color: var(--bs-primary, #1f6bff) !important;
         color: #fff !important;
-        box-shadow: 0 5px 18px rgba(var(--bs-success-rgb, 2, 136, 36), .55);
+        box-shadow: 0 5px 18px rgba(var(--bs-primary-rgb, 31, 107, 255), .5);
     }
     /* The chevron glyph itself, in case an icon rule recolours it */
     .tscroll-btn i { color: inherit !important; }
