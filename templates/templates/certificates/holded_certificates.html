@@ -1,0 +1,176 @@
+{% extends "base/base.html" %}
+{% load static %}
+{% load url_utils %}
+{% block start %}
+<h1 class="page-header">
+    Holded Certificates (Total: {{ total_certificates }})
+</h1>
+<hr class="mb-4">
+
+<!-- Start Display Data -->
+<div class="card border-lime bg-lime bg-opacity-25 mb-5" style="width: 100%;">
+    <div class="card-header border-lime bg-lime bg-opacity-25 fw-bold small text-body">
+        <a style="font-size: 20px;">
+            ALL HOLD CERTIFICATES RECORDS
+        </a>
+    </div>
+    <div id="bootstrapTable" class="mb-1">
+        <div class="card">
+            <div class="card-body">
+                <div class="mb-3">
+                    <form method="GET" action="" class="row g-2 align-items-center">
+                        <div class="col-md-4 col-12">
+                            <input class="form-control" type="search" name="searching_query" placeholder="Search By Certificate No or Company Name" aria-label="Search" value="{{ request.GET.searching_query|default:'' }}">
+                        </div>
+                        <div class="col-auto">
+                            <select name="city" class="form-select" id="yourCity">
+                                <option value="" {% if not request.GET.city %}selected{% endif %}>All Cities</option>
+                                <option value="NEOM" {% if request.GET.city == 'NEOM' %}selected{% endif %}>NEOM</option>
+                                <option value="Jeddah" {% if request.GET.city == 'Jeddah' %}selected{% endif %}>Jeddah</option>
+                                <option value="Riyadh" {% if request.GET.city == 'Riyadh' %}selected{% endif %}>Riyadh</option>
+                                <option value="Dammam" {% if request.GET.city == 'Dammam' %}selected{% endif %}>Dammam</option>
+                            </select>
+                        </div>
+                        <div class="col-auto">
+                            <button class="btn btn-primary" type="submit">
+                                <i class="fa fa-search me-1"></i> Search
+                            </button>
+                            <a href="{% url 'holded_certificates' %}" class="btn btn-outline-secondary">
+                                <i class="fa fa-refresh me-1"></i> Reset
+                            </a>
+                        </div>
+                    </form>
+                </div>
+                <table class="table text-nowrap w-100" id="myCertificateTable" data-toggle="table" data-height="auto">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>S.No</th>
+                            <th class="text-primary">Name</th>
+                            <th class="text-success">City</th>
+                            <th>LH Serial No</th>
+                            <th>Certificate No</th>
+                            <th>Sticker No</th>
+                            <th>Eq Serial No</th>
+                            <th>Equipment Type</th>
+                            <th>Company Name</th>
+                            <th>Inspection Date</th>
+                            <th>Expiry Date</th>
+                            <th>Remaining Months</th>
+                            <th>Plate No</th>
+                            <th>Manufacturer</th>
+                            <th>Inspected By</th>
+                            <th>Status</th>
+                            <th class="text-danger">Hold Reason</th>
+                            <th>Requested By</th>
+                            <th>Prepared By</th>
+                            <th>Wasted Serial</th>
+                            <th>Invoice No</th>
+                            <th>Invoice Date</th>
+                            <th>Total Amount</th>
+                            <th>Paid Amount</th>
+                            <th>Cash/Bank</th>
+                            <th>Client Representative Name</th>
+                            <th>Client Representative Number</th>
+                            <th>Email</th>
+                            <th>Remarks</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cert in certificates %}
+                        <tr>
+                            <td>
+                                <div class="dropdown">
+                                    <button class="btn btn-primary dropdown-toggle" type="button" id="dropdownMenuButton{{ forloop.counter }}" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Actions
+                                    </button>
+                                    <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton{{ forloop.counter }}">
+                                        {% if user.is_superuser %}
+                                        <li>
+                                            <a class="dropdown-item" href="#" 
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#holdAllowCertificateModal{{ cert.uid }}">
+                                            <i class="fa fa-check" style="color: green"></i> Allow
+                                            </a>
+                                        </li>
+                                        {% endif %}
+                                    </ul>
+                                </div>
+                            </td>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ cert.user.first_name }}_{{ cert.user.last_name }}</td>
+                            <td>{{ cert.city }}</td>
+                            <td>{{ cert.lh_serial_no }}</td>
+                            <td>{{ cert.cert_no }}</td>
+                            <td>{{ cert.sticker_no }}</td>
+                            <td>{{ cert.eq_serial_no }}</td>
+                            <td>{{ cert.equipment_type }}</td>
+                            <td>{{ cert.company_name }}</td>
+                            <td>{{ cert.inspection_date }}</td>
+                            <td>{{ cert.expiry_date }}</td>
+                            <td>{{ cert.remaining_months }}</td>
+                            <td>{{ cert.plate_no }}</td>
+                            <td>{{ cert.manufacturer }}</td>
+                            <td>{{ cert.inspected_by }}</td>
+                            <td>{{ cert.status }}</td>
+                            <td>{{ cert.hold_reason|default:'—' }}</td>
+                            <td>{{ cert.requested_by }}</td>
+                            <td>{{ cert.prepared_by }}</td>
+                            <td>{{ cert.wasted_serial }}</td>
+                            <td>{{ cert.invoice_no }}</td>
+                            <td>{{ cert.invoice_date }}</td>
+                            <td>{{ cert.total_amount }}</td>
+                            <td>{{ cert.amount }}</td>
+                            <td>{{ cert.cash_bank }}</td>
+                            <td>{{ cert.client_rep_name }}</td>
+                            <td>{{ cert.client_rep_number }}</td>
+                            <td>{{ cert.email }}</td>
+                            <td>{{ cert.remarks }}</td>
+                        </tr>
+
+                        <!-- Hold Allow Certificate Confirmation Modal -->
+                        <div class="modal fade" id="holdAllowCertificateModal{{ cert.uid }}" tabindex="-1" aria-labelledby="holdAllowCertificateModalLabel" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <form action="{% url 'unhold_certificate' cert.uid %}" method="post">
+                                        {% csrf_token %}
+                                        <div class="modal-header bg-success text-white">
+                                            <h5 class="modal-title">Confirm Allow</h5>
+                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <p>Are you sure you want to allow this certificate?</p>
+                                            <p><strong>Certificate No:</strong> {{ cert.cert_no }}</p>
+                                            <p><strong>Company:</strong> {{ cert.company_name }}</p>
+                                            <div class="form-group mt-3">
+                                                <label for="allowReason{{ cert.uid }}">Notes (optional):</label>
+                                                <textarea class="form-control" id="allowReason{{ cert.uid }}" name="allow_notes" rows="3"></textarea>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                            <button type="submit" class="btn btn-success">Confirm Allow</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        {% endfor %}
+                        <tr>
+                            <td colspan="30" class="text-center">-</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Disabled and active states pagination -->
+                {% include "base/pagination.html" with page_obj=certificates %}
+                <!-- End Disabled and active states pagination -->
+            </div>
+        </div>
+    </div>
+</div>
+<!-- End Display Data -->
+
+{% endblock %}
+<!-- BEGIN #Body_of_this_page -->

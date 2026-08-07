@@ -1,0 +1,196 @@
+{% extends "base/base.html" %}
+{% load static %}
+
+{% block start %}
+<style>
+    /* ── Activity Logs ────────────────────────────────────────── */
+    .la-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        flex-wrap: wrap;
+        gap: 14px;
+        margin-bottom: 22px;
+    }
+    .la-header h1 {
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: #0f172a;
+        letter-spacing: -.3px;
+        margin: 0 0 4px;
+    }
+    .la-header p { font-size: 13px; color: #64748b; margin: 0; }
+    .la-header .total-pill {
+        display: flex; align-items: center; gap: 8px;
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+        padding: 10px 16px; box-shadow: 0 1px 4px rgba(0,0,0,.04);
+    }
+    .la-header .total-pill .num { font-size: 18px; font-weight: 700; color: #0f172a; }
+    .la-header .total-pill .lbl { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: .4px; }
+    .la-header .total-pill i { color: #3b82f6; }
+
+    .la-user-cell { display: flex; align-items: center; gap: 10px; }
+    .la-avatar {
+        width: 34px; height: 34px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 12px; font-weight: 700; flex-shrink: 0;
+        background: #eff6ff; color: #2563eb;
+    }
+    .la-avatar.system { background: #f1f5f9; color: #64748b; }
+    .la-user-cell .full-name { font-weight: 600; font-size: 13.5px; color: #0f172a; }
+    .la-user-cell .handle { font-size: 12px; color: #94a3b8; }
+
+    .la-action {
+        font-size: 13.5px; color: #334155;
+        max-width: 420px;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        cursor: default;
+    }
+    .la-timestamp { font-size: 12.5px; color: #475569; white-space: nowrap; }
+    .la-timestamp .time { color: #94a3b8; }
+    .la-ip {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px; color: #64748b;
+        background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 6px;
+        padding: 2px 7px; display: inline-block;
+    }
+
+    @media (max-width: 700px) {
+        .la-action { max-width: 220px; }
+    }
+</style>
+
+<div class="la-header">
+    <div>
+        <h1><i class="fas fa-history text-primary me-2"></i>Activity Logs</h1>
+        <p>A record of logins, and every create/update/approve/cancel action taken across the system.</p>
+    </div>
+    <div class="total-pill">
+        <i class="fas fa-list-check"></i>
+        <div><div class="num">{{ logs.paginator.count }}</div><div class="lbl">Total Entries</div></div>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <!-- Date Range Filter Form -->
+        <form method="get" class="row g-2 align-items-end mb-3">
+            <div class="col-md-3 col-6">
+                <label for="start_date" class="form-label">From Date</label>
+                <input type="date" class="form-control" id="start_date" name="start_date" value="{{ start_date }}">
+            </div>
+            <div class="col-md-3 col-6">
+                <label for="end_date" class="form-label">To Date</label>
+                <input type="date" class="form-control" id="end_date" name="end_date" value="{{ end_date }}">
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-filter me-1"></i> Filter
+                </button>
+                <a href="{% url 'logs_activity' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-sync-alt me-1"></i> Reset
+                </a>
+            </div>
+        </form>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>User</th>
+                        <th>Details</th>
+                        <th>Timestamp</th>
+                        <th>IP Address</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr>
+                        <td class="text-muted">{{ forloop.counter0|add:logs.start_index }}</td>
+                        <td>
+                            <div class="la-user-cell">
+                                {% if log.user %}
+                                    <div class="la-avatar">{{ log.user.username|slice:":2"|upper }}</div>
+                                    <div>
+                                        <div class="full-name">{{ log.user.get_full_name|default:log.user.username }}</div>
+                                        <div class="handle">@{{ log.user.username }}</div>
+                                    </div>
+                                {% else %}
+                                    <div class="la-avatar system"><i class="fas fa-server"></i></div>
+                                    <div>
+                                        <div class="full-name text-muted">System</div>
+                                        <div class="handle">automated</div>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td class="la-action" title="{{ log.action }}">{{ log.action|truncatechars:70 }}</td>
+                        <td class="la-timestamp">{{ log.timestamp|date:"M d, Y" }} <span class="time">{{ log.timestamp|date:"H:i" }}</span></td>
+                        <td>{% if log.ip_address %}<span class="la-ip">{{ log.ip_address }}</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-5">
+                            <i class="fas fa-inbox text-muted mb-2" style="font-size: 28px;"></i>
+                            <div class="text-muted">No activity logs found for this range.</div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if logs.paginator.num_pages > 1 %}
+        <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+            <div class="text-muted" style="font-size: 13px;">
+                Showing <b>{{ logs.start_index }}</b>–<b>{{ logs.end_index }}</b> of <b>{{ logs.paginator.count }}</b> entries
+            </div>
+            <nav aria-label="Activity log pagination">
+                <ul class="pagination mb-0">
+                    {% if logs.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ logs.previous_page_number }}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}" aria-label="Previous">
+                                <span aria-hidden="true">&laquo;</span>
+                            </a>
+                        </li>
+                    {% endif %}
+
+                    {% if logs.number > 3 %}
+                        <li class="page-item"><a class="page-link" href="?page=1{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}">1</a></li>
+                        {% if logs.number > 4 %}
+                            <li class="page-item disabled"><span class="page-link">…</span></li>
+                        {% endif %}
+                    {% endif %}
+
+                    {% for num in logs.paginator.page_range %}
+                        {% if num >= logs.number|add:'-2' and num <= logs.number|add:'2' %}
+                            {% if logs.number == num %}
+                                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                            {% else %}
+                                <li class="page-item"><a class="page-link" href="?page={{ num }}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}">{{ num }}</a></li>
+                            {% endif %}
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if logs.number < logs.paginator.num_pages|add:'-2' %}
+                        {% if logs.number < logs.paginator.num_pages|add:'-3' %}
+                            <li class="page-item disabled"><span class="page-link">…</span></li>
+                        {% endif %}
+                        <li class="page-item"><a class="page-link" href="?page={{ logs.paginator.num_pages }}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}">{{ logs.paginator.num_pages }}</a></li>
+                    {% endif %}
+
+                    {% if logs.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ logs.next_page_number }}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}" aria-label="Next">
+                                <span aria-hidden="true">&raquo;</span>
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

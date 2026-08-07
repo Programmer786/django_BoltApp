@@ -1,0 +1,411 @@
+{% extends "base/base.html" %}
+{% load static %}
+{% block start %}
+<h1 class="page-header">
+    Pending Certificates
+</h1>
+<hr class="mb-4">
+
+<!-- Start Display Data -->
+<div class="card border-lime bg-lime bg-opacity-25 mb-5" style="width: 100%;">
+    <div class="card-header border-lime bg-lime bg-opacity-25 fw-bold small text-body">
+        <a style="font-size: 20px;">
+            ALL PENDING CERTIFICATES RECORDS
+        </a>
+        {% comment %} <button class="btn btn-primary btn-circle btn-lg" onclick="exportToExcel()"> 
+            <i class="fa fa-file-excel"  style="color: white;">&nbsp;</i>Export to Excel
+        </button> {% endcomment %}
+        {% comment %} <button class="btn btn-success btn-circle btn-lg" onclick="exportToPDF()"> 
+            <i class="fa fa-file-pdf" style="color: white;"></i>Export to PDF
+        </button> {% endcomment %}
+    </div>
+    <div id="bootstrapTable" class="mb-1">
+        <div class="card">
+            <div class="card-body">
+                <div class="mb-3">
+                    <form method="GET" action="" class="row g-2 align-items-center">
+                        <div class="col-md-4 col-12">
+                            <input class="form-control" type="search" name="searching_query" placeholder="Search By Certificate No or Company Name" aria-label="Search" value="{{ request.GET.searching_query|default:'' }}">
+                        </div>
+                        <div class="col-auto">
+                            <select name="city" class="form-select" id="yourCity">
+                                <option value="" {% if not request.GET.city %}selected{% endif %}>All Cities</option>
+                                <option value="NEOM" {% if request.GET.city == 'NEOM' %}selected{% endif %}>NEOM</option>
+                                <option value="Jeddah" {% if request.GET.city == 'Jeddah' %}selected{% endif %}>Jeddah</option>
+                                <option value="Riyadh" {% if request.GET.city == 'Riyadh' %}selected{% endif %}>Riyadh</option>
+                                <option value="Dammam" {% if request.GET.city == 'Dammam' %}selected{% endif %}>Dammam</option>
+                            </select>
+                        </div>
+                        <div class="col-auto">
+                            <button class="btn btn-primary" type="submit">
+                                <i class="fa fa-search me-1"></i> Search
+                            </button>
+                            <a href="{% url 'pending_certificates' %}" class="btn btn-outline-secondary">
+                                <i class="fa fa-refresh me-1"></i> Reset
+                            </a>
+                        </div>
+                    </form>
+                </div>
+                <table class="table text-nowrap w-100" id="myCertificateTable" data-toggle="table" data-height="auto">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>S.No</th>
+                            <th class="text-primary">Name</th>
+                            <th class="text-success">City</th>
+                            <th>LH Serial No</th>
+                            <th>Certificate No</th>
+                            <th>Sticker No</th>
+                            <th>Eq Serial No</th>
+                            <th>Equipment Type</th>
+                            <th>Company Name</th>
+                            <th>Inspection Date</th>
+                            <th>Expiry Date</th>
+                            <th>Remaining Months</th>
+                            <th>Plate No</th>
+                            <th>Manufacturer</th>
+                            <th>Inspected By</th>
+                            <th>Status</th>
+                            <th>Prepared By</th>
+                            <th>Wasted Serial</th>
+                            <th>Invoice No</th>
+                            <th>Amount</th>
+                            <th>Cash/Bank</th>
+                            <th>Client Representative Name</th>
+                            <th>Client Representative Number</th>
+                            <th>Email</th>
+                            <th>Remarks</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cert in certificates %}
+                        <tr>
+                            {% comment %} <td>
+                                <div class="dropdown">
+                                    <button class="btn btn-primary dropdown-toggle" type="button" id="dropdownMenuButton{{ forloop.counter }}" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Actions
+                                    </button>
+                                    <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton{{ forloop.counter }}">
+                                        <li>
+                                            <a class="dropdown-item" href="#" 
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#viewCertificateModal{{ cert.uid }}">
+                                            <i class="fa fa-street-view" aria-hidden="true"></i> View
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </td> {% endcomment %}
+                            <td>
+                                <div class="d-flex gap-2">
+                                    <!-- Approve Button -->
+                                    {% comment %} <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#approveModal{{ cert.uid }}">
+                                        <i class="fa fa-check"></i>
+                                    </button> {% endcomment %}
+                                    <!-- Reject Button -->
+                                    {% comment %} <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#rejectModal{{ cert.uid }}">
+                                        <i class="fa fa-times"></i>
+                                    </button> {% endcomment %}
+                                    <!-- Approve Button -->
+                                    <form action="{% url 'approve_reject_certificate' cert.uid %}" method="post" style="display:inline;">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="approve">
+                                        <button type="submit" class="btn btn-success btn-sm" data-toggle="tooltip" title="Approve Certificate">
+                                            <i class="fa fa-check me-1"></i>
+                                        </button>
+                                    </form>
+                                    <!-- Reject Button -->
+                                    <form action="{% url 'approve_reject_certificate' cert.uid %}" method="post" style="display:inline;">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="reject">
+                                        <button type="submit" class="btn btn-danger btn-sm" data-toggle="tooltip" title="Reject Certificate">
+                                            <i class="fa fa-times me-1"></i>
+                                        </button>
+                                    </form>
+                                    <!-- View Button -->
+                                    <button type="button" class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#viewCertificateModal{{ cert.uid }}" title="View Certificate">
+                                        <i class="fa fa-eye"></i>
+                                    </button>
+                                </div>
+                            </td>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ cert.user.first_name }}_{{ cert.user.last_name }}</td>
+                            <td>{{ cert.city }}</td>
+                            <td>{{ cert.lh_serial_no }}</td>
+                            <td>{{ cert.cert_no }}</td>
+                            <td>{{ cert.sticker_no }}</td>
+                            <td>{{ cert.eq_serial_no }}</td>
+                            <td>{{ cert.equipment_type }}</td>
+                            <td>{{ cert.company_name }}</td>
+                            <td>{{ cert.inspection_date }}</td>
+                            <td>{{ cert.expiry_date }}</td>
+                            <td>{{ cert.remaining_months }}</td>
+                            <td>{{ cert.plate_no }}</td>
+                            <td>{{ cert.manufacturer }}</td>
+                            <td>{{ cert.inspected_by }}</td>
+                            <td>{{ cert.status }}</td>
+                            <td>{{ cert.prepared_by }}</td>
+                            <td>{{ cert.wasted_serial }}</td>
+                            <td>{{ cert.invoice_no }}</td>
+                            <td>{{ cert.amount }}</td>
+                            <td>{{ cert.cash_bank }}</td>
+                            <td>{{ cert.client_rep_name }}</td>
+                            <td>{{ cert.client_rep_number }}</td>
+                            <td>{{ cert.email }}</td>
+                            <td>{{ cert.remarks }}</td>
+                        </tr>
+
+                        <!-- Approve/Reject Certificate Modal -->
+                        <div class="modal fade" id="viewCertificateModal{{ cert.uid }}" tabindex="-1" aria-labelledby="viewCertificateModalLabel{{ cert.uid }}" aria-hidden="true">
+                            <div class="modal-dialog modal-xl">
+                                <div class="modal-content">
+                                    <form action="{% url 'approve_reject_certificate' cert.uid %}" method="post" class="was-validated">
+                                        {% csrf_token %}
+                                        <div class="modal-header bg-warning bg-opacity-25">
+                                            <h5 class="modal-title">Approve/Reject Certificate</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body row g-3 px-3">
+                                            <div class="col-md-4">
+                                                <label>LH Serial No</label>
+                                                <input type="text" name="lh_serial_no" value="{{ cert.lh_serial_no }}" class="form-control" readonly>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Certificate No</label>
+                                                <input type="text" name="cert_no" value="{{ cert.cert_no }}" class="form-control" readonly>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Sticker No</label>
+                                                <input type="text" name="sticker_no" value="{{ cert.sticker_no }}" class="form-control" readonly>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Eq Serial No</label>
+                                                <input type="text" name="eq_serial_no" value="{{ cert.eq_serial_no }}" class="form-control" readonly>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Equipment Type</label>
+                                                <input type="text" name="equipment_type" value="{{ cert.equipment_type }}" class="form-control" readonly>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Company Name</label>
+                                                <input type="text" name="company_name" value="{{ cert.company_name }}" class="form-control" readonly>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Inspection Date</label>
+                                                <input type="date" name="inspection_date" value="{{ cert.inspection_date }}" class="form-control" readonly>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Expiry Date</label>
+                                                <input type="date" name="expiry_date" value="{{ cert.expiry_date }}" class="form-control" readonly>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Remaining Months</label>
+                                                <input type="text" name="remaining_months" value="{{ cert.remaining_months }}" class="form-control" readonly>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Plate No</label>
+                                                <input type="text" name="plate_no" value="{{ cert.plate_no }}" class="form-control" readonly>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Manufacturer</label>
+                                                <input type="text" name="manufacturer" value="{{ cert.manufacturer }}" class="form-control" readonly>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Inspected By</label>
+                                                <input type="text" name="inspected_by" value="{{ cert.inspected_by }}" class="form-control" readonly>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Prepared By</label>
+                                                <input type="text" name="prepared_by" value="{{ cert.prepared_by }}" class="form-control" readonly>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Wasted Serial</label>
+                                                <input type="text" name="wasted_serial" value="{{ cert.wasted_serial }}" class="form-control" readonly>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Invoice No</label>
+                                                <input type="text" name="invoice_no" value="{{ cert.invoice_no }}" class="form-control" readonly>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Amount</label>
+                                                <input type="text" name="amount" value="{{ cert.amount }}" class="form-control" readonly>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Cash/Bank</label>
+                                                <input type="text" name="cash_bank" value="{{ cert.cash_bank }}" class="form-control" readonly>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Client Rep Name</label>
+                                                <input type="text" name="client_rep_name" value="{{ cert.client_rep_name }}" 
+                                                    class="form-control" 
+                                                    pattern="^[A-Za-z][A-Za-z\s\-_]{0,}[A-Za-z]$"
+                                                    title="Please enter a valid name containing letters, spaces, hyphens, or underscores. Must start and end with a letter. Cannot be N/A."
+                                                    readonly>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Client Rep Number (e.g., +9665XXXXXXXX)</label>
+                                                <input type="text" name="client_rep_number" value="{{ cert.client_rep_number }}" class="form-control" readonly>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Email</label>
+                                                <input type="email" name="email" value="{{ cert.email }}" class="form-control" readonly>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Remarks</label>
+                                                <input type="text" name="remarks" value="{{ cert.remarks }}" class="form-control" readonly>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="submit" name="action" value="approve" class="btn btn-warning">Approve</button>
+                                            <button type="submit" name="action" value="reject" class="btn btn-danger">Reject</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Approve Certificate Modal -->
+                        <div class="modal fade" id="approveModal{{ cert.uid }}" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog">
+                            <div class="modal-content">
+                                <form action="{% url 'approve_reject_certificate' cert.uid %}" method="post">
+                                {% csrf_token %}
+                                <div class="modal-header bg-success text-white">
+                                    <h5 class="modal-title">Approve Certificate</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p>Are you sure you want to Approve <strong>{{ cert.cert_no }}</strong>?</p>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="submit" name="action" value="approve" class="btn btn-success">Approve</button>
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                </div>
+                                </form>
+                            </div>
+                            </div>
+                        </div>
+
+                        <!-- Reject Certificate Modal -->
+                        <div class="modal fade" id="rejectModal{{ cert.uid }}" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog">
+                            <div class="modal-content">
+                                <form action="{% url 'approve_reject_certificate' cert.uid %}" method="post">
+                                {% csrf_token %}
+                                <div class="modal-header bg-danger text-white">
+                                    <h5 class="modal-title">Reject Certificate</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p>Are you sure you want to Reject <strong>{{ cert.cert_no }}</strong>?</p>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="submit" name="action" value="reject" class="btn btn-danger">Reject</button>
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                </div>
+                                </form>
+                            </div>
+                            </div>
+                        </div>
+
+                        {% endfor %}
+                        <tr>
+                            <td colspan="27" class="text-center">-</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Disabled and active states pagination -->
+                {% include "base/pagination.html" with page_obj=certificates %}
+                <!-- End Disabled and active states pagination -->
+            </div>
+        </div>
+    </div>
+</div>
+<!-- End Display Data -->
+
+<!-- ================== BEGIN Those are use for pdf and excel generated file ================== -->
+<script src="{% static 'datatable/v2.5.2/jspdf.umd.min.js' %}"></script>
+<script src="{% static 'datatable/v3.8.4/jspdf.plugin.autotable.min.js' %}"></script>
+<!-- ================== END Those are use for pdf and excel generated file  ================== -->
+ 
+<script>
+    function exportToExcel() {
+        const table = document.getElementById("myCertificateTable");
+        const rows = table.querySelectorAll("tr");
+        let csv = [];
+
+        for (let i = 0; i < rows.length; i++) {
+            const row = [], cols = rows[i].querySelectorAll("td, th");
+
+            for (let j = 0; j < cols.length; j++) { // Start from index 1 to skip the first column
+                row.push(cols[j].innerText);
+            }
+
+            csv.push(row.join(","));
+        }
+
+        // Create a blob
+        const blob = new Blob([csv.join("\n")], { type: "text/csv;charset=utf-8;" });
+
+        // Create a link element and click it
+        const link = document.createElement("a");
+        link.style.display = "none";
+        document.body.appendChild(link);
+        if (navigator.msSaveBlob) { // IE 10+
+            navigator.msSaveBlob(blob, "AllCertificateTable.csv");
+        } else {
+            link.setAttribute("href", URL.createObjectURL(blob));
+            link.setAttribute("download", "AllCertificateTable.csv");
+            link.click();
+        }
+        document.body.removeChild(link);
+    }
+
+    function exportToPDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('landscape');
+        
+        // Get the table element
+        const table = document.getElementById("myCertificateTable");
+        const rows = table.querySelectorAll("tr");
+        let data = [];
+
+        for (let i = 0; i < rows.length; i++) {
+            const row = [], cols = rows[i].querySelectorAll("td, th");
+
+            for (let j = 0; j < cols.length; j++) { // Start from index 1 to skip the first column
+                row.push(cols[j].innerText);
+            }
+
+            data.push(row);
+        }
+
+        doc.autoTable({
+            head: [data[0]], // Use the first row as the header
+            body: data.slice(1), // Use the rest as the body
+            startY: 20,
+            theme: 'grid',
+            styles: {
+                fontSize: 8,
+                cellPadding: 2,
+            },
+            headStyles: {
+                fillColor: [0, 123, 255],
+                textColor: [255, 255, 255],
+            },
+            didDrawPage: function (data) {
+                doc.text("All Certificate Record", 14, 10);
+            }
+        });
+
+        // Save the generated PDF
+        doc.save('AllCertificateTable.pdf');
+    }
+
+
+
+</script>
+
+{% endblock %}
+<!-- BEGIN #Body_of_this_page -->

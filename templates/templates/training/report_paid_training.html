@@ -1,0 +1,215 @@
+{% extends "base/base.html" %}
+{% load static %}
+{% block start %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0">
+            <i class="fas fa-file-invoice-dollar text-primary me-2"></i>
+            Paid Training
+        </h2>
+        <p class="text-muted mb-0">
+            <small class="text-nowrap">
+                <i class="far fa-calendar-alt me-1"></i>
+                {% if from_date and to_date %}
+                    {{ from_date }} to {{ to_date }}
+                {% else %}
+                    All time
+                {% endif %}
+            </small>
+        </p>
+    </div>
+    <div class="text-end">
+        <div class="d-flex flex-column gap-2">
+            <div class="d-flex align-items-center">
+                <span class="badge bg-primary p-2 fs-6">
+                    <i class="fas fa-file-certificate me-2"></i>
+                    <strong>Total No:</strong> {{ total_paid_training }}
+                </span>
+            </div>
+            <div class="d-flex align-items-center">
+                <span class="badge bg-success p-2 fs-6">
+                    <i class="fas fa-coins me-2"></i>
+                    <strong>Amount:</strong> {{ total_paid_amount|floatformat:2 }} <small>SAR</small>
+                </span>
+            </div>
+        </div>
+    </div>
+</div>
+<hr class="mb-4">
+
+{% if user.is_superuser %}
+
+<!-- Payment Summary -->
+<div class="row">
+    <!-- Jeddah Summary -->
+    <div class="col-md-6 col-lg-3 col-12">
+        <div class="small-box bg-primary">
+            <div class="inner">
+                <h4>Jeddah</h4>
+                <p>Paid No: <strong>{{ total_paid_jeddah_training }}</strong> Amount: <strong>{{ total_paid_jeddah_amount|floatformat:1 }}</strong></p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-tools"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Riyadh Summary -->
+    <div class="col-md-6 col-lg-3 col-12">
+        <div class="small-box bg-success">
+            <div class="inner">
+                <h4>Riyadh</h4>
+                <p>Paid No: <strong>{{ total_paid_riyadh_training }}</strong> Amount: <strong>{{ total_paid_riyadh_amount|floatformat:1 }}</strong></p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-tools"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- NEOM Summary -->
+    <div class="col-md-6 col-lg-3 col-12">
+        <div class="small-box bg-danger">
+            <div class="inner">
+                <h4>NEOM</h4>
+                <p>Paid No: <strong>{{ total_paid_neom_training }}</strong> Amount: <strong>{{ total_paid_neom_amount|floatformat:1 }}</strong></p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-tools"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Damman Summary -->
+    <div class="col-md-6 col-lg-3 col-12">
+        <div class="small-box bg-warning">
+            <div class="inner">
+                <h4>Damman</h4>
+                <p>Paid No: <strong>{{ total_paid_damman_training }}</strong> Amount: <strong>{{ total_paid_damman_amount|floatformat:1 }}</strong></p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-tools"></i>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Payment Summary -->
+{% endif %}
+
+
+<!-- Start Display Data -->
+<div class="card border-lime bg-lime bg-opacity-25 mb-5" style="width: 100%;">
+    <div class="card-header border-lime bg-lime bg-opacity-25 fw-bold small text-body">
+        <a style="font-size: 20px;">PAID TRAINING RECORDS</a>
+    </div>
+    <div id="bootstrapTable" class="mb-1">
+        <div class="card">
+            <div class="card-body">
+                <div class="mb-3">
+                    <form method="GET" action="" class="row g-2 align-items-center">
+                        From:<div class="col-auto">
+                            <input type="date" 
+                                class="form-control" 
+                                name="from_date" 
+                                value="{{ from_date }}" 
+                                required
+                                min="2025-01-01">
+                        </div>
+                        To:<div class="col-auto">
+                            <input type="date" 
+                                class="form-control" 
+                                name="to_date" 
+                                value="{{ to_date }}" 
+                                required 
+                                min="2025-01-01">
+                        </div>
+                        <div class="col-md-2 col-12">
+                            <button class="btn btn-primary" type="submit">
+                                <i class="fa fa-search me-1"></i> Search
+                            </button>
+                            <a href="{% url 'report_paid_training' %}" class="btn btn-outline-secondary">
+                                <i class="fa fa-refresh me-1"></i> Reset
+                            </a>
+                        </div>
+                    </form>
+                </div>
+                <table class="table text-nowrap w-100" id="myTrainingTable" data-toggle="table" data-height="auto">
+                    <thead>
+                        <tr>
+                            <th>S.No</th>
+                            <th class="text-primary">Name</th>
+                            <th class="text-success">City</th>
+                            <th>Card No</th>
+                            <th>Certificate No</th>
+                            <th>Name of Trainee</th>
+                            <th>Company Name</th>
+                            <th>Iqama No</th>
+                            <th>Issue Date</th>
+                            <th>Expiry Date</th>
+                            <th>Remaining Months</th>
+                            <th>Trade</th>
+                            <th>Hologram No</th>
+                            <th>Assessed By Resource Person</th>
+                            <th>Status</th>
+                            <th>Wasted Serial</th>
+                            <th>Requested By</th>
+                            <th>Prepared By</th>
+                            <th>Invoice No</th>
+                            <th>Total Amount</th>
+                            <th>Paid Amount</th>
+                            <th>Cash/Bank</th>
+                            <th>Client Representative Name</th>
+                            <th>Client Representative Number</th>
+                            <th>Email</th>
+                            <th>Remarks</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for training in trainings %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ training.user.first_name }}_{{ training.user.last_name }}</td>
+                            <td>{{ training.city }}</td>
+                            <td>{{ training.card_no }}</td>
+                            <td>{{ training.cert_no }}</td>
+                            <td>{{ training.name_of_trainee }}</td>
+                            <td>{{ training.company_name }}</td>
+                            <td>{{ training.iqama_no }}</td>
+                            <td>{{ training.issue_date }}</td>
+                            <td>{{ training.expiry_date }}</td>
+                            <td>{{ training.remaining_months }}</td>
+                            <td>{{ training.trade }}</td>
+                            <td>{{ training.holo_gram_no }}</td>
+                            <td>{{ training.assessed_by_resource_person }}</td>
+                            <td>{{ training.status }}</td>
+                            <td>{{ training.wasted_serial }}</td>
+                            <td>{{ training.requested_by }}</td>
+                            <td>{{ training.prepared_by }}</td>
+                            <td>{{ training.invoice_no }}</td>
+                            <td>{{ training.total_amount }}</td>
+                            <td>{{ training.amount }}</td>
+                            <td>{{ training.cash_bank }}</td>
+                            <td>{{ training.client_rep_name }}</td>
+                            <td>{{ training.client_rep_number }}</td>
+                            <td>{{ training.email }}</td>
+                            <td>{{ training.remarks }}</td>
+                        </tr>
+
+                        {% endfor %}
+                        <tr>
+                            <td colspan="26" class="text-center">-</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Disabled and active states pagination -->
+                {% include "base/pagination.html" with page_obj=trainings %}
+                <!-- End Disabled and active states pagination -->
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}
+<!-- BEGIN #Body_of_this_page -->
