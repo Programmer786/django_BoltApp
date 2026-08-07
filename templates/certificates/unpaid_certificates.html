@@ -163,8 +163,8 @@
                             <td>{{ cert.wasted_serial }}</td>
                             <td>{{ cert.invoice_no }}</td>
                             {% if can_edit_amounts %}
-                            <td class="editable-amount" data-url="{% url 'update_certificate_field' cert.uid %}" data-field="total_amount">{{ cert.total_amount }}</td>
-                            <td class="editable-amount" data-url="{% url 'update_certificate_field' cert.uid %}" data-field="amount">{{ cert.amount }}</td>
+                            <td class="amount-cell"><span class="editable-amount" data-url="{% url 'update_certificate_field' cert.uid %}" data-field="total_amount">{{ cert.total_amount }}</span></td>
+                            <td class="amount-cell"><span class="editable-amount" data-url="{% url 'update_certificate_field' cert.uid %}" data-field="amount">{{ cert.amount }}</span></td>
                             {% else %}
                             <td>{{ cert.total_amount }}</td>
                             <td>{{ cert.amount }}</td>

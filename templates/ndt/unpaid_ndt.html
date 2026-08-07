@@ -158,8 +158,8 @@
                             <td>{{ ndt.received_by }}</td>
                             <td>{{ ndt.invoice_no }}</td>
                             {% if can_edit_amounts %}
-                            <td class="editable-amount" data-url="{% url 'update_ndt_field' ndt.uid %}" data-field="total_amount">{{ ndt.total_amount }}</td>
-                            <td class="editable-amount" data-url="{% url 'update_ndt_field' ndt.uid %}" data-field="amount">{{ ndt.amount }}</td>
+                            <td class="amount-cell"><span class="editable-amount" data-url="{% url 'update_ndt_field' ndt.uid %}" data-field="total_amount">{{ ndt.total_amount }}</span></td>
+                            <td class="amount-cell"><span class="editable-amount" data-url="{% url 'update_ndt_field' ndt.uid %}" data-field="amount">{{ ndt.amount }}</span></td>
                             {% else %}
                             <td>{{ ndt.total_amount }}</td>
                             <td>{{ ndt.amount }}</td>

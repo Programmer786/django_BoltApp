@@ -106,6 +106,16 @@
         padding: 12px 14px;
     }
     .perm-box .field-hint { display: block; line-height: 1.5; }
+    /* Green to match this box's accent (base.html makes checked states visible) */
+    .perm-box .form-check-input:checked {
+        background-color: #16a34a !important;
+        border-color: #16a34a !important;
+    }
+    .perm-box .form-check-input:hover:not(:disabled) { border-color: #16a34a !important; }
+    .perm-box .form-check-input:focus {
+        border-color: #16a34a !important;
+        box-shadow: 0 0 0 3px rgba(22, 163, 74, .22) !important;
+    }
     .header-role-badge.amount-perm { background: #dcfce7; color: #15803d; margin-left: 4px; }
 
     /* ── Password match feedback ──────────────────────────────── */
@@ -537,6 +547,22 @@
 </div>
 
 <script>
+/* ── Edit User: force the amount-permission checkbox to the value the
+   server actually has. Browsers restore form-control state across a normal
+   reload, which silently overrides the rendered `checked` attribute. ── */
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[id^="editUserModal"]').forEach(function (modal) {
+        modal.addEventListener('show.bs.modal', function () {
+            const box = modal.querySelector('input[name="can_edit_amounts"]');
+            // Only correct the state when we actually know the saved value.
+            // (A missing data-saved must never silently force it off.)
+            if (box && typeof box.dataset.saved !== 'undefined') {
+                box.checked = box.dataset.saved === '1';
+            }
+        });
+    });
+});
+
 /* ── Create Account: live password match check ───────────────── */
 document.addEventListener('DOMContentLoaded', function () {
     const form  = document.getElementById('createAccountForm');
@@ -749,7 +775,7 @@ function calculatePasswordStrength(password) {
     <div class="modal fade" id="editUserModal{{ user.id }}" tabindex="-1" aria-labelledby="editUserModalLabel{{ user.id }}" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <form action="{% url 'edit_user' user.id %}" method="post" class="was-validated">
+                <form action="{% url 'edit_user' user.id %}" method="post" class="was-validated" autocomplete="off">
                     {% csrf_token %}
                     <div class="modal-header">
                         <h5 class="modal-title"><i class="fas fa-user-edit text-primary me-2"></i>Update User — {{ user.username }}</h5>
@@ -804,8 +830,11 @@ function calculatePasswordStrength(password) {
                         <div class="col-12">
                             <div class="perm-box">
                                 <div class="form-check mb-0">
+                                    {# autocomplete=off stops the browser restoring the stale pre-reload state on F5 #}
                                     <input class="form-check-input" type="checkbox" value="1"
                                            name="can_edit_amounts" id="canEditAmounts{{ user.id }}"
+                                           autocomplete="off"
+                                           data-saved="{% if user.profile.can_edit_amounts %}1{% else %}0{% endif %}"
                                            {% if user.profile.can_edit_amounts %}checked{% endif %}>
                                     <label class="form-check-label fw-semibold" for="canEditAmounts{{ user.id }}">
                                         <i class="fas fa-money-bill-wave me-1 text-success"></i>Allow editing amounts

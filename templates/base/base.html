@@ -181,6 +181,31 @@
 		}
 		.form-label { font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 5px; }
 
+		/* ── Checkboxes & radios ──────────────────────────────────
+		   The theme's .theme-default sets --bs-theme to #dae0ec (near-white),
+		   and Bootstrap draws the tick in white — so a checked box was a
+		   white tick on a white background: checked, but invisible.
+		   Force a visible checked state. */
+		.form-check-input {
+			width: 1.05em;
+			height: 1.05em;
+			margin-top: .18em;
+			border: 2px solid #94a3b8 !important;
+			background-color: #fff !important;
+			cursor: pointer;
+			transition: background-color .15s ease, border-color .15s ease;
+		}
+		.form-check-input:hover:not(:disabled) { border-color: #2563eb !important; }
+		.form-check-input:checked {
+			background-color: #2563eb !important;
+			border-color: #2563eb !important;
+		}
+		.form-check-input:focus {
+			border-color: #2563eb !important;
+			box-shadow: 0 0 0 3px rgba(37, 99, 235, .22) !important;
+		}
+		.form-check-label { cursor: pointer; }
+
 		/* ── Pagination ───────────────────────────────────────── */
 		.pagination .page-link {
 			border-radius: 8px !important;
