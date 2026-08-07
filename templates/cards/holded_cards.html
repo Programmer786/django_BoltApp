@@ -59,6 +59,7 @@
                             <th>Holo Gram #</th>
                             <th>Assessed By</th>
                             <th>Status</th>
+                            <th class="text-danger">Hold Reason</th>
                             <th>Wasted Serial</th>
                             <th>Requested By</th>
                             <th>Prepared By</th>
@@ -109,6 +110,7 @@
                             <td>{{ card.holo_gram_no }}</td>
                             <td>{{ card.assessed_by }}</td>
                             <td>{{ card.status }}</td>
+                            <td>{{ card.hold_reason|default:'—' }}</td>
                             <td>{{ card.wasted_serial }}</td>
                             <td>{{ card.requested_by }}</td>
                             <td>{{ card.prepared_by }}</td>
@@ -153,7 +155,7 @@
 
                         {% endfor %}
                         <tr>
-                            <td colspan="27" class="text-center">-</td>
+                            <td colspan="29" class="text-center">-</td>
                         </tr>
                     </tbody>
                 </table>
