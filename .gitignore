@@ -28,9 +28,3 @@ env/
 
 # Static files collected
 staticfiles/
-
-# Selenium-downloaded Chrome browser (hundreds of MB — never commit)
-chrome/
-chromedriver*
-# webdriver-manager cache
-.wdm/
