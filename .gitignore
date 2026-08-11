@@ -28,3 +28,12 @@ env/
 
 # Static files collected
 staticfiles/
+
+# Selenium / webdriver downloads — hundreds of MB, never commit.
+# (Re-added: a previous commit overwrote these entries and the browser
+#  binaries got committed again, blocking pushes with GH001.)
+.selenium/
+chrome/
+chromedriver/
+chromedriver*
+.wdm/
