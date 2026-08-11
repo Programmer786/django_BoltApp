@@ -180,7 +180,8 @@
                             <th>Requested By</th>
                             <th>Prepared By</th>
                             <th>Invoice No</th>
-                            <th>Amount</th>
+                            <th>Total Amount</th>
+                            <th>Paid Amount</th>
                             <th>Cash/Bank</th>
                             <th>Client Representative Name</th>
                             <th>Client Representative Number</th>
@@ -258,6 +259,7 @@
                             <td>{{ training.requested_by }}</td>
                             <td>{{ training.prepared_by }}</td>
                             <td>{{ training.invoice_no }}</td>
+                            <td>{{ training.total_amount }}</td>
                             <td>{{ training.amount }}</td>
                             <td>{{ training.cash_bank }}</td>
                             <td>{{ training.client_rep_name }}</td>
@@ -346,7 +348,11 @@
                                                 <input type="text" name="invoice_no" value="{{ training.invoice_no }}" class="form-control">
                                             </div>
                                             <div class="col-md-4">
-                                                <label>Amount</label>
+                                                <label>Total Amount</label>
+                                                <input type="text" name="total_amount" value="{{ training.total_amount }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Paid Amount</label>
                                                 <input type="text" name="amount" value="{{ training.amount }}" class="form-control">
                                             </div>
                                             <div class="col-md-4">

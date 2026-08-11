@@ -62,7 +62,8 @@
                             <th>Requested By</th>
                             <th>Prepared By</th>
                             <th>Invoice No</th>
-                            <th>Amount</th>
+                            <th>Total Amount</th>
+                            <th>Paid Amount</th>
                             <th>Cash/Bank</th>
                             <th>Client Representative Name</th>
                             <th>Client Representative Number</th>
@@ -141,6 +142,7 @@
                             <td>{{ card.requested_by }}</td>
                             <td>{{ card.prepared_by }}</td>
                             <td>{{ card.invoice_no }}</td>
+                            <td>{{ card.total_amount }}</td>
                             <td>{{ card.amount }}</td>
                             <td>{{ card.cash_bank }}</td>
                             <td>{{ card.client_rep_name }}</td>
@@ -229,7 +231,11 @@
                                                 <input type="text" name="invoice_no" value="{{ card.invoice_no }}" class="form-control">
                                             </div>
                                             <div class="col-md-4">
-                                                <label>Amount</label>
+                                                <label>Total Amount</label>
+                                                <input type="text" name="total_amount" value="{{ card.total_amount }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Paid Amount</label>
                                                 <input type="text" name="amount" value="{{ card.amount }}" class="form-control">
                                             </div>
                                             <div class="col-md-4">

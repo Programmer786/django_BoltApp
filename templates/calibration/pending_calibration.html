@@ -60,7 +60,8 @@
                             <th>Prepared By</th>
                             <th>Wasted Serial No</th>
                             <th>Invoice No</th>
-                            <th>Amount</th>
+                            <th>Total Amount</th>
+                            <th>Paid Amount</th>
                             <th>Cash/Bank</th>
                             <th>Client Representative Name</th>
                             <th>Client Representative Number</th>
@@ -137,6 +138,7 @@
                             <td>{{ calibration.prepared_by }}</td>
                             <td>{{ calibration.wasted_serial }}</td>
                             <td>{{ calibration.invoice_no }}</td>
+                            <td>{{ calibration.total_amount }}</td>
                             <td>{{ calibration.amount }}</td>
                             <td>{{ calibration.cash_bank }}</td>
                             <td>{{ calibration.client_rep_name }}</td>
@@ -214,7 +216,11 @@
                                                 <input type="text" name="invoice_no" value="{{ calibration.invoice_no }}" class="form-control">
                                             </div>
                                             <div class="col-md-4">
-                                                <label>Amount</label>
+                                                <label>Total Amount</label>
+                                                <input type="text" name="total_amount" value="{{ calibration.total_amount }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Paid Amount</label>
                                                 <input type="text" name="amount" value="{{ calibration.amount }}" class="form-control">
                                             </div>
                                             <div class="col-md-4">

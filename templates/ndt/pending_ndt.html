@@ -46,7 +46,8 @@
                             <th>Approved By</th>
                             <th>Received By</th>
                             <th>Invoice No</th>
-                            <th>Amount</th>
+                            <th>Total Amount</th>
+                            <th>Paid Amount</th>
                             <th>Cash/Bank</th>
                             <th>Client Representative Name</th>
                             <th>Client Representative Number</th>
@@ -126,6 +127,7 @@
                             <td>{{ ndt.approved_by }}</td>
                             <td>{{ ndt.received_by }}</td>
                             <td>{{ ndt.invoice_no }}</td>
+                            <td>{{ ndt.total_amount }}</td>
                             <td>{{ ndt.amount }}</td>
                             <td>{{ ndt.cash_bank }}</td>
                             <td>{{ ndt.client_rep_name }}</td>
@@ -210,7 +212,11 @@
                                                 <input type="text" name="invoice_no" value="{{ ndt.invoice_no }}" class="form-control">
                                             </div>
                                             <div class="col-md-4">
-                                                <label>Amount</label>
+                                                <label>Total Amount</label>
+                                                <input type="text" name="total_amount" value="{{ ndt.total_amount }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Paid Amount</label>
                                                 <input type="text" name="amount" value="{{ ndt.amount }}" class="form-control">
                                             </div>
                                             <div class="col-md-4">
