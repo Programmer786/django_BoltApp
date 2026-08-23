@@ -11,7 +11,7 @@ from django.utils.timezone import now  # Make sure this import is present
 from base.utils import (
     items_per_page, current_date, get_next_numeric_sr_no, get_manager_city,
     can_access_record, can_manage_record, assert_city_allowed, safe_cell,
-    handle_amount_field_update,
+    handle_amount_field_update, redirect_back,
 )
 from training.models import Training
 from django.utils import timezone
@@ -628,7 +628,7 @@ def approve_reject_training(request, uid):
     training = get_object_or_404(Training, uid=uid)
     if not can_manage_record(request.user, training):
         messages.error(request, 'You do not have permission to approve or reject this training.')
-        return redirect('pending_training')
+        return redirect_back(request, 'pending_training')
 
     if request.method == 'POST':
         # Check which button was clicked
@@ -649,7 +649,7 @@ def approve_reject_training(request, uid):
         training._request = request
         training._activity_message = f"{verdict} training card {training.card_no} (owner: {owner}) by {approver}"
         training.save()
-    return redirect('pending_training')
+    return redirect_back(request, 'pending_training')
 
 
 @login_required

@@ -10,7 +10,7 @@ from django.utils.timezone import now  # Make sure this import is present
 from base.utils import (
     items_per_page, current_date, get_next_numeric_sr_no, get_manager_city,
     can_access_record, can_manage_record, assert_city_allowed, safe_cell,
-    handle_amount_field_update,
+    handle_amount_field_update, redirect_back,
 )
 from ndt.models import NonDestructiveTesting
 from django.utils import timezone
@@ -338,7 +338,7 @@ def approve_reject_ndt(request, uid):
     ndt = get_object_or_404(NonDestructiveTesting, uid=uid)
     if not can_manage_record(request.user, ndt):
         messages.error(request, 'You do not have permission to approve or reject this NDT report.')
-        return redirect('pending_ndt')
+        return redirect_back(request, 'pending_ndt')
 
     if request.method == 'POST':
         # Check which button was clicked
@@ -359,7 +359,7 @@ def approve_reject_ndt(request, uid):
         ndt._request = request
         ndt._activity_message = f"{verdict} NDT report {ndt.report_no} (owner: {owner}) by {approver}"
         ndt.save()
-    return redirect('pending_ndt')
+    return redirect_back(request, 'pending_ndt')
 
 
 @login_required

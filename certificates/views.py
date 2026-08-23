@@ -27,7 +27,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from base.utils import (
     current_date, get_manager_city, get_next_numeric_sr_no, items_per_page,
     can_access_record, can_manage_record, assert_city_allowed, safe_cell,
-    handle_amount_field_update,
+    handle_amount_field_update, redirect_back,
 )
 from .models import Certificate
 
@@ -662,7 +662,7 @@ def approve_reject_certificate(request, uid):
     cert = get_object_or_404(Certificate, uid=uid)
     if not can_manage_record(request.user, cert):
         messages.error(request, 'You do not have permission to approve or reject this certificate.')
-        return redirect('pending_certificates')
+        return redirect_back(request, 'pending_certificates')
 
     if request.method == 'POST':
         # Check which button was clicked
@@ -683,7 +683,7 @@ def approve_reject_certificate(request, uid):
         cert._request = request
         cert._activity_message = f"{verdict} certificate {cert.cert_no} (owner: {owner}) by {approver}"
         cert.save()
-    return redirect('pending_certificates')
+    return redirect_back(request, 'pending_certificates')
 
 
 @login_required

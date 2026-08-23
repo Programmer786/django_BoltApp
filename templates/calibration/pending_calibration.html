@@ -102,6 +102,7 @@
                                     <!-- Approve Button -->
                                     <form action="{% url 'approve_reject_calibration' calibration.uid %}" method="post" style="display:inline;">
                                         {% csrf_token %}
+                                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
                                         <input type="hidden" name="action" value="approve">
                                         <button type="submit" class="btn btn-success btn-sm">
                                             <i class="fa fa-check"></i>
@@ -111,6 +112,7 @@
                                     <!-- Reject Button -->
                                     <form action="{% url 'approve_reject_calibration' calibration.uid %}" method="post" style="display:inline;">
                                         {% csrf_token %}
+                                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
                                         <input type="hidden" name="action" value="reject">
                                         <button type="submit" class="btn btn-danger btn-sm">
                                             <i class="fa fa-times"></i>
@@ -155,6 +157,7 @@
                                 <div class="modal-content">
                                     <form action="{% url 'approve_reject_calibration' calibration.uid %}" method="post" class="was-validated">
                                         {% csrf_token %}
+                                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
                                         <div class="modal-header bg-warning bg-opacity-25">
                                             <h5 class="modal-title">Approve/Reject Calibration</h5>
                                             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -270,6 +273,7 @@
                             <div class="modal-content">
                                 <form action="{% url 'approve_reject_calibration' calibration.uid %}" method="post">
                                 {% csrf_token %}
+                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
                                 <div class="modal-header bg-success text-white">
                                     <h5 class="modal-title">Approve Calibration</h5>
                                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -292,6 +296,7 @@
                             <div class="modal-content">
                                 <form action="{% url 'approve_reject_calibration' calibration.uid %}" method="post">
                                 {% csrf_token %}
+                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
                                 <div class="modal-header bg-danger text-white">
                                     <h5 class="modal-title">Reject Calibration</h5>
                                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>

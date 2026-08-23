@@ -11,7 +11,7 @@ from django.views.decorators.http import require_POST, require_http_methods
 from base.utils import (
     items_per_page, current_date, get_manager_city,
     can_access_record, can_manage_record, assert_city_allowed, safe_cell,
-    handle_amount_field_update,
+    handle_amount_field_update, redirect_back,
 )
 from cards.models import Card
 from django.utils import timezone
@@ -613,7 +613,7 @@ def approve_reject_cards(request, uid):
     card = get_object_or_404(Card, uid=uid)
     if not can_manage_record(request.user, card):
         messages.error(request, 'You do not have permission to approve or reject this card.')
-        return redirect('pending_cards')
+        return redirect_back(request, 'pending_cards')
 
     if request.method == 'POST':
         # Check which button was clicked
@@ -634,7 +634,7 @@ def approve_reject_cards(request, uid):
         card._request = request
         card._activity_message = f"{verdict} card {card.card_no} (owner: {owner}) by {approver}"
         card.save()
-    return redirect('pending_cards')
+    return redirect_back(request, 'pending_cards')
 
 
 @login_required

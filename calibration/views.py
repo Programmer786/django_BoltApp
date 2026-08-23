@@ -10,7 +10,7 @@ from django.utils.timezone import now  # Make sure this import is present
 from base.utils import (
     items_per_page, current_date, get_manager_city,
     can_access_record, can_manage_record, assert_city_allowed, safe_cell,
-    handle_amount_field_update,
+    handle_amount_field_update, redirect_back,
 )
 from calibration.models import Calibration
 from django.utils import timezone
@@ -330,7 +330,7 @@ def approve_reject_calibration(request, uid):
     calibration = get_object_or_404(Calibration, uid=uid)
     if not can_manage_record(request.user, calibration):
         messages.error(request, 'You do not have permission to approve or reject this calibration.')
-        return redirect('pending_calibration')
+        return redirect_back(request, 'pending_calibration')
 
     if request.method == 'POST':
         # Check which button was clicked
@@ -351,7 +351,7 @@ def approve_reject_calibration(request, uid):
         calibration._request = request
         calibration._activity_message = f"{verdict} calibration {calibration.cert_no} (owner: {owner}) by {approver}"
         calibration.save()
-    return redirect('pending_calibration')
+    return redirect_back(request, 'pending_calibration')
 
 
 @login_required

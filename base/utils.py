@@ -5,6 +5,8 @@ from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 
 from django.core.exceptions import ValidationError
 from django.http import JsonResponse
+from django.shortcuts import redirect
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.timezone import now
 
 from authentication.models import ActivityLog
@@ -75,6 +77,24 @@ def can_edit_amounts(user, record=None):
     if not (profile and profile.can_edit_amounts):
         return False
     return can_manage_record(user, record) if record is not None else True
+
+
+def redirect_back(request, fallback_view_name):
+    """
+    Redirect to the URL posted in a hidden `next` field — typically
+    `{{ request.get_full_path }}`, the current filtered/paginated list page —
+    when present and safe; otherwise fall back to the named view.
+
+    Used by actions (approve/reject, hold/cancel, ...) triggered from a
+    filtered list so the viewer's search/city/page selection survives the
+    round trip instead of dumping them back to the unfiltered list.
+    """
+    next_url = request.POST.get('next') or request.GET.get('next')
+    if next_url and url_has_allowed_host_and_scheme(
+        next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        return redirect(next_url)
+    return redirect(fallback_view_name)
 
 
 def handle_amount_field_update(request, model, uid):
