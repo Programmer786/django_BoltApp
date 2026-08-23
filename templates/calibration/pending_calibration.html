@@ -57,6 +57,7 @@
                             <th>Next Date of Cal</th>
                             <th>Validity</th>
                             <th>Status</th>
+                            <th>Requested By</th>
                             <th>Prepared By</th>
                             <th>Wasted Serial No</th>
                             <th>Invoice No</th>
@@ -135,6 +136,7 @@
                             <td>{{ calibration.expiry_date }}</td>
                             <td>{{ calibration.validity }}</td>
                             <td>{{ calibration.status }}</td>
+                            <td>{{ calibration.requested_by }}</td>
                             <td>{{ calibration.prepared_by }}</td>
                             <td>{{ calibration.wasted_serial }}</td>
                             <td>{{ calibration.invoice_no }}</td>
@@ -202,6 +204,10 @@
                                             <div class="col-md-4">
                                                 <label>Validity</label>
                                                 <input type="text" name="validity" value="{{ calibration.validity }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Requested By</label>
+                                                <input type="text" name="requested_by" value="{{ calibration.requested_by }}" class="form-control">
                                             </div>
                                             <div class="col-md-4">
                                                 <label>Prepared By</label>
