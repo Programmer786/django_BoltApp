@@ -19,6 +19,8 @@ urlpatterns = [
     path('certificate/cancel/<uuid:uid>/', views.cancel_certificate, name='cancel_certificate'),
     path('certificate/activate/<uuid:uid>/', views.activate_certificate, name='activate_certificate'),
     path('holded-certificates/', views.holded_certificates, name="holded_certificates"),
+    path('rejected-certificates/', views.rejected_certificates, name="rejected_certificates"),
+    path('certificate/restore/<uuid:uid>/', views.restore_rejected_certificate, name="restore_rejected_certificate"),
     path('certificate/hold/<uuid:uid>/', views.hold_certificate, name='hold_certificate'),
     path('certificate/unhold/<uuid:uid>/', views.unhold_certificate, name='unhold_certificate'),
 

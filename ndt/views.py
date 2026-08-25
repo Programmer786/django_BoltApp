@@ -10,7 +10,7 @@ from django.utils.timezone import now  # Make sure this import is present
 from base.utils import (
     items_per_page, current_date, get_next_numeric_sr_no, get_manager_city,
     can_access_record, can_manage_record, assert_city_allowed, safe_cell,
-    handle_amount_field_update, redirect_back,
+    handle_amount_field_update, redirect_back, can_approve_reject,
 )
 from ndt.models import NonDestructiveTesting
 from django.utils import timezone
@@ -334,10 +334,85 @@ def pending_ndt(request):
 
 
 @login_required
-def approve_reject_ndt(request, uid):
+def rejected_ndt(request):
+    """
+    Rejected NDT reports — previously invisible everywhere once
+    isReject=True: excluded from Pending on purpose, and not shown by
+    Manage (isApprove required). This is the only place they can be
+    found and restored.
+    """
+    current_user = request.user
+    if not (current_user.is_superuser or current_user.is_staff):
+        messages.error(request, 'You do not have permission to view rejected NDT reports.')
+        return redirect('index')
+
+    searching_query = request.GET.get('searching_query', '').strip()
+    selected_city = request.GET.get('city', '').strip()
+
+    manager_city = get_manager_city(current_user)
+    if manager_city:
+        selected_city = manager_city
+
+    ndt_list = NonDestructiveTesting.objects.filter(isReject=True).order_by('-updated_at')
+    if selected_city:
+        ndt_list = ndt_list.filter(user__profile__city__iexact=selected_city)
+    if searching_query:
+        ndt_list = ndt_list.filter(
+            Q(report_no__icontains=searching_query) |
+            Q(company_name__icontains=searching_query)
+        )
+
+    total_ndts = ndt_list.count()
+    paginator = Paginator(ndt_list, items_per_page)
+    page = request.GET.get('page', '1')
+    try:
+        ndts = paginator.page(int(page))
+    except PageNotAnInteger:
+        ndts = paginator.page(1)
+    except EmptyPage:
+        ndts = paginator.page(paginator.num_pages)
+
+    context = {
+        'title': 'Rejected NDT',
+        'ndts': ndts,
+        'current_date': current_date,
+        'total_ndts': total_ndts,
+        'searching_query': searching_query,
+        'manager_city': manager_city,
+        'sidebar_active': 'rejected_ndt',
+    }
+    return render(request, 'ndt/rejected_ndt.html', context)
+
+
+@login_required
+@require_POST
+def restore_rejected_ndt(request, uid):
+    """Move a rejected NDT report back to Pending."""
     ndt = get_object_or_404(NonDestructiveTesting, uid=uid)
     if not can_manage_record(request.user, ndt):
-        messages.error(request, 'You do not have permission to approve or reject this NDT report.')
+        messages.error(request, 'You do not have permission to restore this NDT report.')
+        return redirect_back(request, 'rejected_ndt')
+
+    if not ndt.isReject:
+        messages.warning(request, f'NDT report {ndt.report_no} is not rejected.')
+        return redirect_back(request, 'rejected_ndt')
+
+    ndt.isReject = False
+    ndt._request_user = request.user
+    ndt._request = request
+    approver = request.user.get_full_name() or request.user.username
+    ndt._activity_message = f"Restored rejected NDT report {ndt.report_no} to pending by {approver}"
+    ndt.save()
+
+    messages.success(request, f'NDT report {ndt.report_no} has been restored to Pending.')
+    return redirect_back(request, 'rejected_ndt')
+
+
+@login_required
+def approve_reject_ndt(request, uid):
+    ndt = get_object_or_404(NonDestructiveTesting, uid=uid)
+    if not can_approve_reject(request.user, ndt):
+        messages.error(request, 'You do not have permission to approve or reject NDT reports. Ask an admin to grant it from Manage Accounts.')
         return redirect_back(request, 'pending_ndt')
 
     if request.method == 'POST':

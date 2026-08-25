@@ -27,7 +27,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from base.utils import (
     current_date, get_manager_city, get_next_numeric_sr_no, items_per_page,
     can_access_record, can_manage_record, assert_city_allowed, safe_cell,
-    handle_amount_field_update, redirect_back,
+    handle_amount_field_update, redirect_back, can_approve_reject,
 )
 from .models import Certificate
 
@@ -660,8 +660,8 @@ def pending_certificates(request):
 @login_required
 def approve_reject_certificate(request, uid):
     cert = get_object_or_404(Certificate, uid=uid)
-    if not can_manage_record(request.user, cert):
-        messages.error(request, 'You do not have permission to approve or reject this certificate.')
+    if not can_approve_reject(request.user, cert):
+        messages.error(request, 'You do not have permission to approve or reject certificates. Ask an admin to grant it from Manage Accounts.')
         return redirect_back(request, 'pending_certificates')
 
     if request.method == 'POST':
@@ -1438,7 +1438,7 @@ def holded_certificates(request):
         certificates = paginator.page(paginator.num_pages)
 
     context = {
-        'title': 'Holded Certificates', 
+        'title': 'Holded Certificates',
         'certificates': certificates,
         'current_date': current_date,
         'total_certificates': total_certificates,
@@ -1446,6 +1446,82 @@ def holded_certificates(request):
         'sidebar_active': 'holded_certificates',
     }
     return render(request, 'certificates/holded_certificates.html', context)
+
+
+@login_required
+def rejected_certificates(request):
+    """
+    Rejected certificates — previously invisible everywhere once
+    isReject=True: excluded from Pending on purpose, and not shown by
+    Manage (isApprove required), Cancelled (isCancel) or Hold (isHold).
+    This is the only place they can be found and restored.
+    """
+    current_user = request.user
+    if not (current_user.is_superuser or current_user.is_staff):
+        messages.error(request, 'You do not have permission to view rejected certificates.')
+        return redirect('index')
+
+    searching_query = request.GET.get('searching_query', '').strip()
+    selected_city = request.GET.get('city', '').strip()
+
+    manager_city = get_manager_city(current_user)
+    if manager_city:
+        selected_city = manager_city
+
+    certificate_list = Certificate.objects.filter(isReject=True).order_by('-updated_at')
+    if selected_city:
+        certificate_list = certificate_list.filter(user__profile__city__iexact=selected_city)
+    if searching_query:
+        certificate_list = certificate_list.filter(
+            Q(cert_no__icontains=searching_query) |
+            Q(company_name__icontains=searching_query)
+        )
+
+    total_certificates = certificate_list.count()
+    paginator = Paginator(certificate_list, items_per_page)
+    page = request.GET.get('page', '1')
+    try:
+        certificates = paginator.page(int(page))
+    except PageNotAnInteger:
+        certificates = paginator.page(1)
+    except EmptyPage:
+        certificates = paginator.page(paginator.num_pages)
+
+    context = {
+        'title': 'Rejected Certificates',
+        'certificates': certificates,
+        'current_date': current_date,
+        'total_certificates': total_certificates,
+        'searching_query': searching_query,
+        'manager_city': manager_city,
+        'sidebar_active': 'rejected_certificates',
+    }
+    return render(request, 'certificates/rejected_certificates.html', context)
+
+
+@login_required
+@require_POST
+def restore_rejected_certificate(request, uid):
+    """Move a rejected certificate back to Pending."""
+    cert = get_object_or_404(Certificate, uid=uid)
+    if not can_manage_record(request.user, cert):
+        messages.error(request, 'You do not have permission to restore this certificate.')
+        return redirect_back(request, 'rejected_certificates')
+
+    if not cert.isReject:
+        messages.warning(request, f'Certificate {cert.cert_no} is not rejected.')
+        return redirect_back(request, 'rejected_certificates')
+
+    cert.isReject = False
+    cert._request_user = request.user
+    cert._request = request
+    approver = request.user.get_full_name() or request.user.username
+    cert._activity_message = f"Restored rejected certificate {cert.cert_no} to pending by {approver}"
+    cert.save()
+
+    messages.success(request, f'Certificate {cert.cert_no} has been restored to Pending.')
+    return redirect_back(request, 'rejected_certificates')
+
 
 @login_required
 @require_POST

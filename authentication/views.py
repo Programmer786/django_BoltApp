@@ -435,8 +435,8 @@ def edit_user(request, user_id):
             user.save()
             profile.city = city
 
-            # Amount-editing permission is granted by superusers only — a
-            # manager must never be able to grant it to anyone, themselves
+            # These two permissions are granted by superusers only — a
+            # manager must never be able to grant them to anyone, themselves
             # included, by posting the field directly.
             if request.user.is_superuser and user.is_staff:
                 granted = request.POST.get('can_edit_amounts') == '1'
@@ -445,6 +445,15 @@ def edit_user(request, user_id):
                     log_activity(
                         user=request.user,
                         action=f"{'Granted' if granted else 'Revoked'} amount-edit permission for {user.username}",
+                        request=request,
+                    )
+
+                approve_granted = request.POST.get('can_approve_reject') == '1'
+                if approve_granted != profile.can_approve_reject:
+                    profile.can_approve_reject = approve_granted
+                    log_activity(
+                        user=request.user,
+                        action=f"{'Granted' if approve_granted else 'Revoked'} approve/reject permission for {user.username}",
                         request=request,
                     )
             profile.save()

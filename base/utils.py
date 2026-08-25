@@ -79,6 +79,29 @@ def can_edit_amounts(user, record=None):
     return can_manage_record(user, record) if record is not None else True
 
 
+def can_approve_reject(user, record=None):
+    """
+    True if `user` may approve or reject a pending record.
+
+    Superusers always may. A manager may only when a superuser has granted
+    them the `can_approve_reject` flag from Manage Accounts — and then only
+    for records in their own city (same as can_manage_record). Regular
+    employees never may.
+
+    Call with `record` to enforce the city check on an actual approve/reject
+    submission; call without it to decide whether to render the
+    Approve/Reject controls at all.
+    """
+    if getattr(user, 'is_superuser', False):
+        return True
+    if not getattr(user, 'is_staff', False):
+        return False
+    profile = getattr(user, 'profile', None)
+    if not (profile and profile.can_approve_reject):
+        return False
+    return can_manage_record(user, record) if record is not None else True
+
+
 def redirect_back(request, fallback_view_name):
     """
     Redirect to the URL posted in a hidden `next` field — typically

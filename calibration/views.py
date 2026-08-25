@@ -10,7 +10,7 @@ from django.utils.timezone import now  # Make sure this import is present
 from base.utils import (
     items_per_page, current_date, get_manager_city,
     can_access_record, can_manage_record, assert_city_allowed, safe_cell,
-    handle_amount_field_update, redirect_back,
+    handle_amount_field_update, redirect_back, can_approve_reject,
 )
 from calibration.models import Calibration
 from django.utils import timezone
@@ -326,10 +326,85 @@ def pending_calibration(request):
 
 
 @login_required
-def approve_reject_calibration(request, uid):
+def rejected_calibration(request):
+    """
+    Rejected calibration records — previously invisible everywhere once
+    isReject=True: excluded from Pending on purpose, and not shown by
+    Manage (isApprove required). This is the only place they can be
+    found and restored.
+    """
+    current_user = request.user
+    if not (current_user.is_superuser or current_user.is_staff):
+        messages.error(request, 'You do not have permission to view rejected calibration records.')
+        return redirect('index')
+
+    searching_query = request.GET.get('searching_query', '').strip()
+    selected_city = request.GET.get('city', '').strip()
+
+    manager_city = get_manager_city(current_user)
+    if manager_city:
+        selected_city = manager_city
+
+    calibration_list = Calibration.objects.filter(isReject=True).order_by('-updated_at')
+    if selected_city:
+        calibration_list = calibration_list.filter(user__profile__city__iexact=selected_city)
+    if searching_query:
+        calibration_list = calibration_list.filter(
+            Q(cert_no__icontains=searching_query) |
+            Q(company_name__icontains=searching_query)
+        )
+
+    total_calibrations = calibration_list.count()
+    paginator = Paginator(calibration_list, items_per_page)
+    page = request.GET.get('page', '1')
+    try:
+        calibrations = paginator.page(int(page))
+    except PageNotAnInteger:
+        calibrations = paginator.page(1)
+    except EmptyPage:
+        calibrations = paginator.page(paginator.num_pages)
+
+    context = {
+        'title': 'Rejected Calibration',
+        'calibrations': calibrations,
+        'current_date': current_date,
+        'total_calibrations': total_calibrations,
+        'searching_query': searching_query,
+        'manager_city': manager_city,
+        'sidebar_active': 'rejected_calibration',
+    }
+    return render(request, 'calibration/rejected_calibration.html', context)
+
+
+@login_required
+@require_POST
+def restore_rejected_calibration(request, uid):
+    """Move a rejected calibration record back to Pending."""
     calibration = get_object_or_404(Calibration, uid=uid)
     if not can_manage_record(request.user, calibration):
-        messages.error(request, 'You do not have permission to approve or reject this calibration.')
+        messages.error(request, 'You do not have permission to restore this calibration record.')
+        return redirect_back(request, 'rejected_calibration')
+
+    if not calibration.isReject:
+        messages.warning(request, f'Calibration {calibration.cert_no} is not rejected.')
+        return redirect_back(request, 'rejected_calibration')
+
+    calibration.isReject = False
+    calibration._request_user = request.user
+    calibration._request = request
+    approver = request.user.get_full_name() or request.user.username
+    calibration._activity_message = f"Restored rejected calibration {calibration.cert_no} to pending by {approver}"
+    calibration.save()
+
+    messages.success(request, f'Calibration {calibration.cert_no} has been restored to Pending.')
+    return redirect_back(request, 'rejected_calibration')
+
+
+@login_required
+def approve_reject_calibration(request, uid):
+    calibration = get_object_or_404(Calibration, uid=uid)
+    if not can_approve_reject(request.user, calibration):
+        messages.error(request, 'You do not have permission to approve or reject calibration records. Ask an admin to grant it from Manage Accounts.')
         return redirect_back(request, 'pending_calibration')
 
     if request.method == 'POST':

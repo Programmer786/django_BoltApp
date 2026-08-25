@@ -1,0 +1,174 @@
+{% extends "base/base.html" %}
+{% load static %}
+{% block start %}
+<h1 class="page-header">
+    Rejected NDT (Total: {{ total_ndts }})
+</h1>
+<hr class="mb-4">
+
+<!-- Start Display Data -->
+<div class="card border-lime bg-lime bg-opacity-25 mb-5" style="width: 100%;">
+    <div class="card-header border-lime bg-lime bg-opacity-25 fw-bold small text-body">
+        <a style="font-size: 20px;">ALL REJECTED NDT RECORDS</a>
+    </div>
+    <div id="bootstrapTable" class="mb-1">
+        <div class="card">
+            <div class="card-body">
+                <div class="mb-3">
+                    <form method="GET" action="" class="row g-2 align-items-center">
+                        <div class="col-md-4 col-12">
+                            <input class="form-control" type="search" name="searching_query" placeholder="Enter Report No or Company Name..." aria-label="Search" value="{{ searching_query|default:'' }}">
+                        </div>
+                        {% if not manager_city %}
+                        <div class="col-auto">
+                            <select name="city" class="form-select" id="yourCity">
+                                <option value="" {% if not request.GET.city %}selected{% endif %}>All Cities</option>
+                                <option value="NEOM" {% if request.GET.city == 'NEOM' %}selected{% endif %}>NEOM</option>
+                                <option value="Jeddah" {% if request.GET.city == 'Jeddah' %}selected{% endif %}>Jeddah</option>
+                                <option value="Riyadh" {% if request.GET.city == 'Riyadh' %}selected{% endif %}>Riyadh</option>
+                                <option value="Dammam" {% if request.GET.city == 'Dammam' %}selected{% endif %}>Dammam</option>
+                            </select>
+                        </div>
+                        {% endif %}
+                        <div class="col-auto">
+                            <button class="btn btn-primary" type="submit">Search</button>
+                            <a href="{% url 'rejected_ndt' %}" class="btn btn-success"><i class="fa fa-refresh" aria-hidden="true"></i> Refresh</a>
+                        </div>
+                        {% if manager_city %}
+                        <div class="col-auto ms-auto">
+                            <span class="badge bg-info-subtle text-info-emphasis fs-6"><i class="fas fa-map-marker-alt me-1"></i> {{ manager_city }} only</span>
+                        </div>
+                        {% endif %}
+                    </form>
+                </div>
+                <table class="table text-nowrap w-100" id="myNdtTable" data-toggle="table" data-height="auto">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>S.No</th>
+                            <th class="text-primary">Name</th>
+                            <th class="text-success">City</th>
+                            <th>LH Serial No</th>
+                            <th>Report No</th>
+                            <th>ID / Serial No</th>
+                            <th>Material</th>
+                            <th>Structure Description</th>
+                            <th>Inspection Type</th>
+                            <th>Inspection Date</th>
+                            <th>Expiry Date</th>
+                            <th>Remaining Months</th>
+                            <th>Company Name</th>
+                            <th>Joint Type</th>
+                            <th>Inspected By</th>
+                            <th>Status</th>
+                            <th>Requested By</th>
+                            <th>Prepared By</th>
+                            <th>Wasted Serial No</th>
+                            <th>Approved By</th>
+                            <th>Received By</th>
+                            <th>Invoice No</th>
+                            <th>Total Amount</th>
+                            <th>Paid Amount</th>
+                            <th>Cash/Bank</th>
+                            <th>Client Representative Name</th>
+                            <th>Client Representative Number</th>
+                            <th>Email</th>
+                            <th>Remarks</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ndt in ndts %}
+                        <tr>
+                            <td>
+                                <div class="dropdown">
+                                    <button class="btn btn-primary dropdown-toggle" type="button" id="dropdownMenuButton{{ forloop.counter }}" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Actions
+                                    </button>
+                                    <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton{{ forloop.counter }}">
+                                        {% if user.is_superuser or user.is_staff %}
+                                        <li>
+                                            <a class="dropdown-item" href="#"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#restoreNdtModal{{ ndt.uid }}">
+                                            <i class="fa fa-rotate-left" style="color: green"></i> Restore to Pending
+                                            </a>
+                                        </li>
+                                        {% endif %}
+                                    </ul>
+                                </div>
+                            </td>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ ndt.user.first_name }}_{{ ndt.user.last_name }}</td>
+                            <td>{{ ndt.city }}</td>
+                            <td>{{ ndt.lh_serial_no }}</td>
+                            <td>{{ ndt.report_no }}</td>
+                            <td>{{ ndt.id_serial_no }}</td>
+                            <td>{{ ndt.material }}</td>
+                            <td>{{ ndt.structure_description }}</td>
+                            <td>{{ ndt.inspection_type }}</td>
+                            <td>{{ ndt.inspection_date }}</td>
+                            <td>{{ ndt.expiry_date }}</td>
+                            <td>{{ ndt.remaining_months }}</td>
+                            <td>{{ ndt.company_name }}</td>
+                            <td>{{ ndt.joint_type }}</td>
+                            <td>{{ ndt.inspected_by }}</td>
+                            <td>{{ ndt.status }}</td>
+                            <td>{{ ndt.requested_by }}</td>
+                            <td>{{ ndt.prepared_by }}</td>
+                            <td>{{ ndt.wasted_serial }}</td>
+                            <td>{{ ndt.approved_by }}</td>
+                            <td>{{ ndt.received_by }}</td>
+                            <td>{{ ndt.invoice_no }}</td>
+                            <td>{{ ndt.total_amount }}</td>
+                            <td>{{ ndt.amount }}</td>
+                            <td>{{ ndt.cash_bank }}</td>
+                            <td>{{ ndt.client_rep_name }}</td>
+                            <td>{{ ndt.client_rep_number }}</td>
+                            <td>{{ ndt.email }}</td>
+                            <td>{{ ndt.remarks }}</td>
+                        </tr>
+
+                        <!-- Restore NDT Confirmation Modal -->
+                        <div class="modal fade" id="restoreNdtModal{{ ndt.uid }}" tabindex="-1" aria-labelledby="restoreNdtModalLabel" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <form action="{% url 'restore_rejected_ndt' ndt.uid %}" method="post">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                        <div class="modal-header bg-success text-white">
+                                            <h5 class="modal-title">Confirm Restore</h5>
+                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <p>Restore this NDT report to Pending so it can be reviewed again?</p>
+                                            <p><strong>Report No:</strong> {{ ndt.report_no }}</p>
+                                            <p><strong>Company:</strong> {{ ndt.company_name }}</p>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                            <button type="submit" class="btn btn-success">Confirm Restore</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        {% endfor %}
+                        <tr>
+                            <td colspan="29" class="text-center">-</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Disabled and active states pagination -->
+                {% include "base/pagination.html" with page_obj=ndts %}
+                <!-- End Disabled and active states pagination -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- End Display Data -->
+
+{% endblock %}
+<!-- BEGIN #Body_of_this_page -->

@@ -27,6 +27,10 @@ class Profile(BaseModel):
     # Granted by a superuser from Manage Accounts; lets a manager edit the
     # Total/Paid Amount cells directly in the Paid & Unpaid tables.
     can_edit_amounts = models.BooleanField(default=False)
+    # Granted by a superuser from Manage Accounts; lets a manager approve or
+    # reject pending records. Off by default — without it, a manager can see
+    # Pending but every approve/reject attempt is refused server-side.
+    can_approve_reject = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.user.username}'s Profile"

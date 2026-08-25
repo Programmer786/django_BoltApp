@@ -19,6 +19,8 @@ urlpatterns = [
     path('card/cancel/<uuid:uid>/', views.cancel_card, name='cancel_card'),
     path('card/activate/<uuid:uid>/', views.activate_card, name='activate_card'),
     path('holded-cards/', views.holded_cards, name="holded_cards"),
+    path('rejected-cards/', views.rejected_cards, name="rejected_cards"),
+    path('card/restore/<uuid:uid>/', views.restore_rejected_card, name="restore_rejected_card"),
     path('card/hold/<uuid:uid>/', views.hold_card, name='hold_card'),
     path('card/unhold/<uuid:uid>/', views.unhold_card, name='unhold_card'),
 ]

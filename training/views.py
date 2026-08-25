@@ -11,7 +11,7 @@ from django.utils.timezone import now  # Make sure this import is present
 from base.utils import (
     items_per_page, current_date, get_next_numeric_sr_no, get_manager_city,
     can_access_record, can_manage_record, assert_city_allowed, safe_cell,
-    handle_amount_field_update, redirect_back,
+    handle_amount_field_update, redirect_back, can_approve_reject,
 )
 from training.models import Training
 from django.utils import timezone
@@ -626,8 +626,8 @@ def pending_training(request):
 @login_required
 def approve_reject_training(request, uid):
     training = get_object_or_404(Training, uid=uid)
-    if not can_manage_record(request.user, training):
-        messages.error(request, 'You do not have permission to approve or reject this training.')
+    if not can_approve_reject(request.user, training):
+        messages.error(request, 'You do not have permission to approve or reject training records. Ask an admin to grant it from Manage Accounts.')
         return redirect_back(request, 'pending_training')
 
     if request.method == 'POST':
@@ -1338,6 +1338,83 @@ def holded_training(request):
         'sidebar_active': 'holded_training',
     }
     return render(request, 'training/holded_training.html', context)
+
+
+@login_required
+def rejected_training(request):
+    """
+    Rejected training records — previously invisible everywhere once
+    isReject=True: excluded from Pending on purpose, and not shown by
+    Manage (isApprove required), Cancelled (isCancel) or Hold (isHold).
+    This is the only place they can be found and restored.
+    """
+    current_user = request.user
+    if not (current_user.is_superuser or current_user.is_staff):
+        messages.error(request, 'You do not have permission to view rejected training records.')
+        return redirect('index')
+
+    searching_query = request.GET.get('searching_query', '').strip()
+    selected_city = request.GET.get('city', '').strip()
+
+    manager_city = get_manager_city(current_user)
+    if manager_city:
+        selected_city = manager_city
+
+    training_list = Training.objects.filter(isReject=True).order_by('-updated_at')
+    if selected_city:
+        training_list = training_list.filter(user__profile__city__iexact=selected_city)
+    if searching_query:
+        training_list = training_list.filter(
+            Q(card_no__icontains=searching_query) |
+            Q(cert_no__icontains=searching_query) |
+            Q(company_name__icontains=searching_query)
+        )
+
+    total_trainings = training_list.count()
+    paginator = Paginator(training_list, items_per_page)
+    page = request.GET.get('page', '1')
+    try:
+        trainings = paginator.page(int(page))
+    except PageNotAnInteger:
+        trainings = paginator.page(1)
+    except EmptyPage:
+        trainings = paginator.page(paginator.num_pages)
+
+    context = {
+        'title': 'Rejected Trainings',
+        'trainings': trainings,
+        'current_date': current_date,
+        'total_trainings': total_trainings,
+        'searching_query': searching_query,
+        'manager_city': manager_city,
+        'sidebar_active': 'rejected_training',
+    }
+    return render(request, 'training/rejected_training.html', context)
+
+
+@login_required
+@require_POST
+def restore_rejected_training(request, uid):
+    """Move a rejected training record back to Pending."""
+    training = get_object_or_404(Training, uid=uid)
+    if not can_manage_record(request.user, training):
+        messages.error(request, 'You do not have permission to restore this training record.')
+        return redirect_back(request, 'rejected_training')
+
+    if not training.isReject:
+        messages.warning(request, f'Training record {training.card_no} is not rejected.')
+        return redirect_back(request, 'rejected_training')
+
+    training.isReject = False
+    training._request_user = request.user
+    training._request = request
+    approver = request.user.get_full_name() or request.user.username
+    training._activity_message = f"Restored rejected training {training.card_no} to pending by {approver}"
+    training.save()
+
+    messages.success(request, f'Training record {training.card_no} has been restored to Pending.')
+    return redirect_back(request, 'rejected_training')
+
 
 @login_required
 @require_POST

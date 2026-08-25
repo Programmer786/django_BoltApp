@@ -378,6 +378,9 @@
                                 {% if user.profile.can_edit_amounts %}
                                 <span class="header-role-badge amount-perm" title="Can edit Total/Paid Amount cells in their own city"><i class="fas fa-money-bill-wave"></i> Amounts</span>
                                 {% endif %}
+                                {% if user.profile.can_approve_reject %}
+                                <span class="header-role-badge amount-perm" title="Can approve/reject pending records in their own city"><i class="fas fa-square-check"></i> Approve</span>
+                                {% endif %}
                             {% else %}
                                 <span class="header-role-badge employee"><i class="fas fa-user"></i> Employee</span>
                             {% endif %}
@@ -547,18 +550,20 @@
 </div>
 
 <script>
-/* ── Edit User: force the amount-permission checkbox to the value the
-   server actually has. Browsers restore form-control state across a normal
+/* ── Edit User: force each permission checkbox to the value the server
+   actually has. Browsers restore form-control state across a normal
    reload, which silently overrides the rendered `checked` attribute. ── */
 document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('[id^="editUserModal"]').forEach(function (modal) {
         modal.addEventListener('show.bs.modal', function () {
-            const box = modal.querySelector('input[name="can_edit_amounts"]');
-            // Only correct the state when we actually know the saved value.
-            // (A missing data-saved must never silently force it off.)
-            if (box && typeof box.dataset.saved !== 'undefined') {
-                box.checked = box.dataset.saved === '1';
-            }
+            ['can_edit_amounts', 'can_approve_reject'].forEach(function (name) {
+                const box = modal.querySelector('input[name="' + name + '"]');
+                // Only correct the state when we actually know the saved value.
+                // (A missing data-saved must never silently force it off.)
+                if (box && typeof box.dataset.saved !== 'undefined') {
+                    box.checked = box.dataset.saved === '1';
+                }
+            });
         });
     });
 });
@@ -843,6 +848,26 @@ function calculatePasswordStrength(password) {
                                 <div class="field-hint mt-1">
                                     Lets this manager click a Total/Paid Amount cell in the Paid &amp; Unpaid
                                     tables and change it directly — for records in their own city only.
+                                </div>
+                            </div>
+                        </div>
+
+                        {# Admin-only: grant this manager the approve/reject action #}
+                        <div class="col-12">
+                            <div class="perm-box">
+                                <div class="form-check mb-0">
+                                    <input class="form-check-input" type="checkbox" value="1"
+                                           name="can_approve_reject" id="canApproveReject{{ user.id }}"
+                                           autocomplete="off"
+                                           data-saved="{% if user.profile.can_approve_reject %}1{% else %}0{% endif %}"
+                                           {% if user.profile.can_approve_reject %}checked{% endif %}>
+                                    <label class="form-check-label fw-semibold" for="canApproveReject{{ user.id }}">
+                                        <i class="fas fa-square-check me-1 text-success"></i>Allow approve/reject
+                                    </label>
+                                </div>
+                                <div class="field-hint mt-1">
+                                    Lets this manager approve or reject pending records — for records in their own
+                                    city only. Without it, Pending shows read-only.
                                 </div>
                             </div>
                         </div>

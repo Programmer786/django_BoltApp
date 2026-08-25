@@ -99,6 +99,7 @@
                                     {% comment %} <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#rejectModal{{ calibration.uid }}">
                                         <i class="fa fa-times"></i>
                                     </button> {% endcomment %}
+                                    {% if can_approve_reject %}
                                     <!-- Approve Button -->
                                     <form action="{% url 'approve_reject_calibration' calibration.uid %}" method="post" style="display:inline;">
                                         {% csrf_token %}
@@ -118,6 +119,7 @@
                                             <i class="fa fa-times"></i>
                                         </button>
                                     </form>
+                                    {% endif %}
                                     <!-- View Button -->
                                     <button type="button" class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#viewCalibrationModal{{ calibration.uid }}">
                                         <i class="fa fa-eye"></i>
@@ -259,8 +261,12 @@
                                         </div>
 
                                         <div class="modal-footer">
+                                            {% if can_approve_reject %}
                                             <button type="submit" name="action" value="approve" class="btn btn-warning">Approve</button>
                                             <button type="submit" name="action" value="reject" class="btn btn-danger">Reject</button>
+                                            {% else %}
+                                            <span class="text-muted small me-auto">You don't have permission to approve or reject.</span>
+                                            {% endif %}
                                         </div>
                                     </form>
                                 </div>

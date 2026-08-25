@@ -11,7 +11,7 @@ from django.views.decorators.http import require_POST, require_http_methods
 from base.utils import (
     items_per_page, current_date, get_manager_city,
     can_access_record, can_manage_record, assert_city_allowed, safe_cell,
-    handle_amount_field_update, redirect_back,
+    handle_amount_field_update, redirect_back, can_approve_reject,
 )
 from cards.models import Card
 from django.utils import timezone
@@ -611,8 +611,8 @@ def pending_cards(request):
 @login_required
 def approve_reject_cards(request, uid):
     card = get_object_or_404(Card, uid=uid)
-    if not can_manage_record(request.user, card):
-        messages.error(request, 'You do not have permission to approve or reject this card.')
+    if not can_approve_reject(request.user, card):
+        messages.error(request, 'You do not have permission to approve or reject cards. Ask an admin to grant it from Manage Accounts.')
         return redirect_back(request, 'pending_cards')
 
     if request.method == 'POST':
@@ -1285,3 +1285,80 @@ def holded_cards(request):
         'sidebar_active': 'holded_cards',
     }
     return render(request, 'cards/holded_cards.html', context)
+
+
+@login_required
+def rejected_cards(request):
+    """
+    Rejected cards — previously invisible everywhere once isReject=True:
+    excluded from Pending (on purpose), and not shown by Manage (isApprove
+    required), Cancelled (isCancel) or Hold (isHold) either. This is the
+    only place they can be found and restored.
+    """
+    current_user = request.user
+    if not (current_user.is_superuser or current_user.is_staff):
+        messages.error(request, 'You do not have permission to view rejected cards.')
+        return redirect('index')
+
+    searching_query = request.GET.get('searching_query', '').strip()
+    selected_city = request.GET.get('city', '').strip()
+
+    manager_city = get_manager_city(current_user)
+    if manager_city:
+        selected_city = manager_city
+
+    card_list = Card.objects.filter(isReject=True).order_by('-updated_at')
+    if selected_city:
+        card_list = card_list.filter(user__profile__city__iexact=selected_city)
+    if searching_query:
+        card_list = card_list.filter(
+            Q(card_no__icontains=searching_query) |
+            Q(company_name__icontains=searching_query) |
+            Q(operator_name__icontains=searching_query) |
+            Q(iqama_no__icontains=searching_query)
+        )
+
+    total_cards = card_list.count()
+    paginator = Paginator(card_list, items_per_page)
+    page = request.GET.get('page', '1')
+    try:
+        cards = paginator.page(int(page))
+    except PageNotAnInteger:
+        cards = paginator.page(1)
+    except EmptyPage:
+        cards = paginator.page(paginator.num_pages)
+
+    context = {
+        'title': 'Rejected Cards',
+        'cards': cards,
+        'current_date': current_date,
+        'total_cards': total_cards,
+        'searching_query': searching_query,
+        'manager_city': manager_city,
+        'sidebar_active': 'rejected_cards',
+    }
+    return render(request, 'cards/rejected_cards.html', context)
+
+
+@login_required
+@require_POST
+def restore_rejected_card(request, uid):
+    """Move a rejected card back to Pending."""
+    card = get_object_or_404(Card, uid=uid)
+    if not can_manage_record(request.user, card):
+        messages.error(request, 'You do not have permission to restore this card.')
+        return redirect_back(request, 'rejected_cards')
+
+    if not card.isReject:
+        messages.warning(request, f'Card {card.card_no} is not rejected.')
+        return redirect_back(request, 'rejected_cards')
+
+    card.isReject = False
+    card._request_user = request.user
+    card._request = request
+    approver = request.user.get_full_name() or request.user.username
+    card._activity_message = f"Restored rejected card {card.card_no} to pending by {approver}"
+    card.save()
+
+    messages.success(request, f'Card {card.card_no} has been restored to Pending.')
+    return redirect_back(request, 'rejected_cards')
