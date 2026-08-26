@@ -1,0 +1,115 @@
+{% extends "base/base.html" %}
+{% load static %}
+{% load url_utils %}
+{% block start %}
+<h1 class="page-header">
+    Universal Records (Total: {{ total_records }})
+</h1>
+<hr class="mb-4">
+
+<!-- Start Display Data -->
+<div class="card border-lime bg-lime bg-opacity-25 mb-5" style="width: 100%;">
+    <div class="card-header border-lime bg-lime bg-opacity-25 fw-bold small text-body">
+        <a style="font-size: 20px;">
+            ALL RECORDS ACROSS ALL MODULES
+        </a>
+    </div>
+    <div id="bootstrapTable" class="mb-1">
+        <div class="card">
+            <div class="card-body">
+                <div class="mb-3">
+                    <form method="GET" action="" class="row g-2 align-items-center">
+                        <div class="col-md-3 col-12">
+                            <input class="form-control" type="search" name="searching_query" placeholder="Search by number, company, requested by, invoice" aria-label="Search" value="{{ searching_query|default:'' }}">
+                        </div>
+                        <div class="col-auto">
+                            <select name="module" class="form-select">
+                                <option value="" {% if not selected_module %}selected{% endif %}>All Modules</option>
+                                {% for key, info in modules.items %}
+                                <option value="{{ key }}" {% if selected_module == key %}selected{% endif %}>{{ info.1 }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-auto">
+                            <select name="status" class="form-select">
+                                <option value="" {% if not selected_status %}selected{% endif %}>All Statuses</option>
+                                <option value="pending" {% if selected_status == 'pending' %}selected{% endif %}>Pending</option>
+                                <option value="approved" {% if selected_status == 'approved' %}selected{% endif %}>Approved</option>
+                                <option value="rejected" {% if selected_status == 'rejected' %}selected{% endif %}>Rejected</option>
+                                <option value="cancelled" {% if selected_status == 'cancelled' %}selected{% endif %}>Cancelled</option>
+                                <option value="held" {% if selected_status == 'held' %}selected{% endif %}>Hold</option>
+                            </select>
+                        </div>
+                        <div class="col-auto">
+                            <select name="city" class="form-select">
+                                <option value="" {% if not selected_city %}selected{% endif %}>All Cities</option>
+                                <option value="NEOM" {% if selected_city == 'NEOM' %}selected{% endif %}>NEOM</option>
+                                <option value="Jeddah" {% if selected_city == 'Jeddah' %}selected{% endif %}>Jeddah</option>
+                                <option value="Riyadh" {% if selected_city == 'Riyadh' %}selected{% endif %}>Riyadh</option>
+                                <option value="Dammam" {% if selected_city == 'Dammam' %}selected{% endif %}>Dammam</option>
+                            </select>
+                        </div>
+                        <div class="col-auto">
+                            <button class="btn btn-primary" type="submit">
+                                <i class="fa fa-search me-1"></i> Search
+                            </button>
+                            <a href="{% url 'universal_records' %}" class="btn btn-outline-secondary">
+                                <i class="fa fa-refresh me-1"></i> Reset
+                            </a>
+                        </div>
+                    </form>
+                </div>
+                <table class="table text-nowrap w-100">
+                    <thead>
+                        <tr>
+                            <th>S.No</th>
+                            <th class="text-primary">Module</th>
+                            <th>Number</th>
+                            <th>Company Name</th>
+                            <th>Requested By</th>
+                            <th>Total Amount</th>
+                            <th>Paid Amount</th>
+                            <th class="text-success">City</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rec in page_records %}
+                        <tr>
+                            <td>{{ forloop.counter0|add:page_records.start_index }}</td>
+                            <td><span class="badge bg-primary-subtle text-primary-emphasis">{{ rec.module_label }}</span></td>
+                            <td>{{ rec.number }}</td>
+                            <td>{{ rec.company_name }}</td>
+                            <td>{{ rec.requested_by }}</td>
+                            <td>{{ rec.total_amount }}</td>
+                            <td>{{ rec.amount }}</td>
+                            <td>{{ rec.city }}</td>
+                            <td><span class="badge bg-{{ rec.status_class }}-subtle text-{{ rec.status_class }}-emphasis">{{ rec.status_label }}</span></td>
+                            <td>{{ rec.created_at|date:"d-m-Y" }}</td>
+                            <td>
+                                <a href="{% url rec.update_url_name rec.uid %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fa fa-eye"></i> View
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="11" class="text-center">No records found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <!-- Disabled and active states pagination -->
+                {% include "base/pagination.html" with page_obj=page_records %}
+                <!-- End Disabled and active states pagination -->
+            </div>
+        </div>
+    </div>
+</div>
+<!-- End Display Data -->
+
+{% endblock %}
+<!-- BEGIN #Body_of_this_page -->

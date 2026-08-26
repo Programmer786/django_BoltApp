@@ -1,9 +1,12 @@
 from datetime import datetime
+from functools import reduce
+from operator import or_
 
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from django.shortcuts import render
 from django.contrib import messages
-from base.utils import current_date
+from base.utils import current_date, items_per_page
 from certificates.models import Certificate
 from cards.models import Card
 from ndt.models import NonDestructiveTesting
@@ -140,6 +143,117 @@ def index(request):
     }
 
     return render(request, 'dashboard/index.html', context)
+
+
+UNIVERSAL_MODULES = {
+    'certificate': (Certificate, 'Certificate', ['cert_no'], 'Certificate No', 'update_certificate'),
+    'card': (Card, 'Card', ['card_no'], 'Card No', 'update_card'),
+    'training': (Training, 'Training', ['card_no', 'cert_no'], 'Card/Cert No', 'update_training'),
+    'ndt': (NonDestructiveTesting, 'NDT', ['report_no'], 'Report No', 'update_ndt'),
+    'calibration': (Calibration, 'Calibration', ['cert_no'], 'Cert No', 'update_calibration'),
+}
+
+UNIVERSAL_STATUS_FILTERS = {
+    'pending': {'isApprove': False, 'isReject': False, 'isCancel': False, 'isHold': False},
+    'approved': {'isApprove': True, 'isCancel': False},
+    'rejected': {'isReject': True},
+    'cancelled': {'isCancel': True},
+    'held': {'isHold': True},
+}
+
+
+@login_required
+def universal_records(request):
+    """
+    Superuser-only combined view across all 5 modules (Certificates, Cards,
+    Training, NDT, Calibration), normalized to a common set of columns, with
+    search/city/module/status filters.
+    """
+    current_user = request.user
+    if not current_user.is_superuser:
+        messages.error(request, 'You do not have permission to view universal records.')
+        return redirect('index')
+
+    searching_query = request.GET.get('searching_query', '').strip()
+    selected_city = request.GET.get('city', '').strip()
+    selected_module = request.GET.get('module', '').strip()
+    selected_status = request.GET.get('status', '').strip()
+
+    modules_to_query = [selected_module] if selected_module in UNIVERSAL_MODULES else list(UNIVERSAL_MODULES.keys())
+
+    records = []
+    for key in modules_to_query:
+        model, label, number_fields, number_label, update_url_name = UNIVERSAL_MODULES[key]
+        qs = model.objects.select_related('user__profile').all()
+
+        if selected_status in UNIVERSAL_STATUS_FILTERS:
+            qs = qs.filter(**UNIVERSAL_STATUS_FILTERS[selected_status])
+        if selected_city:
+            qs = qs.filter(user__profile__city__iexact=selected_city)
+        if searching_query:
+            number_lookups = [Q(**{f'{f}__icontains': searching_query}) for f in number_fields]
+            search_q = reduce(or_, number_lookups)
+            search_q |= Q(company_name__icontains=searching_query)
+            search_q |= Q(requested_by__icontains=searching_query)
+            search_q |= Q(invoice_no__icontains=searching_query)
+            qs = qs.filter(search_q)
+
+        for obj in qs:
+            if obj.isReject:
+                status_label, status_class = 'Rejected', 'danger'
+            elif obj.isCancel:
+                status_label, status_class = 'Cancelled', 'dark'
+            elif obj.isHold:
+                status_label, status_class = 'Hold', 'warning'
+            elif obj.isApprove:
+                status_label, status_class = 'Approved', 'success'
+            else:
+                status_label, status_class = 'Pending', 'info'
+
+            number_value = next((getattr(obj, f) for f in number_fields if getattr(obj, f, None)), '-')
+
+            records.append({
+                'module_label': label,
+                'module_key': key,
+                'number': number_value,
+                'number_label': number_label,
+                'company_name': obj.company_name,
+                'requested_by': obj.requested_by,
+                'total_amount': obj.total_amount,
+                'amount': obj.amount,
+                'city': obj.city,
+                'status_label': status_label,
+                'status_class': status_class,
+                'created_at': obj.created_at,
+                'uid': obj.uid,
+                'update_url_name': update_url_name,
+            })
+
+    records.sort(key=lambda r: r['created_at'], reverse=True)
+    total_records = len(records)
+
+    paginator = Paginator(records, items_per_page)
+    page = request.GET.get('page', '1')
+    try:
+        page_records = paginator.page(int(page))
+    except (PageNotAnInteger, ValueError):
+        page_records = paginator.page(1)
+    except EmptyPage:
+        page_records = paginator.page(paginator.num_pages)
+
+    context = {
+        'title': 'Universal Records',
+        'page_name': 'Universal Records',
+        'sidebar_active': 'universal_records',
+        'page_records': page_records,
+        'total_records': total_records,
+        'searching_query': searching_query,
+        'selected_city': selected_city,
+        'selected_module': selected_module,
+        'selected_status': selected_status,
+        'modules': UNIVERSAL_MODULES,
+    }
+    return render(request, 'dashboard/universal_records.html', context)
 
 
 @login_required

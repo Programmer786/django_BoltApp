@@ -353,6 +353,16 @@
             </div>
             {% endif %}
 
+            {% if user.is_superuser %}
+            <div class="menu-divider"></div>
+            <div class="menu-item {% if sidebar_active == 'universal_records' %}active{% endif %}">
+                <a href="{% url 'universal_records' %}" class="menu-link">
+                    <span class="menu-icon"><i class="fas fa-layer-group text-primary"></i></span>
+                    <span class="menu-text">Universal Records</span>
+                </a>
+            </div>
+            {% endif %}
+
             {% if user.is_superuser or user.is_staff %}
             <div class="menu-divider"></div>
             <div class="menu-header">Settings</div>
