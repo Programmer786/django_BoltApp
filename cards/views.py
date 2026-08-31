@@ -1362,3 +1362,26 @@ def restore_rejected_card(request, uid):
 
     messages.success(request, f'Card {card.card_no} has been restored to Pending.')
     return redirect_back(request, 'rejected_cards')
+
+
+@login_required
+@require_POST
+def delete_rejected_card(request, uid):
+    """Permanently delete a rejected card after confirmation."""
+    card = get_object_or_404(Card, uid=uid)
+    if not can_manage_record(request.user, card):
+        messages.error(request, 'You do not have permission to delete this card.')
+        return redirect_back(request, 'rejected_cards')
+
+    if not card.isReject:
+        messages.warning(request, f'Card {card.card_no} is not rejected.')
+        return redirect_back(request, 'rejected_cards')
+
+    card_no = card.card_no
+    card._request_user = request.user
+    card._request = request
+    card._activity_message = f"Permanently deleted rejected card {card_no} by {request.user.get_full_name() or request.user.username}"
+    card.delete()
+
+    messages.success(request, f'Card {card_no} has been permanently deleted.')
+    return redirect_back(request, 'rejected_cards')
