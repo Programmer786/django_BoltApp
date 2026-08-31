@@ -11,7 +11,7 @@ from django.views.decorators.http import require_POST, require_http_methods
 from base.utils import (
     items_per_page, current_date, get_manager_city,
     can_access_record, can_manage_record, assert_city_allowed, safe_cell,
-    handle_amount_field_update, redirect_back, can_approve_reject,
+    handle_amount_field_update, redirect_back, can_approve_reject, log_activity,
 )
 from cards.models import Card
 from django.utils import timezone
@@ -1381,6 +1381,11 @@ def delete_rejected_card(request, uid):
     card._request_user = request.user
     card._request = request
     card._activity_message = f"Permanently deleted rejected card {card_no} by {request.user.get_full_name() or request.user.username}"
+    log_activity(
+        user=request.user,
+        action=f"Permanently deleted rejected card {card_no} by {request.user.get_full_name() or request.user.username}",
+        request=request,
+    )
     card.delete()
 
     messages.success(request, f'Card {card_no} has been permanently deleted.')

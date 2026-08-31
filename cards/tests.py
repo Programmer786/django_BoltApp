@@ -2,6 +2,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
+from authentication.models import ActivityLog
 from cards.models import Card
 
 
@@ -60,3 +61,9 @@ class RejectedCardDeleteTests(TestCase):
 
         self.assertRedirects(response, reverse('rejected_cards'))
         self.assertFalse(Card.objects.filter(pk=self.card.pk).exists())
+        self.assertTrue(
+            ActivityLog.objects.filter(
+                user=self.user,
+                action__icontains='Permanently deleted rejected card CARD-DELETE-001'
+            ).exists()
+        )
