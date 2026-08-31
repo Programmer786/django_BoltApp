@@ -10,7 +10,7 @@ from django.utils.timezone import now  # Make sure this import is present
 from base.utils import (
     items_per_page, current_date, get_manager_city,
     can_access_record, can_manage_record, assert_city_allowed, safe_cell,
-    handle_amount_field_update, redirect_back, can_approve_reject,
+    handle_amount_field_update, redirect_back, can_approve_reject, log_activity,
 )
 from calibration.models import Calibration
 from django.utils import timezone
@@ -397,6 +397,31 @@ def restore_rejected_calibration(request, uid):
     calibration.save()
 
     messages.success(request, f'Calibration {calibration.cert_no} has been restored to Pending.')
+    return redirect_back(request, 'rejected_calibration')
+
+
+@login_required
+@require_POST
+def delete_rejected_calibration(request, uid):
+    """Permanently delete a rejected calibration record after confirmation."""
+    calibration = get_object_or_404(Calibration, uid=uid)
+    if not can_manage_record(request.user, calibration):
+        messages.error(request, 'You do not have permission to delete this calibration record.')
+        return redirect_back(request, 'rejected_calibration')
+
+    if not calibration.isReject:
+        messages.warning(request, f'Calibration {calibration.cert_no} is not rejected.')
+        return redirect_back(request, 'rejected_calibration')
+
+    cert_no = calibration.cert_no
+    log_activity(
+        user=request.user,
+        action=f"Permanently deleted rejected calibration {cert_no} by {request.user.get_full_name() or request.user.username}",
+        request=request,
+    )
+    calibration.delete()
+
+    messages.success(request, f'Calibration {cert_no} has been permanently deleted.')
     return redirect_back(request, 'rejected_calibration')
 
 

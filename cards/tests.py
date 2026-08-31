@@ -4,6 +4,10 @@ from django.urls import reverse
 
 from authentication.models import ActivityLog
 from cards.models import Card
+from certificates.models import Certificate
+from training.models import Training
+from ndt.models import NonDestructiveTesting
+from calibration.models import Calibration
 
 
 class RejectedCardDeleteTests(TestCase):
@@ -65,5 +69,147 @@ class RejectedCardDeleteTests(TestCase):
             ActivityLog.objects.filter(
                 user=self.user,
                 action__icontains='Permanently deleted rejected card CARD-DELETE-001'
+            ).exists()
+        )
+
+
+class RejectedModuleDeleteTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_superuser(
+            username='admin2',
+            email='admin2@example.com',
+            password='TestPass123'
+        )
+
+    def test_rejected_certificates_page_shows_delete_action_and_deletes_record(self):
+        self.client.login(username='admin2', password='TestPass123')
+        cert = Certificate.objects.create(
+            user=self.user,
+            cert_no='CERT-DEL-001',
+            company_name='Test Company',
+            status='Rejected',
+            amount='0.00',
+            total_amount='100.00',
+            isReject=True,
+            isApprove=False,
+        )
+
+        response = self.client.get(reverse('rejected_certificates'), {'searching_query': 'CERT-DEL-001'})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Delete this record')
+        self.assertContains(response, 'data-bs-target="#deleteCertificateModal')
+
+        delete_response = self.client.post(
+            reverse('delete_rejected_certificate', args=[cert.uid]),
+            {'next': reverse('rejected_certificates')},
+            follow=True,
+        )
+
+        self.assertRedirects(delete_response, reverse('rejected_certificates'))
+        self.assertFalse(Certificate.objects.filter(pk=cert.pk).exists())
+        self.assertTrue(
+            ActivityLog.objects.filter(
+                user=self.user,
+                action__icontains='Permanently deleted rejected certificate CERT-DEL-001'
+            ).exists()
+        )
+
+    def test_rejected_training_page_shows_delete_action_and_deletes_record(self):
+        self.client.login(username='admin2', password='TestPass123')
+        training = Training.objects.create(
+            user=self.user,
+            card_no='CARD-DEL-TRAIN-001',
+            cert_no='CERT-DEL-TRAIN-001',
+            company_name='Test Company',
+            status='Rejected',
+            amount='0.00',
+            total_amount='100.00',
+            isReject=True,
+            isApprove=False,
+        )
+
+        response = self.client.get(reverse('rejected_training'), {'searching_query': 'CARD-DEL-TRAIN-001'})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Delete this record')
+        self.assertContains(response, 'data-bs-target="#deleteTrainingModal')
+
+        delete_response = self.client.post(
+            reverse('delete_rejected_training', args=[training.uid]),
+            {'next': reverse('rejected_training')},
+            follow=True,
+        )
+
+        self.assertRedirects(delete_response, reverse('rejected_training'))
+        self.assertFalse(Training.objects.filter(pk=training.pk).exists())
+        self.assertTrue(
+            ActivityLog.objects.filter(
+                user=self.user,
+                action__icontains='Permanently deleted rejected training CARD-DEL-TRAIN-001'
+            ).exists()
+        )
+
+    def test_rejected_ndt_page_shows_delete_action_and_deletes_record(self):
+        self.client.login(username='admin2', password='TestPass123')
+        ndt = NonDestructiveTesting.objects.create(
+            user=self.user,
+            report_no='NDT-DEL-001',
+            company_name='Test Company',
+            status='Rejected',
+            amount='0.00',
+            total_amount='100.00',
+            isReject=True,
+            isApprove=False,
+        )
+
+        response = self.client.get(reverse('rejected_ndt'), {'searching_query': 'NDT-DEL-001'})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Delete this record')
+        self.assertContains(response, 'data-bs-target="#deleteNdtModal')
+
+        delete_response = self.client.post(
+            reverse('delete_rejected_ndt', args=[ndt.uid]),
+            {'next': reverse('rejected_ndt')},
+            follow=True,
+        )
+
+        self.assertRedirects(delete_response, reverse('rejected_ndt'))
+        self.assertFalse(NonDestructiveTesting.objects.filter(pk=ndt.pk).exists())
+        self.assertTrue(
+            ActivityLog.objects.filter(
+                user=self.user,
+                action__icontains='Permanently deleted rejected NDT report NDT-DEL-001'
+            ).exists()
+        )
+
+    def test_rejected_calibration_page_shows_delete_action_and_deletes_record(self):
+        self.client.login(username='admin2', password='TestPass123')
+        calibration = Calibration.objects.create(
+            user=self.user,
+            cert_no='CAL-DEL-001',
+            company_name='Test Company',
+            status='Rejected',
+            amount='0.00',
+            total_amount='100.00',
+            isReject=True,
+            isApprove=False,
+        )
+
+        response = self.client.get(reverse('rejected_calibration'), {'searching_query': 'CAL-DEL-001'})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Delete this record')
+        self.assertContains(response, 'data-bs-target="#deleteCalibrationModal')
+
+        delete_response = self.client.post(
+            reverse('delete_rejected_calibration', args=[calibration.uid]),
+            {'next': reverse('rejected_calibration')},
+            follow=True,
+        )
+
+        self.assertRedirects(delete_response, reverse('rejected_calibration'))
+        self.assertFalse(Calibration.objects.filter(pk=calibration.pk).exists())
+        self.assertTrue(
+            ActivityLog.objects.filter(
+                user=self.user,
+                action__icontains='Permanently deleted rejected calibration CAL-DEL-001'
             ).exists()
         )

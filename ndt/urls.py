@@ -8,6 +8,7 @@ urlpatterns = [
     path('pending_ndt/', views.pending_ndt, name="pending_ndt"),
     path('rejected-ndt/', views.rejected_ndt, name="rejected_ndt"),
     path('ndt/restore/<uuid:uid>/', views.restore_rejected_ndt, name="restore_rejected_ndt"),
+    path('ndt/delete/<uuid:uid>/', views.delete_rejected_ndt, name="delete_rejected_ndt"),
     path('ndt/approve_reject/<uuid:uid>/', views.approve_reject_ndt, name='approve_reject_ndt'),
     path('export_ndt/<str:model_name>/<str:city>/', views.export_ndt_data_excel, name='export_ndt_and_city_excel'),
     path('unpaid-ndt/', views.unpaid_ndt, name="unpaid_ndt"),

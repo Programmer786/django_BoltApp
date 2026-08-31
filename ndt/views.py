@@ -10,7 +10,7 @@ from django.utils.timezone import now  # Make sure this import is present
 from base.utils import (
     items_per_page, current_date, get_next_numeric_sr_no, get_manager_city,
     can_access_record, can_manage_record, assert_city_allowed, safe_cell,
-    handle_amount_field_update, redirect_back, can_approve_reject,
+    handle_amount_field_update, redirect_back, can_approve_reject, log_activity,
 )
 from ndt.models import NonDestructiveTesting
 from django.utils import timezone
@@ -405,6 +405,31 @@ def restore_rejected_ndt(request, uid):
     ndt.save()
 
     messages.success(request, f'NDT report {ndt.report_no} has been restored to Pending.')
+    return redirect_back(request, 'rejected_ndt')
+
+
+@login_required
+@require_POST
+def delete_rejected_ndt(request, uid):
+    """Permanently delete a rejected NDT report after confirmation."""
+    ndt = get_object_or_404(NonDestructiveTesting, uid=uid)
+    if not can_manage_record(request.user, ndt):
+        messages.error(request, 'You do not have permission to delete this NDT report.')
+        return redirect_back(request, 'rejected_ndt')
+
+    if not ndt.isReject:
+        messages.warning(request, f'NDT report {ndt.report_no} is not rejected.')
+        return redirect_back(request, 'rejected_ndt')
+
+    report_no = ndt.report_no
+    log_activity(
+        user=request.user,
+        action=f"Permanently deleted rejected NDT report {report_no} by {request.user.get_full_name() or request.user.username}",
+        request=request,
+    )
+    ndt.delete()
+
+    messages.success(request, f'NDT report {report_no} has been permanently deleted.')
     return redirect_back(request, 'rejected_ndt')
 
 

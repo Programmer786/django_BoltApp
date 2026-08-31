@@ -27,7 +27,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from base.utils import (
     current_date, get_manager_city, get_next_numeric_sr_no, items_per_page,
     can_access_record, can_manage_record, assert_city_allowed, safe_cell,
-    handle_amount_field_update, redirect_back, can_approve_reject,
+    handle_amount_field_update, redirect_back, can_approve_reject, log_activity,
 )
 from .models import Certificate
 
@@ -1520,6 +1520,31 @@ def restore_rejected_certificate(request, uid):
     cert.save()
 
     messages.success(request, f'Certificate {cert.cert_no} has been restored to Pending.')
+    return redirect_back(request, 'rejected_certificates')
+
+
+@login_required
+@require_POST
+def delete_rejected_certificate(request, uid):
+    """Permanently delete a rejected certificate after confirmation."""
+    cert = get_object_or_404(Certificate, uid=uid)
+    if not can_manage_record(request.user, cert):
+        messages.error(request, 'You do not have permission to delete this certificate.')
+        return redirect_back(request, 'rejected_certificates')
+
+    if not cert.isReject:
+        messages.warning(request, f'Certificate {cert.cert_no} is not rejected.')
+        return redirect_back(request, 'rejected_certificates')
+
+    cert_no = cert.cert_no
+    log_activity(
+        user=request.user,
+        action=f"Permanently deleted rejected certificate {cert_no} by {request.user.get_full_name() or request.user.username}",
+        request=request,
+    )
+    cert.delete()
+
+    messages.success(request, f'Certificate {cert_no} has been permanently deleted.')
     return redirect_back(request, 'rejected_certificates')
 
 

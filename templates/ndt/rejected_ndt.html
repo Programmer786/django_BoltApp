@@ -93,6 +93,13 @@
                                             <i class="fa fa-rotate-left" style="color: green"></i> Restore to Pending
                                             </a>
                                         </li>
+                                        <li>
+                                            <a class="dropdown-item text-danger" href="#"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#deleteNdtModal{{ ndt.uid }}">
+                                            <i class="fa fa-trash" aria-hidden="true"></i> Delete this record
+                                            </a>
+                                        </li>
                                         {% endif %}
                                     </ul>
                                 </div>
@@ -147,6 +154,31 @@
                                         <div class="modal-footer">
                                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                                             <button type="submit" class="btn btn-success">Confirm Restore</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Delete NDT Confirmation Modal -->
+                        <div class="modal fade" id="deleteNdtModal{{ ndt.uid }}" tabindex="-1" aria-labelledby="deleteNdtModalLabel" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <form action="{% url 'delete_rejected_ndt' ndt.uid %}" method="post">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                        <div class="modal-header bg-danger text-white">
+                                            <h5 class="modal-title">Confirm Delete</h5>
+                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <p>Are you sure you want to permanently delete this record?</p>
+                                            <p><strong>Report No:</strong> {{ ndt.report_no }}</p>
+                                            <p><strong>Company:</strong> {{ ndt.company_name }}</p>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                            <button type="submit" class="btn btn-danger">Delete</button>
                                         </div>
                                     </form>
                                 </div>

@@ -11,7 +11,7 @@ from django.utils.timezone import now  # Make sure this import is present
 from base.utils import (
     items_per_page, current_date, get_next_numeric_sr_no, get_manager_city,
     can_access_record, can_manage_record, assert_city_allowed, safe_cell,
-    handle_amount_field_update, redirect_back, can_approve_reject,
+    handle_amount_field_update, redirect_back, can_approve_reject, log_activity,
 )
 from training.models import Training
 from django.utils import timezone
@@ -1413,6 +1413,31 @@ def restore_rejected_training(request, uid):
     training.save()
 
     messages.success(request, f'Training record {training.card_no} has been restored to Pending.')
+    return redirect_back(request, 'rejected_training')
+
+
+@login_required
+@require_POST
+def delete_rejected_training(request, uid):
+    """Permanently delete a rejected training record after confirmation."""
+    training = get_object_or_404(Training, uid=uid)
+    if not can_manage_record(request.user, training):
+        messages.error(request, 'You do not have permission to delete this training record.')
+        return redirect_back(request, 'rejected_training')
+
+    if not training.isReject:
+        messages.warning(request, f'Training record {training.card_no} is not rejected.')
+        return redirect_back(request, 'rejected_training')
+
+    card_no = training.card_no or training.cert_no or 'training record'
+    log_activity(
+        user=request.user,
+        action=f"Permanently deleted rejected training {card_no} by {request.user.get_full_name() or request.user.username}",
+        request=request,
+    )
+    training.delete()
+
+    messages.success(request, f'Training record {card_no} has been permanently deleted.')
     return redirect_back(request, 'rejected_training')
 
 
