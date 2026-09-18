@@ -7,6 +7,7 @@ urlpatterns = [
     path('export/cards/csv/', views.export_cards_csv, name='export_cards_csv'),
     path('add-card-manual/', views.add_card_manual, name='add_card_manual'),
     path('card/update/<uuid:uid>/', views.update_card, name='update_card'),
+    path('card/<uuid:uid>/pdf/', views.generate_card_pdf, name='generate_card_pdf'),
     path('pending_cards/', views.pending_cards, name="pending_cards"),
     path('cards/approve_reject/<uuid:uid>/', views.approve_reject_cards, name='approve_reject_cards'),
     path('export_card/<str:model_name>/<str:city>/', views.export_card_and_city_excel, name='export_card_and_city_excel'),

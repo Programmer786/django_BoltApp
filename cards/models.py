@@ -14,6 +14,7 @@ class Card(BaseModel):
     card_no = models.CharField(max_length=255, unique=True, blank=False, null=False, help_text="Card number must be unique and cannot be empty")
     iqama_no = models.CharField(max_length=255, blank=True, null=True)
     operator_name = models.CharField(max_length=255, blank=True, null=True)
+    operator_photo = models.ImageField(upload_to='card_photos', blank=True, null=True)
     company_name = models.CharField(max_length=255, blank=True, null=True)
     issue_date = models.CharField(max_length=255, blank=True, null=True)
     expiry_date = models.CharField(max_length=255, blank=True, null=True)

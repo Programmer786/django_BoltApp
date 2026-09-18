@@ -1,7 +1,10 @@
+import os
 from decimal import Decimal
 from io import BytesIO
 
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
 from django.db.models import Q, Sum
 from django.shortcuts import render, redirect, get_object_or_404
 from django.core.paginator import PageNotAnInteger, EmptyPage, Paginator
@@ -12,6 +15,7 @@ from base.utils import (
     items_per_page, current_date, get_manager_city,
     can_access_record, can_manage_record, assert_city_allowed, safe_cell,
     handle_amount_field_update, redirect_back, can_approve_reject, log_activity,
+    validate_image,
 )
 from cards.models import Card
 from django.utils import timezone
@@ -426,6 +430,10 @@ def add_card_manual(request):
                 messages.error(request, "Paid amount is greater than Total amount. Please check the form data.")
                 return redirect('manage_cards')
 
+            operator_photo = request.FILES.get('operator_photo')
+            if operator_photo:
+                validate_image(operator_photo)
+
             # Create and save Card instance with the trimmed card_no
             card = Card(
                 user=request.user,
@@ -434,6 +442,7 @@ def add_card_manual(request):
                 card_no=card_no,  # Using the already trimmed card_no
                 iqama_no=request.POST.get('iqama_no'),
                 operator_name=request.POST.get('operator_name'),
+                operator_photo=operator_photo,
                 company_name=request.POST.get('company_name'),
                 issue_date=issue_date,
                 expiry_date=expiry_date,
@@ -469,6 +478,9 @@ def add_card_manual(request):
                     messages.error(request, f"Database error while saving: {str(e)}")
                 return redirect('manage_cards')
 
+        except ValidationError as e:
+            messages.error(request, ' '.join(e.messages))
+            return redirect('manage_cards')
         except Exception as e:
             messages.error(request, f"Error adding card: {str(e)}")
             return redirect('manage_cards')
@@ -507,6 +519,10 @@ def update_card(request, uid):
             card.card_type = request.POST.get('card_type')
             card.iqama_no = request.POST.get('iqama_no')
             card.operator_name = request.POST.get('operator_name')
+            new_photo = request.FILES.get('operator_photo')
+            if new_photo:
+                validate_image(new_photo)
+                card.operator_photo = new_photo
             card.company_name = request.POST.get('company_name')
             card.issue_date = request.POST.get('issue_date')
             card.expiry_date = request.POST.get('expiry_date')
@@ -542,11 +558,137 @@ def update_card(request, uid):
                     messages.error(request, f"Database error while saving: {str(e)}")
                 return redirect('manage_cards')
 
+        except ValidationError as e:
+            messages.error(request, ' '.join(e.messages))
+            return redirect('manage_cards')
         except Exception as e:
             messages.error(request, f"Error updating card: {str(e)}")
             return redirect('manage_cards')
 
     return redirect('manage_cards')
+
+
+# Native pixel size of the Card_Front.png / Card_Back.png template assets.
+CARD_TEMPLATE_PX = (689, 439)
+# Physical CR80 ID card size (matches the printed cards this design is based on).
+CARD_SIZE_PT = (3.375 * 72, 2.125 * 72)
+
+
+def _card_px_to_pt(px, py):
+    """Map an (x, y) pixel coordinate on the 689x439 template (origin top-left)
+    to a PDF point coordinate on the CARD_SIZE_PT page (origin bottom-left)."""
+    tw, th = CARD_TEMPLATE_PX
+    pw, ph = CARD_SIZE_PT
+    return (px / tw) * pw, ph - (py / th) * ph
+
+
+def _draw_fitted_string(c, text, x0_px, x1_px, y_px, font_name, max_size, align='left', min_size=5):
+    """
+    Draw `text` between the x0_px/x1_px pixel columns, shrinking the font
+    (down to min_size) so it never runs into whatever sits to its right —
+    the operator photo box, in this design — and truncating with an
+    ellipsis as a last resort if it still doesn't fit at min_size.
+    """
+    text = str(text) if text else ''
+    if not text:
+        return
+
+    x0, _ = _card_px_to_pt(x0_px, y_px)
+    x1, y = _card_px_to_pt(x1_px, y_px)
+    max_width = x1 - x0
+
+    size = max_size
+    while size > min_size and c.stringWidth(text, font_name, size) > max_width:
+        size -= 0.5
+
+    if c.stringWidth(text, font_name, size) > max_width:
+        while len(text) > 1 and c.stringWidth(text + '...', font_name, size) > max_width:
+            text = text[:-1]
+        text = text.rstrip() + '...'
+
+    c.setFont(font_name, size)
+    if align == 'right':
+        c.drawRightString(x1, y, text)
+    else:
+        c.drawString(x0, y, text)
+
+
+@login_required
+def generate_card_pdf(request, uid):
+    card = get_object_or_404(Card, uid=uid)
+    if not can_access_record(request.user, card):
+        messages.error(request, 'You do not have permission to download this card.')
+        return redirect('manage_cards')
+
+    from PIL import Image, ImageOps
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.utils import ImageReader
+
+    static_dir = os.path.join(settings.BASE_DIR, 'public', 'static', 'cards')
+    front_bg_path = os.path.join(static_dir, 'Card_Front.png')
+    back_bg_path = os.path.join(static_dir, 'Card_Back.png')
+    qr_path = os.path.join(static_dir, 'QR_Code.png')
+
+    page_w, page_h = CARD_SIZE_PT
+    buf = BytesIO()
+    c = canvas.Canvas(buf, pagesize=(page_w, page_h))
+
+    # ---- FRONT ----
+    c.drawImage(front_bg_path, 0, 0, width=page_w, height=page_h, mask='auto')
+
+    _draw_fitted_string(c, card.card_no, 530, 648, 55, 'Times-Bold', 9, align='right', min_size=6)
+
+    if card.card_type:
+        _draw_fitted_string(c, card.card_type, 44, 510, 158, 'Times-Bold', 10, min_size=6)
+
+    field_rows = [
+        (card.operator_name, 201),
+        (card.iqama_no, 235),
+        (card.company_name, 270),
+        (card.issue_date, 305),
+        (card.expiry_date, 338),
+    ]
+    for value, py in field_rows:
+        _draw_fitted_string(c, value, 222, 510, py, 'Times-Roman', 8, min_size=5)
+
+    if card.operator_photo and os.path.isfile(card.operator_photo.path):
+        box_px = (520, 78, 668, 248)  # left, top, right, bottom
+        box_w_px = box_px[2] - box_px[0]
+        box_h_px = box_px[3] - box_px[1]
+        photo = Image.open(card.operator_photo.path).convert('RGB')
+        photo = ImageOps.exif_transpose(photo)
+        photo = ImageOps.fit(photo, (box_w_px, box_h_px))
+        x, y = _card_px_to_pt(box_px[0], box_px[3])
+        w = (box_w_px / CARD_TEMPLATE_PX[0]) * page_w
+        h = (box_h_px / CARD_TEMPLATE_PX[1]) * page_h
+        c.drawImage(ImageReader(photo), x, y, width=w, height=h)
+        c.setLineWidth(0.75)
+        c.setStrokeColorRGB(0.6, 0.6, 0.6)
+        c.rect(x, y, w, h, fill=0, stroke=1)
+
+    if os.path.isfile(qr_path):
+        qr_box_px = (567, 272, 642, 347)
+        qr_w_px = qr_box_px[2] - qr_box_px[0]
+        qr_h_px = qr_box_px[3] - qr_box_px[1]
+        qr_img = Image.open(qr_path).convert('RGBA')
+        qr_img.thumbnail((400, 400))
+        x, y = _card_px_to_pt(qr_box_px[0], qr_box_px[3])
+        w = (qr_w_px / CARD_TEMPLATE_PX[0]) * page_w
+        h = (qr_h_px / CARD_TEMPLATE_PX[1]) * page_h
+        c.drawImage(ImageReader(qr_img), x, y, width=w, height=h, mask='auto')
+
+    c.showPage()
+
+    # ---- BACK ----
+    c.drawImage(back_bg_path, 0, 0, width=page_w, height=page_h, mask='auto')
+    c.showPage()
+
+    c.save()
+    buf.seek(0)
+
+    response = HttpResponse(buf, content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="Card_{card.card_no}.pdf"'
+    return response
 
 
 @login_required
