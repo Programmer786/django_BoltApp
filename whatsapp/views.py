@@ -15,7 +15,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from base.utils import log_activity
+from base.utils import log_activity, redirect_back
 from .models import WhatsAppContact, WhatsAppMessage, WhatsAppMessageLog
 
 logger = logging.getLogger(__name__)
@@ -120,6 +120,26 @@ def delete_contact(request, contact_id):
     log_activity(user=request.user, action=f"Deleted WhatsApp contact: {name}", request=request)
     messages.success(request, f'Contact "{name}" deleted.')
     return redirect('whatsapp_contacts')
+
+
+@superuser_required
+@require_POST
+def bulk_delete_contacts(request):
+    ids = []
+    for raw in request.POST.getlist('contact_ids'):
+        try:
+            ids.append(int(raw))
+        except (TypeError, ValueError):
+            continue
+
+    if not ids:
+        messages.warning(request, 'No contacts selected.')
+        return redirect_back(request, 'whatsapp_contacts')
+
+    deleted, _ = WhatsAppContact.objects.filter(id__in=ids).delete()
+    log_activity(user=request.user, action=f"Bulk deleted {deleted} WhatsApp contact(s)", request=request)
+    messages.success(request, f'{deleted} contact(s) deleted.')
+    return redirect_back(request, 'whatsapp_contacts')
 
 
 @superuser_required
