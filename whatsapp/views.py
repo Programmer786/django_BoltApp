@@ -9,14 +9,14 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
 from django.db import connection
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from base.utils import log_activity, redirect_back
-from .models import WhatsAppContact, WhatsAppMessage, WhatsAppMessageLog
+from .models import ContactCategory, WhatsAppContact, WhatsAppMessage, WhatsAppMessageLog
 
 logger = logging.getLogger(__name__)
 
@@ -27,17 +27,32 @@ def superuser_required(view_func):
     def wrapped(request, *args, **kwargs):
         if not request.user.is_superuser:
             messages.error(request, 'Access denied. Admin only.')
-            return redirect('dashboard')
+            return redirect('index')
         return view_func(request, *args, **kwargs)
     return wrapped
+
+
+def _resolve_category(raw):
+    """Return a ContactCategory for a posted id, or None (uncategorized)."""
+    raw = (raw or '').strip()
+    if raw.isdigit():
+        return ContactCategory.objects.filter(id=int(raw)).first()
+    return None
 
 
 @superuser_required
 def whatsapp_contacts(request):
     search = request.GET.get('search', '').strip()
-    qs = WhatsAppContact.objects.all()
+    selected_category = request.GET.get('category', '').strip()
+    qs = WhatsAppContact.objects.select_related('category')
     if search:
         qs = qs.filter(Q(name__icontains=search) | Q(phone__icontains=search))
+    if selected_category == 'none':
+        qs = qs.filter(category__isnull=True)
+    elif selected_category.isdigit():
+        qs = qs.filter(category_id=int(selected_category))
+    else:
+        selected_category = ''
 
     paginator = Paginator(qs, 25)
     page = request.GET.get('page', 1)
@@ -50,8 +65,72 @@ def whatsapp_contacts(request):
         'sidebar_active': 'whatsapp_contacts',
         'contacts': contacts_page,
         'total_contacts': WhatsAppContact.objects.count(),
+        'uncategorized_count': WhatsAppContact.objects.filter(category__isnull=True).count(),
+        'categories': ContactCategory.objects.annotate(num=Count('contacts')),
         'search': search,
+        'selected_category': selected_category,
     })
+
+
+@superuser_required
+@require_POST
+def add_category(request):
+    name = request.POST.get('name', '').strip()[:100]
+    if not name:
+        messages.error(request, 'Category name is required.')
+    elif ContactCategory.objects.filter(name__iexact=name).exists():
+        messages.warning(request, f'Category "{name}" already exists.')
+    else:
+        ContactCategory.objects.create(name=name, created_by=request.user)
+        log_activity(user=request.user, action=f"Added WhatsApp contact category: {name}", request=request)
+        messages.success(request, f'Category "{name}" created.')
+    return redirect_back(request, 'whatsapp_contacts')
+
+
+@superuser_required
+@require_POST
+def rename_category(request, category_id):
+    category = get_object_or_404(ContactCategory, id=category_id)
+    name = request.POST.get('name', '').strip()[:100]
+    if not name:
+        messages.error(request, 'Category name is required.')
+    elif ContactCategory.objects.filter(name__iexact=name).exclude(id=category.id).exists():
+        messages.warning(request, f'Another category is already called "{name}".')
+    else:
+        old = category.name
+        category.name = name
+        category.save(update_fields=['name'])
+        log_activity(user=request.user, action=f"Renamed WhatsApp contact category: {old} to {name}", request=request)
+        messages.success(request, f'Category renamed to "{name}".')
+    return redirect_back(request, 'whatsapp_contacts')
+
+
+@superuser_required
+@require_POST
+def delete_category(request, category_id):
+    category = get_object_or_404(ContactCategory, id=category_id)
+    name = category.name
+    count = category.contacts.count()
+    category.delete()  # contacts are kept, they just become uncategorized
+    log_activity(user=request.user, action=f"Deleted WhatsApp contact category: {name} ({count} contacts kept)", request=request)
+    messages.success(request, f'Category "{name}" deleted. Its {count} contact(s) were kept as uncategorized.')
+    return redirect('whatsapp_contacts')
+
+
+@superuser_required
+@require_POST
+def bulk_assign_category(request):
+    ids = [int(x) for x in request.POST.getlist('contact_ids') if x.isdigit()]
+    if not ids:
+        messages.warning(request, 'No contacts selected.')
+        return redirect_back(request, 'whatsapp_contacts')
+
+    category = _resolve_category(request.POST.get('bulk_category'))
+    updated = WhatsAppContact.objects.filter(id__in=ids).update(category=category)
+    label = category.name if category else 'Uncategorized'
+    log_activity(user=request.user, action=f"Moved {updated} WhatsApp contact(s) to category: {label}", request=request)
+    messages.success(request, f'{updated} contact(s) moved to "{label}".')
+    return redirect_back(request, 'whatsapp_contacts')
 
 
 @superuser_required
@@ -65,6 +144,8 @@ def upload_contacts_excel(request):
     if not excel_file.name.lower().endswith(('.xlsx', '.xls')):
         messages.error(request, 'Only Excel files (.xlsx, .xls) are supported.')
         return redirect('whatsapp_contacts')
+
+    category = _resolve_category(request.POST.get('category'))
 
     try:
         wb = openpyxl.load_workbook(excel_file, read_only=True, data_only=True)
@@ -87,10 +168,10 @@ def upload_contacts_excel(request):
             if not phone.startswith('+'):
                 phone = '+' + phone
 
-            _, was_created = WhatsAppContact.objects.update_or_create(
-                phone=phone,
-                defaults={'name': name, 'created_by': request.user},
-            )
+            defaults = {'name': name, 'created_by': request.user}
+            if category:  # don't wipe an existing contact's category when none was chosen
+                defaults['category'] = category
+            _, was_created = WhatsAppContact.objects.update_or_create(phone=phone, defaults=defaults)
             if was_created:
                 created += 1
             else:
@@ -160,7 +241,10 @@ def add_contact(request):
         messages.warning(request, f'A contact with phone {phone} already exists.')
         return redirect('whatsapp_contacts')
 
-    WhatsAppContact.objects.create(name=name, phone=phone, created_by=request.user)
+    WhatsAppContact.objects.create(
+        name=name, phone=phone, created_by=request.user,
+        category=_resolve_category(request.POST.get('category')),
+    )
     log_activity(user=request.user, action=f"Added WhatsApp contact: {name} ({phone})", request=request)
     messages.success(request, f'Contact "{name}" added successfully.')
     return redirect('whatsapp_contacts')
@@ -189,6 +273,7 @@ def edit_contact(request, contact_id):
     old_name = contact.name
     contact.name = name
     contact.phone = phone
+    contact.category = _resolve_category(request.POST.get('category'))
     contact.save()
     log_activity(user=request.user, action=f"Edited WhatsApp contact: {old_name} → {name} ({phone})", request=request)
     messages.success(request, f'Contact updated successfully.')
@@ -205,14 +290,16 @@ def whatsapp_web_status(request):
 
 @superuser_required
 def send_message(request):
-    contacts = WhatsAppContact.objects.all().order_by('name')
+    contacts = WhatsAppContact.objects.select_related('category').order_by('name')
     history = WhatsAppMessage.objects.prefetch_related('logs').order_by('-sent_at')[:30]
 
     if request.method == 'POST':
         sender = request.POST.get('sender', 'twilio')     # twilio | selenium
         mode = request.POST.get('mode', 'text')           # text | template
         msg_type = request.POST.get('message_type', 'single')  # single | bulk
-        body = request.POST.get('body', '').strip()
+        # The form has one <textarea name="body"> per message mode, so several values
+        # arrive; request.POST.get() would return the last (often empty) one.
+        body = next((b.strip() for b in request.POST.getlist('body') if b.strip()), '')
         content_sid = request.POST.get('content_sid', '').strip()
         content_variables = request.POST.get('content_variables', '').strip()
         template_lang = request.POST.get('template_lang', 'en_US').strip() or 'en_US'
@@ -222,9 +309,9 @@ def send_message(request):
         if mode == 'prebuilt':
             mode = 'text'
 
-        # Validate
-        if mode == 'text' and not body:
-            messages.error(request, 'Message body is required.')
+        # Validate — a picture on its own is a valid message too
+        if mode == 'text' and not body and not request.FILES.get('message_image'):
+            messages.error(request, 'Write a message or attach an image.')
             return redirect('whatsapp_send')
         if mode == 'template' and not content_sid:
             messages.error(request, 'Template SID is required.')
@@ -322,6 +409,7 @@ def send_message(request):
     return render(request, 'whatsapp/send_message.html', {
         'sidebar_active': 'whatsapp_send',
         'contacts': contacts,
+        'categories': ContactCategory.objects.annotate(num=Count('contacts')),
         'history': history,
         'total_contacts': contacts.count(),
         'tracking_message_id': request.GET.get('tracking', ''),

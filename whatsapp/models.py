@@ -2,9 +2,23 @@ from django.db import models
 from django.contrib.auth.models import User
 
 
+class ContactCategory(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name_plural = 'contact categories'
+
+    def __str__(self):
+        return self.name
+
+
 class WhatsAppContact(models.Model):
     name = models.CharField(max_length=255)
     phone = models.CharField(max_length=30, unique=True)  # e.g. +923045159631
+    category = models.ForeignKey(ContactCategory, on_delete=models.SET_NULL, null=True, blank=True, related_name='contacts')
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -60,6 +74,13 @@ class WhatsAppMessage(models.Model):
 
     class Meta:
         ordering = ['-sent_at']
+
+    @property
+    def image_display_url(self):
+        """Path that works on whichever host is serving this page (image_url
+        stores an absolute URL built for Twilio, which may point elsewhere)."""
+        url = self.image_url or ''
+        return '/media/' + url.split('/media/', 1)[1] if '/media/' in url else url
 
 
 class WhatsAppMessageLog(models.Model):

@@ -84,12 +84,57 @@ def _profile_dir():
     return os.path.join(_base_dir(), '.whatsapp_session')
 
 
+def _kill_stale_profile_chrome(profile):
+    """
+    Close any Chrome still holding OUR WhatsApp profile folder — typically an
+    orphan left behind when the Django server was stopped or auto-reloaded
+    (the Chrome child outlives it). A second Chrome on the same profile
+    crashes on start ("Chrome failed to start: crashed"). Only processes whose
+    command line names this exact profile are touched; a normal Chrome is safe.
+    """
+    needle = os.path.normcase(os.path.abspath(profile))
+    killed = 0
+    try:
+        import psutil
+        for proc in psutil.process_iter(['name', 'cmdline']):
+            try:
+                name = (proc.info['name'] or '').lower()
+                if 'chrome' not in name and 'chromium' not in name:
+                    continue
+                cmd = os.path.normcase(' '.join(proc.info['cmdline'] or []))
+                if needle in cmd:
+                    proc.kill()
+                    killed += 1
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+    except ImportError:
+        import platform
+        import subprocess
+        if platform.system() == 'Windows':
+            ps = ("Get-CimInstance Win32_Process -Filter \"Name='chrome.exe'\" | "
+                  "Where-Object { $_.CommandLine -like '*' + $env:WA_PROFILE + '*' } | "
+                  "ForEach-Object { Stop-Process -Id $_.ProcessId -Force }")
+            try:
+                subprocess.run(['powershell', '-NoProfile', '-Command', ps], timeout=20,
+                               env={**os.environ, 'WA_PROFILE': os.path.abspath(profile)})
+            except Exception as exc:
+                logger.warning(f"could not clean stale Chrome: {exc}")
+    if killed:
+        logger.info(f"Closed {killed} leftover Chrome process(es) using the WhatsApp profile")
+        time.sleep(1.5)  # let the OS release the profile lock
+
+
 def _is_alive(driver):
     try:
         _ = driver.current_url
         return True
     except Exception:
         return False
+
+
+def _show_browser():
+    """Set WHATSAPP_SHOW_BROWSER=1 in .env to see the Chrome window (debugging)."""
+    return os.getenv('WHATSAPP_SHOW_BROWSER', '0').strip().lower() in ('1', 'true', 'yes')
 
 
 def _chrome_opts():
@@ -126,11 +171,23 @@ def _chrome_opts():
         opts.add_argument('--no-zygote')
         opts.add_argument('--disable-gpu-sandbox')
         # --single-process removed: deprecated in Chrome 115+ and causes crashes
+    elif not _show_browser():
+        # Run Chrome hidden on Windows too, so no separate window pops up when
+        # the connection is checked (the QR is shown inside the Django modal).
+        opts.add_argument('--headless=new')
 
     return opts
 
 
 def _apply_stealth(driver):
+    # Headless Chrome announces itself as "HeadlessChrome", which WhatsApp Web
+    # answers with a "browser not supported" page instead of the QR code.
+    try:
+        ua = driver.execute_script('return navigator.userAgent')
+        if 'Headless' in ua:
+            driver.execute_cdp_cmd('Network.setUserAgentOverride', {'userAgent': ua.replace('HeadlessChrome', 'Chrome')})
+    except Exception:
+        pass
     try:
         driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
             'source': "Object.defineProperty(navigator,'webdriver',{get:()=>undefined})"
@@ -159,6 +216,8 @@ def _build_driver():
 
     os.makedirs(profile, exist_ok=True)
     os.makedirs(drv_cache, exist_ok=True)
+
+    _kill_stale_profile_chrome(profile)
 
     # Remove stale Chrome lock files left by previous crashed instances
     for _lock in ('SingletonLock', 'SingletonSocket', 'SingletonCookie', 'lockfile'):
@@ -242,6 +301,9 @@ def _get_driver():
         return _driver
 
 
+import atexit  # noqa: E402
+
+
 def close_driver():
     global _driver
     with _lock:
@@ -251,6 +313,9 @@ def close_driver():
             except Exception:
                 pass
             _driver = None
+
+
+atexit.register(close_driver)
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -318,15 +383,14 @@ def get_status():
             return {'available': True, 'logged_in': False, 'qr_image': None, 'error': err}
 
         try:
-            # Fast check: are we already logged in?
-            logged_in_el = _find(driver, _SEL['logged_in'], timeout=6)
-            if logged_in_el:
+            # Wait ONCE for whichever appears first: the chat list (logged in)
+            # or the QR canvas — instead of trying each selector in turn.
+            state, qr_el = _wait_login_state(driver, timeout=25)
+            if state == 'logged_in':
                 return {'available': True, 'logged_in': True, 'qr_image': None, 'error': None}
 
-            # Wait for QR canvas
             qr_b64 = None
-            qr_el = _find(driver, _SEL['qr'], timeout=15)
-            if qr_el:
+            if qr_el is not None:
                 try:
                     qr_b64 = base64.b64encode(qr_el.screenshot_as_png).decode('utf-8')
                 except Exception:
@@ -344,6 +408,149 @@ def get_status():
         except Exception as exc:
             logger.error(f"WhatsApp Web get_status error: {exc}")
             return {'available': True, 'logged_in': False, 'qr_image': None, 'error': str(exc)}
+
+
+def _wait_login_state(driver, timeout=25):
+    """Return ('logged_in', None), ('qr', <canvas element>) or (None, None)."""
+    from selenium.webdriver.common.by import By
+    logged_in_css = ', '.join(_SEL['logged_in'])
+    qr_css = ', '.join(_SEL['qr'])
+    end = time.time() + timeout
+    while time.time() < end:
+        if driver.find_elements(By.CSS_SELECTOR, logged_in_css):
+            return 'logged_in', None
+        qr = driver.find_elements(By.CSS_SELECTOR, qr_css)
+        if qr:
+            time.sleep(1.5)  # a restoring session can flash the QR briefly
+            if driver.find_elements(By.CSS_SELECTOR, logged_in_css):
+                return 'logged_in', None
+            return 'qr', qr[0]
+        time.sleep(0.5)
+    return None, None
+
+
+# Picks the media-preview's OWN Send button and caption box.
+# Critical: the normal chat compose box must never be chosen — typing there and
+# clicking its send button fires the text as a separate message and leaves the
+# picture sitting unsent in the preview.
+_ANALYSE_PREVIEW_JS = r"""
+const skip = arguments[0];   // the chat's compose box, if still known
+const vis = e => { const r = e.getBoundingClientRect(); return r.width > 2 && r.height > 2; };
+const topmost = e => {       // false for anything covered by the preview overlay
+  const r = e.getBoundingClientRect();
+  const vw = innerWidth, vh = innerHeight;
+  // Outside the viewport we simply cannot tell — don't reject on that basis.
+  if (r.bottom < 0 || r.top > vh || r.right < 0 || r.left > vw) return true;
+  const x = Math.min(Math.max(r.x + r.width / 2, 1), vw - 1);
+  const y = Math.min(Math.max(r.y + r.height / 2, 1), vh - 1);
+  const hit = document.elementFromPoint(x, y);
+  if (!hit) return true;
+  return hit === e || e.contains(hit) || hit.contains(e);
+};
+const sharesPanel = (a, b) => {
+  let n = a.parentElement;
+  while (n && n !== document.body) { if (n.contains(b)) return true; n = n.parentElement; }
+  return false;
+};
+
+document.querySelectorAll('[data-wa-pick]').forEach(e => e.removeAttribute('data-wa-pick'));
+
+const sends = [], seen = new Set();
+for (const el of document.querySelectorAll('[aria-label],[data-icon],[data-testid]')) {
+  const label = (el.getAttribute('aria-label') || '').trim();
+  const icon = el.getAttribute('data-icon') || '';
+  const tid = el.getAttribute('data-testid') || '';
+  if (!(/^send\b/i.test(label) || /send/i.test(icon) || /send/i.test(tid))) continue;
+  const t = el.closest('button,[role="button"]') || el;
+  if (seen.has(t) || !vis(t)) continue;
+  seen.add(t);
+  const r = t.getBoundingClientRect();
+  sends.push({el: t, label: t.getAttribute('aria-label') || label, icon: icon, x: r.x, y: r.y, w: r.width, h: r.height});
+}
+// "Send 1 selected" (media preview) wins over a plain "Send" (chat compose)
+const send = sends.find(v => /selected|\d/.test(v.label || '')) || sends[sends.length - 1] || null;
+
+const eds = [];
+for (const e of document.querySelectorAll('[contenteditable="true"],[contenteditable=""]')) {
+  if (!vis(e)) continue;
+  const r = e.getBoundingClientRect();
+  eds.push({el: e, label: e.getAttribute('aria-label') || '', ph: e.getAttribute('aria-placeholder') || '',
+            x: r.x, y: r.y, w: r.width, skip: (skip && e === skip) || false, top: topmost(e)});
+}
+const usable = eds.filter(e => !e.skip && e.top);
+let caption = usable.find(e => /caption/i.test(e.label + ' ' + e.ph)) || null;
+if (!caption && send) caption = usable.find(e => sharesPanel(e.el, send.el)) || null;
+
+if (send) send.el.setAttribute('data-wa-pick', 'send');
+if (caption) caption.el.setAttribute('data-wa-pick', 'caption');
+return {
+  sends: sends.map(v => ({label: v.label, icon: v.icon, x: Math.round(v.x), y: Math.round(v.y)})),
+  editables: eds.map(e => ({label: e.label, ph: e.ph, x: Math.round(e.x), y: Math.round(e.y),
+                            w: Math.round(e.w), skipped: e.skip, topmost: e.top})),
+  picked_send: send ? (send.label || send.icon) : null,
+  picked_caption: caption ? (caption.label || caption.ph || '(unlabelled)') : null,
+};
+"""
+
+
+def _analyse_preview(driver, compose_box=None):
+    """
+    Locate the media preview's Send button and caption box.
+    Returns (send_el, caption_el, info_dict) — any of which may be None.
+    """
+    from selenium.webdriver.common.by import By
+    info = None
+    for arg in (compose_box, None):   # compose_box may have gone stale
+        try:
+            info = driver.execute_script(_ANALYSE_PREVIEW_JS, arg)
+            break
+        except Exception as exc:
+            logger.debug(f"preview analysis with skip={arg is not None} failed: {exc}")
+    if info is None:
+        return None, None, {}
+    send = driver.find_elements(By.CSS_SELECTOR, '[data-wa-pick="send"]')
+    cap = driver.find_elements(By.CSS_SELECTOR, '[data-wa-pick="caption"]')
+    return (send[0] if send else None), (cap[0] if cap else None), info
+
+
+def _enter_caption(driver, caption, text):
+    """Type `text` into the caption box; True only once it's actually in there."""
+    from selenium.webdriver.common.keys import Keys
+    probe = ''.join(text.split())[:12]
+
+    def landed():
+        try:
+            got = driver.execute_script('return arguments[0].innerText || arguments[0].textContent || ""', caption)
+            return probe in ''.join(got.split())
+        except Exception:
+            return False
+
+    _paste_text(driver, caption, text)  # keeps emoji
+    if landed():
+        return True
+    try:  # fallback: real keystrokes (BMP only); Shift+Enter so it never sends
+        caption.click()
+        for i, line in enumerate(''.join(c for c in text if ord(c) <= 0xFFFF).split(chr(10))):
+            if i:
+                caption.send_keys(Keys.SHIFT, Keys.ENTER)
+            caption.send_keys(line)
+        time.sleep(0.3)
+    except Exception as exc:
+        logger.warning(f"typing caption failed: {exc}")
+    return landed()
+
+
+def _wait_element_gone(driver, element, timeout=15):
+    """True once this exact element is gone or hidden (the preview closed)."""
+    end = time.time() + timeout
+    while time.time() < end:
+        try:
+            if not element.is_displayed():
+                return True
+        except Exception:      # stale = removed from the page = sent
+            return True
+        time.sleep(0.5)
+    return False
 
 
 def _paste_text(driver, element, text):
@@ -382,13 +589,23 @@ def _collect_file_inputs(driver):
     return image_first + others
 
 
-def _upload_and_open_preview(driver, abspath, timeout_each=8):
+def _open_chat(driver, chat_url):
+    """(Re)open the chat and wait for its compose box. Returns the box or None."""
+    driver.get(chat_url)
+    box = _find(driver, _SEL['msg_input'], timeout=30)
+    if box is not None:
+        time.sleep(1.5)
+    return box
+
+
+def _upload_and_open_preview(driver, abspath, chat_url, timeout_each=8):
     """
     Try each file input until the media preview opens (Send button appears).
     WhatsApp Web has several file inputs; only the right one triggers the
     image preview. Returns the Send button element, or None if all failed.
     """
-    from selenium.webdriver.common.keys import Keys
+    # NOTE: never press Escape here — in current WhatsApp Web it CLOSES the open
+    # chat, leaving no attach button / compose box to upload into.
 
     # Best-effort: open the attach (+) menu so media inputs become active
     _click(driver, _SEL['attach_btn'], timeout=3)
@@ -406,44 +623,146 @@ def _upload_and_open_preview(driver, abspath, timeout_each=8):
         btn = _wait_send_button(driver, timeout=timeout_each)
         if btn is not None:
             return btn
-        # Reset any partial state before trying the next input
+        # Reset partial state before the next input by reopening the chat
         try:
-            from selenium.webdriver.common.action_chains import ActionChains
-            ActionChains(driver).send_keys(Keys.ESCAPE).perform()
-            time.sleep(0.5)
-            _click(driver, _SEL['attach_btn'], timeout=2)
-            time.sleep(0.5)
+            if _open_chat(driver, chat_url) is None:
+                return None
+            _click(driver, _SEL['attach_btn'], timeout=3)
+            time.sleep(0.8)
         except Exception:
             pass
     return None
 
 
-def _wait_send_button(driver, timeout=20):
-    """Wait for the media-preview Send button and return its clickable element."""
-    from selenium.webdriver.common.by import By
-    selectors = [
-        'div[role="button"][aria-label="Send"]',
-        'span[data-icon="send"]',
-        'span[data-testid="send"]',
-        'button[aria-label="Send"]',
-    ]
+# Any visible control that looks like "Send". WhatsApp renames its icons
+# (send / wds-ic-send-filled / ...) every few months, so match loosely; the
+# caller only uses this right after an attachment, when the compose box is
+# empty and therefore only the media-preview overlay can show a Send control.
+_VISIBLE_SEND_JS = """
+const out = [];
+const seen = new Set();
+for (const el of document.querySelectorAll(
+        '[aria-label="Send"], [data-icon*="send"], [data-testid*="send"]')) {
+    const target = el.closest('button, [role="button"]') || el;
+    if (seen.has(target)) continue;
+    const r = target.getBoundingClientRect();
+    if (r.width > 0 && r.height > 0) { seen.add(target); out.push(target); }
+}
+return out;
+"""
+
+
+def _visible_send_controls(driver):
+    try:
+        return driver.execute_script(_VISIBLE_SEND_JS) or []
+    except Exception:
+        return []
+
+
+def _preview_send_button(driver):
+    """The media preview's own Send button ("Send 1 selected"), or None."""
+    for el in _visible_send_controls(driver):
+        try:
+            label = (el.get_attribute('aria-label') or '').lower()
+        except Exception:
+            continue
+        if 'selected' in label or any(ch.isdigit() for ch in label):
+            return el
+    return None
+
+
+def _wait_send_button(driver, timeout=20, strict=False):
+    """
+    Wait for a Send button. strict=True accepts only the media preview's own
+    button — needed when the chat box may hold text, because then the chat's
+    plain "Send" is on screen too and must not be mistaken for the preview.
+    """
     end = time.time() + timeout
     while time.time() < end:
-        for sel in selectors:
-            els = driver.find_elements(By.CSS_SELECTOR, sel)
-            if els and els[0].is_displayed():
-                el = els[0]
-                # If we matched the icon span, climb to its clickable ancestor
-                if sel.startswith('span'):
-                    try:
-                        btn = el.find_element(By.XPATH,
-                            './ancestor::div[@role="button"][1] | ./ancestor::button[1]')
-                        return btn
-                    except Exception:
-                        return el
-                return el
+        el = _preview_send_button(driver)
+        if el is not None:
+            return el
+        if not strict:
+            controls = _visible_send_controls(driver)
+            if controls:
+                return controls[-1]
         time.sleep(0.5)
     return None
+
+
+def _clear_composer(driver, box):
+    """Empty the chat box (a leftover draft would otherwise become the caption)."""
+    from selenium.webdriver.common.keys import Keys
+    try:
+        if (driver.execute_script('return arguments[0].innerText', box) or '').strip():
+            driver.execute_script('arguments[0].focus()', box)
+            box.send_keys(Keys.CONTROL, 'a')
+            box.send_keys(Keys.DELETE)
+            time.sleep(0.4)
+    except Exception as exc:
+        logger.debug(f"could not clear composer: {exc}")
+
+
+def _paste_image(driver, element, path):
+    """
+    Fallback when no file input triggers the preview: paste the image into
+    the chat box (what Ctrl+V of an image does). Doesn't depend on the attach
+    menu / file-input markup, which is what WhatsApp changes most often.
+    """
+    import mimetypes
+    with open(path, 'rb') as fh:
+        b64 = base64.b64encode(fh.read()).decode('ascii')
+    mime = mimetypes.guess_type(path)[0] or 'image/png'
+    js = """
+    const el = arguments[0], b64 = arguments[1], name = arguments[2], mime = arguments[3];
+    const bin = atob(b64), arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    const dt = new DataTransfer();
+    dt.items.add(new File([arr], name, {type: mime}));
+    el.focus();
+    el.dispatchEvent(new ClipboardEvent('paste', {clipboardData: dt, bubbles: true, cancelable: true}));
+    """
+    driver.execute_script(js, element, b64, os.path.basename(path), mime)
+
+
+def _dump_debug(driver, tag):
+    """
+    On failure, save a screenshot + a summary of file inputs and visible
+    labelled controls to media/whatsapp_debug/ so a changed WhatsApp Web
+    layout can be diagnosed without guessing. Returns the file stem or None.
+    """
+    import json
+    try:
+        out_dir = os.path.join(_base_dir(), 'media', 'whatsapp_debug')
+        os.makedirs(out_dir, exist_ok=True)
+        stem = f"{time.strftime('%Y%m%d-%H%M%S')}-{tag}"
+        driver.save_screenshot(os.path.join(out_dir, stem + '.png'))
+        info = driver.execute_script("""
+            const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+            return {
+              url: location.href,
+              file_inputs: Array.from(document.querySelectorAll('input[type=file]')).map(i => ({accept: i.accept, multiple: i.multiple})),
+              visible_controls: Array.from(document.querySelectorAll('[aria-label],[data-icon]')).filter(vis).slice(0, 80).map(e => ({
+                tag: e.tagName, label: e.getAttribute('aria-label'), icon: e.getAttribute('data-icon'), role: e.getAttribute('role')})),
+              contenteditables: Array.from(document.querySelectorAll('[contenteditable=true]')).filter(vis).map(e => ({
+                label: e.getAttribute('aria-label'), placeholder: e.getAttribute('aria-placeholder')})),
+            };""")
+        with open(os.path.join(out_dir, stem + '.json'), 'w', encoding='utf-8') as fh:
+            json.dump(info, fh, indent=2, ensure_ascii=False)
+        return stem
+    except Exception as exc:
+        logger.warning(f"could not write WhatsApp debug dump: {exc}")
+        return None
+
+
+def _wait_no_send_control(driver, timeout=15):
+    """True once no Send control is visible any more (= preview closed / sent)."""
+    end = time.time() + timeout
+    while time.time() < end:
+        if not _visible_send_controls(driver):
+            return True
+        time.sleep(0.5)
+    return False
 
 
 def _wait_gone(driver, css, timeout=15):
@@ -475,58 +794,76 @@ def send_wa_message(phone, text, image_path=None):
 
             # ── With image: attach file → caption → send ──────────────────────
             if image_path and os.path.exists(image_path):
-                driver.get(f"https://web.whatsapp.com/send?phone={clean}")
-
-                if _find(driver, _SEL['msg_input'], timeout=30) is None:
+                chat_url = f"https://web.whatsapp.com/send?phone={clean}"
+                compose_box = _open_chat(driver, chat_url)
+                if compose_box is None:
                     return False, 'Chat did not load — is WhatsApp Web logged in?'
-                time.sleep(1.5)
 
-                # Clear any leftover menu/overlay from a previous attempt
+                # Paste the picture into the chat box. This opens the normal PHOTO
+                # preview (with a caption box). Do NOT go through the attach-menu file
+                # input instead: WhatsApp Web's image input there is the "New sticker"
+                # one, which sends the picture as a sticker — no caption possible.
+                send_btn = None
                 try:
-                    ActionChains(driver).send_keys(Keys.ESCAPE).perform()
-                    time.sleep(0.4)
-                except Exception:
-                    pass
-
-                # Try each file input until the preview actually opens
-                send_btn = _upload_and_open_preview(driver, os.path.abspath(image_path))
+                    _clear_composer(driver, compose_box)
+                    _paste_image(driver, compose_box, os.path.abspath(image_path))
+                    send_btn = _wait_send_button(driver, timeout=15, strict=True)
+                except Exception as exc:
+                    logger.warning(f"pasting the image failed: {exc}")
                 if send_btn is None:
-                    return False, 'Image preview did not open — upload may have been rejected.'
+                    stem = _dump_debug(driver, 'image-preview-failed')
+                    hint = f' (diagnostics saved: media/whatsapp_debug/{stem})' if stem else ''
+                    return False, 'Image preview did not open — WhatsApp Web rejected the picture or its layout changed' + hint + '.'
 
-                # Caption box ONLY appears inside the media preview overlay.
-                # Match by aria-placeholder to avoid grabbing the main compose box.
-                caption = None
-                for sel in ('div[contenteditable="true"][aria-placeholder*="aption"]',
-                            'div[contenteditable="true"][aria-label*="aption"]',
-                            'div[data-testid="media-caption-input-container"] div[contenteditable="true"]'):
-                    els = driver.find_elements(By.CSS_SELECTOR, sel)
-                    if els:
-                        caption = els[0]
+                # Caption + Send must come from the preview itself, never from
+                # the chat compose box behind it.
+                send_btn, caption, info = _analyse_preview(driver, compose_box)
+                for _ in range(8):   # the caption box can render a moment after the preview
+                    if caption is not None or not text:
                         break
-
-                if text and caption is not None:
-                    _paste_text(driver, caption, text)
                     time.sleep(0.5)
-                    # re-locate send btn (DOM may have changed after caption)
-                    send_btn = _wait_send_button(driver, timeout=5) or send_btn
+                    send_btn, caption, info = _analyse_preview(driver, compose_box)
+                if send_btn is None:
+                    send_btn = _wait_send_button(driver, timeout=5)
+                logger.info(f"WhatsApp preview: send={info.get('picked_send')!r} caption={info.get('picked_caption')!r}")
 
-                # Click send — try native click, then JS, then Enter
-                clicked = False
+                caption_ok = False
+                if text and caption is not None:
+                    caption_ok = _enter_caption(driver, caption, text)
+                    time.sleep(0.5)
+                    fresh_send, _, _ = _analyse_preview(driver, compose_box)
+                    send_btn = fresh_send or send_btn
+                if text and not caption_ok:
+                    # Send the picture on its own, then the text — never type into
+                    # the chat box, which would fire the text and strand the picture.
+                    _dump_debug(driver, 'caption-not-entered')
+
+                if send_btn is None:
+                    stem = _dump_debug(driver, 'send-button-missing')
+                    hint = f' (diagnostics: media/whatsapp_debug/{stem})' if stem else ''
+                    return False, 'Could not find the picture\'s Send button' + hint + '.'
+
                 try:
                     send_btn.click()
-                    clicked = True
                 except Exception:
                     try:
                         driver.execute_script("arguments[0].click();", send_btn)
-                        clicked = True
-                    except Exception:
-                        pass
-                if not clicked and caption is not None:
-                    caption.send_keys(Keys.ENTER)
+                    except Exception as exc:
+                        return False, f'Could not click Send on the picture: {exc}'
 
-                # VERIFY send: the preview send button should disappear once sent.
-                if not _wait_gone(driver, 'span[data-icon="send"]', timeout=15):
-                    return False, 'Image send not confirmed — preview still open after click.'
+                # VERIFY: that exact Send button disappears once the picture goes.
+                if not _wait_element_gone(driver, send_btn, timeout=20):
+                    stem = _dump_debug(driver, 'image-send-unconfirmed')
+                    hint = f' (diagnostics: media/whatsapp_debug/{stem})' if stem else ''
+                    return False, 'Picture send not confirmed - the preview is still open after clicking Send' + hint + '.'
+
+                # Caption could not be attached: deliver the text as its own
+                # message so nothing is silently dropped.
+                if text and not caption_ok:
+                    time.sleep(2)
+                    ok, err = send_wa_message(phone, text)
+                    if not ok:
+                        return False, f'Picture sent, but the text message failed: {err}'
 
                 time.sleep(1.5)
                 return True, None

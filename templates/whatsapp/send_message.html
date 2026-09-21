@@ -40,6 +40,15 @@
   .contact-select:focus { border-color: var(--wa); box-shadow: 0 0 0 3px rgba(37,211,102,.12); outline: none; }
 
   /* ── Bulk list ── */
+  .send-cat-chip {
+    display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 50px;
+    border: 1px solid #b2dfdb; background: #fff; color: #128C7E; font-size: .78rem; font-weight: 700; cursor: pointer;
+  }
+  .send-cat-chip span { background: #e0f2f1; border-radius: 50px; padding: 0 8px; font-size: .7rem; }
+  .send-cat-chip:hover:not(:disabled) { background: #f0fdf4; }
+  .send-cat-chip.active { background: #25D366; border-color: #25D366; color: #fff; }
+  .send-cat-chip.active span { background: rgba(255,255,255,.25); color: #fff; }
+  .send-cat-chip:disabled { opacity: .45; cursor: not-allowed; }
   .bulk-list { max-height: 180px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 10px; }
   .bulk-list .form-check {
     padding: 10px 14px; margin: 0; border-bottom: 1px solid #f5f5f5;
@@ -355,12 +364,22 @@
                 <a href="#" id="clearAll" style="color:#e53935;font-size:.78rem;text-decoration:none;font-weight:700;">Clear</a>
               </span>
             </div>
+            {% if categories %}
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+              <span class="text-muted" style="font-size:.75rem;font-weight:700;">SEND TO CATEGORY:</span>
+              {% for cat in categories %}
+              <button type="button" class="send-cat-chip" data-cat="{{ cat.id }}" {% if not cat.num %}disabled{% endif %}>
+                {{ cat.name }} <span>{{ cat.num }}</span>
+              </button>
+              {% endfor %}
+            </div>
+            {% endif %}
             <div class="bulk-list">
               {% for c in contacts %}
               <div class="form-check">
-                <input class="form-check-input bulk-cb" type="checkbox" name="bulk_contacts" value="{{ c.id }}" id="bc{{ c.id }}">
+                <input class="form-check-input bulk-cb" type="checkbox" name="bulk_contacts" value="{{ c.id }}" id="bc{{ c.id }}" data-cat="{{ c.category_id|default_if_none:'' }}">
                 <label class="form-check-label" for="bc{{ c.id }}">
-                  <strong>{{ c.name }}</strong> <span style="color:#aaa;font-weight:400;">{{ c.phone }}</span>
+                  <strong>{{ c.name }}</strong> <span style="color:#aaa;font-weight:400;">{{ c.phone }}</span>{% if c.category %} <span class="badge" style="background:#e3f2fd;color:#1565c0;font-weight:600;">{{ c.category.name }}</span>{% endif %}
                 </label>
               </div>
               {% empty %}
@@ -704,8 +723,8 @@
             </td>
             <td style="padding:12px 16px;">
               {% if msg.image_url %}
-              <a href="{{ msg.image_url }}" target="_blank">
-                <img src="{{ msg.image_url }}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;" title="View image">
+              <a href="{{ msg.image_display_url }}" target="_blank">
+                <img src="{{ msg.image_display_url }}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;" title="View image">
               </a>
               {% else %}
               <span style="color:#ddd;font-size:.8rem;">—</span>
@@ -798,6 +817,14 @@
   const textSec     = document.getElementById('textSection');
   const prebuiltSec = document.getElementById('prebuiltSection');
   const twilioSec   = document.getElementById('twilioSection');
+  // Two textareas share name="body" (custom text + template editor). A hidden
+  // one still submits, and its empty value used to override what you typed
+  // ("Message body is required"). Disable whichever is not the active mode.
+  function syncBodyFields() {
+    const mode = document.querySelector('[name=mode]:checked').value;
+    document.getElementById('msgBody').disabled = (mode !== 'text');
+    document.getElementById('tplBody').disabled = (mode !== 'prebuilt');
+  }
   modeRadios.forEach(r => r.addEventListener('change', function() {
     textSec.classList.add('d-none');
     prebuiltSec.classList.add('d-none');
@@ -805,7 +832,9 @@
     if (this.value === 'text')     textSec.classList.remove('d-none');
     if (this.value === 'prebuilt') prebuiltSec.classList.remove('d-none');
     if (this.value === 'template') twilioSec.classList.remove('d-none');
+    syncBodyFields();
   }));
+  syncBodyFields();
 
   /* ── Single contact → preview ── */
   const contactSel  = document.getElementById('contactSelect');
@@ -872,8 +901,23 @@
     recipCountEl.textContent = cnt === 0 ? total : cnt;
   }
   bulkCbs.forEach(cb => cb.addEventListener('change', updateBulkCount));
-  document.getElementById('selectAll').addEventListener('click', e => { e.preventDefault(); bulkCbs.forEach(cb => cb.checked = true); updateBulkCount(); });
-  document.getElementById('clearAll').addEventListener('click',  e => { e.preventDefault(); bulkCbs.forEach(cb => cb.checked = false); updateBulkCount(); });
+  const catChips = document.querySelectorAll('.send-cat-chip');
+  function syncCatChips() {
+    catChips.forEach(chip => {
+      const members = Array.from(bulkCbs).filter(cb => cb.dataset.cat === chip.dataset.cat);
+      chip.classList.toggle('active', members.length > 0 && members.every(cb => cb.checked));
+    });
+  }
+  catChips.forEach(chip => chip.addEventListener('click', () => {
+    const members = Array.from(bulkCbs).filter(cb => cb.dataset.cat === chip.dataset.cat);
+    const allOn = members.length > 0 && members.every(cb => cb.checked);
+    members.forEach(cb => cb.checked = !allOn);
+    updateBulkCount();
+    syncCatChips();
+  }));
+  bulkCbs.forEach(cb => cb.addEventListener('change', syncCatChips));
+  document.getElementById('selectAll').addEventListener('click', e => { e.preventDefault(); bulkCbs.forEach(cb => cb.checked = true); updateBulkCount(); syncCatChips(); });
+  document.getElementById('clearAll').addEventListener('click',  e => { e.preventDefault(); bulkCbs.forEach(cb => cb.checked = false); updateBulkCount(); syncCatChips(); });
 
   /* ── Template cards → populate body ── */
   window.applyTemplate = function(card) {
@@ -1041,6 +1085,17 @@
      lands; the real progress bar is driven by pollSendProgress() below,
      which polls the server for actual sent/failed counts. */
   document.getElementById('sendForm').addEventListener('submit', function(e) {
+    const modeNow = document.querySelector('[name=mode]:checked').value;
+    const hasImage = !!(document.getElementById('imageInput').files || []).length;
+    if (modeNow === 'text' && !document.getElementById('msgBody').value.trim() && !hasImage) {
+      e.preventDefault(); alert('Write a message or attach an image first.'); return;
+    }
+    if (modeNow === 'prebuilt' && !document.getElementById('tplBody').value.trim() && !hasImage) {
+      e.preventDefault(); alert('Pick a template, write a message, or attach an image first.'); return;
+    }
+    if (document.querySelector('[name=message_type]:checked').value === 'single' && !document.getElementById('contactSelect').value) {
+      e.preventDefault(); alert('Please select a contact.'); return;
+    }
     const isBulk = document.querySelector('[name=message_type]:checked').value === 'bulk';
     let cnt = 1;
     if (isBulk) {

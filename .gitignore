@@ -37,3 +37,6 @@ chrome/
 chromedriver/
 chromedriver*
 .wdm/
+
+# WhatsApp Web login profile (Chrome cookies/session) - private, locked while Chrome runs.
+.whatsapp_session/
