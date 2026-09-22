@@ -152,7 +152,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Riyadh'  # Saudi Arabia, GMT+3 (DB still stores UTC)
 
 USE_I18N = True
 
