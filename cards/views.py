@@ -638,8 +638,9 @@ def generate_card_pdf(request, uid):
 
     _draw_fitted_string(c, card.card_no, 530, 648, 55, 'Times-Bold', 9, align='right', min_size=6)
 
-    if card.card_type:
-        _draw_fitted_string(c, card.card_type, 44, 510, 158, 'Times-Bold', 10, min_size=6)
+    header_title = card.trade or card.card_type
+    if header_title:
+        _draw_fitted_string(c, header_title, 44, 510, 158, 'Times-Bold', 10, min_size=6)
 
     field_rows = [
         (card.operator_name, 201),
