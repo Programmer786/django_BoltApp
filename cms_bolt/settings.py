@@ -158,6 +158,10 @@ USE_I18N = True
 
 USE_TZ = True
 
+# The WhatsApp bulk-send form submits one field per ticked contact, so the
+# default cap of 1000 fields breaks "Select All" once the contact list grows.
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 50000
+
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
