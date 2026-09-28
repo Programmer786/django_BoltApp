@@ -1,5 +1,6 @@
 import functools
 import logging
+import re
 import threading
 
 import openpyxl
@@ -38,6 +39,26 @@ def _resolve_category(raw):
     if raw.isdigit():
         return ContactCategory.objects.filter(id=int(raw)).first()
     return None
+
+
+_PHONE_RE = re.compile(r'^\+[1-9]\d{7,14}$')
+
+
+def _normalize_phone(raw):
+    """
+    Strip common formatting (spaces, dashes, parens) and ensure a leading '+'.
+    Returns the normalized phone, or None if what's left doesn't look like a
+    real number — this is the "contact type wrong" case: a name typed into
+    the phone column, a number missing its country code, stray text, etc.
+    Catching it here means it's flagged immediately instead of surfacing as a
+    cryptic send failure later.
+    """
+    if not raw:
+        return None
+    cleaned = re.sub(r'[\s\-().]', '', str(raw))
+    if not cleaned.startswith('+'):
+        cleaned = '+' + cleaned
+    return cleaned if _PHONE_RE.match(cleaned) else None
 
 
 @superuser_required
@@ -119,6 +140,24 @@ def delete_category(request, category_id):
 
 @superuser_required
 @require_POST
+def delete_category_contacts(request, category_id):
+    """
+    Delete every contact in a category — not just the 25 shown on the current
+    page. The category itself is kept (now empty) so it can be reused.
+    """
+    category = get_object_or_404(ContactCategory, id=category_id)
+    count, _ = WhatsAppContact.objects.filter(category=category).delete()
+    log_activity(
+        user=request.user,
+        action=f"Deleted all {count} contact(s) in WhatsApp category: {category.name}",
+        request=request,
+    )
+    messages.success(request, f'Deleted all {count} contact(s) in "{category.name}".')
+    return redirect('whatsapp_contacts')
+
+
+@superuser_required
+@require_POST
 def bulk_assign_category(request):
     ids = [int(x) for x in request.POST.getlist('contact_ids') if x.isdigit()]
     if not ids:
@@ -152,7 +191,8 @@ def upload_contacts_excel(request):
         ws = wb.active
 
         created = updated = skipped = 0
-        for row in ws.iter_rows(min_row=2, values_only=True):
+        bad_rows = []  # (row_number, name, raw_phone) — wrong "contact type" (not a real phone)
+        for row_number, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
             if not row or not row[0]:
                 continue
 
@@ -163,10 +203,10 @@ def upload_contacts_excel(request):
                 skipped += 1
                 continue
 
-            # Normalize: remove spaces/dashes, ensure leading +
-            phone = phone_raw.replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
-            if not phone.startswith('+'):
-                phone = '+' + phone
+            phone = _normalize_phone(phone_raw)
+            if not phone:
+                bad_rows.append((row_number, name, phone_raw))
+                continue
 
             defaults = {'name': name, 'created_by': request.user}
             if category:  # don't wipe an existing contact's category when none was chosen
@@ -180,10 +220,21 @@ def upload_contacts_excel(request):
         wb.close()
         log_activity(
             user=request.user,
-            action=f"Uploaded WhatsApp contacts Excel: {created} created, {updated} updated, {skipped} skipped",
+            action=(
+                f"Uploaded WhatsApp contacts Excel: {created} created, {updated} updated, "
+                f"{skipped} skipped (missing data), {len(bad_rows)} skipped (invalid phone)"
+            ),
             request=request,
         )
-        messages.success(request, f'Import complete — {created} added, {updated} updated, {skipped} skipped.')
+        summary = f'Import complete — {created} added, {updated} updated, {skipped} skipped (missing data).'
+        if bad_rows:
+            # Show exactly which rows had the wrong "contact type" (a name typed into the
+            # phone column, a number missing its country code, stray text, ...) instead of
+            # silently importing a phone number that will only fail later at send time.
+            preview = ', '.join(f'row {n} "{name}" ({raw})' for n, name, raw in bad_rows[:8])
+            more = f' and {len(bad_rows) - 8} more' if len(bad_rows) > 8 else ''
+            messages.warning(request, f'{len(bad_rows)} row(s) skipped — invalid phone number: {preview}{more}.')
+        messages.success(request, summary)
 
     except Exception as e:
         logger.error(f"WhatsApp Excel upload failed: {e}")
@@ -233,9 +284,10 @@ def add_contact(request):
         messages.error(request, 'Name and phone number are required.')
         return redirect('whatsapp_contacts')
 
-    phone = phone_raw.replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
-    if not phone.startswith('+'):
-        phone = '+' + phone
+    phone = _normalize_phone(phone_raw)
+    if not phone:
+        messages.error(request, f'"{phone_raw}" doesn\'t look like a valid phone number. Include the country code, e.g. +966501234567.')
+        return redirect('whatsapp_contacts')
 
     if WhatsAppContact.objects.filter(phone=phone).exists():
         messages.warning(request, f'A contact with phone {phone} already exists.')
@@ -261,9 +313,10 @@ def edit_contact(request, contact_id):
         messages.error(request, 'Name and phone number are required.')
         return redirect('whatsapp_contacts')
 
-    phone = phone_raw.replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
-    if not phone.startswith('+'):
-        phone = '+' + phone
+    phone = _normalize_phone(phone_raw)
+    if not phone:
+        messages.error(request, f'"{phone_raw}" doesn\'t look like a valid phone number. Include the country code, e.g. +966501234567.')
+        return redirect('whatsapp_contacts')
 
     # Check duplicate phone — allow same contact to keep its own phone
     if WhatsAppContact.objects.filter(phone=phone).exclude(id=contact_id).exists():
@@ -406,11 +459,24 @@ def send_message(request):
         messages.info(request, f'Sending to {len(recipient_ids)} contact(s) — track progress below.')
         return redirect(f"{reverse('whatsapp_send')}?tracking={wa_message.id}")
 
+    # Per-recipient status/error for every message, keyed by message id — the
+    # "Details" button on each history row reads this to show exactly which
+    # contact failed and why (e.g. an invalid phone number), without a
+    # separate AJAX round trip per row.
+    history_logs = {
+        msg.id: [
+            {'name': log.contact_name, 'phone': log.phone, 'status': log.status, 'error': log.error or ''}
+            for log in msg.logs.all()
+        ]
+        for msg in history
+    }
+
     return render(request, 'whatsapp/send_message.html', {
         'sidebar_active': 'whatsapp_send',
         'contacts': contacts,
         'categories': ContactCategory.objects.annotate(num=Count('contacts')),
         'history': history,
+        'history_logs': history_logs,
         'total_contacts': contacts.count(),
         'tracking_message_id': request.GET.get('tracking', ''),
     })
@@ -547,6 +613,64 @@ def _send_whatsapp_bulk(wa_message_id, sender, mode, body, image_local_path, ima
         WhatsAppMessage.objects.filter(id=wa_message_id).update(status='failed')
     finally:
         connection.close()
+
+
+@superuser_required
+@require_POST
+def retry_failed_message(request, message_id):
+    """
+    Resend the same message (body/image/template) only to the recipients who
+    failed last time — for once a bulk send has finished and some contacts
+    didn't go through.
+    """
+    from django.core.files.storage import default_storage
+
+    original = get_object_or_404(WhatsAppMessage, id=message_id)
+    failed_contact_ids = [
+        cid for cid in original.logs.filter(status='failed').values_list('contact_id', flat=True)
+        if cid is not None  # the contact may have since been deleted
+    ]
+    if not failed_contact_ids:
+        messages.warning(request, 'No failed recipients to retry (they may have been deleted).')
+        return redirect('whatsapp_send')
+
+    image_local_path = None
+    if original.image_url and '/media/' in original.image_url:
+        rel_path = original.image_url.split('/media/', 1)[1]
+        if default_storage.exists(rel_path):
+            image_local_path = default_storage.path(rel_path)
+
+    msg_type = 'bulk' if len(failed_contact_ids) > 1 else 'single'
+    wa_message = WhatsAppMessage.objects.create(
+        sent_by=request.user,
+        message_type=msg_type,
+        mode=original.mode,
+        via=original.via,
+        body=original.body,
+        image_url=original.image_url,
+        content_sid=original.content_sid,
+        content_variables=original.content_variables,
+        status='queued',
+        total_recipients=len(failed_contact_ids),
+    )
+
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    ip_address = x_forwarded_for.split(',')[0] if x_forwarded_for else request.META.get('REMOTE_ADDR')
+    browser_info = request.META.get('HTTP_USER_AGENT', '')
+
+    thread = threading.Thread(
+        target=_send_whatsapp_bulk,
+        args=(
+            wa_message.id, original.via, original.mode, original.body, image_local_path, original.image_url,
+            original.content_sid, original.content_variables, 'en_US', '',
+            failed_contact_ids, msg_type, request.user.id, ip_address, browser_info,
+        ),
+        daemon=True,
+    )
+    thread.start()
+
+    messages.info(request, f'Retrying {len(failed_contact_ids)} failed contact(s) — track progress below.')
+    return redirect(f"{reverse('whatsapp_send')}?tracking={wa_message.id}")
 
 
 @superuser_required
