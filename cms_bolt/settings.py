@@ -26,12 +26,14 @@ load_dotenv(BASE_DIR / '.env')
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fallback-dev-only')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG', 'True') == 'True'
+DEBUG = os.getenv('DEBUG', 'False') == 'False'
 
 # In settings.py
 HIDE_SENSITIVE_DATES = False  # This will show dates in production
 
 ALLOWED_HOSTS = [
+    'botlcrm.com',
+    'www.botlcrm.com',
     '147.93.90.97',  # For KVM Deployment 
     'bolt.brotherinternationaltravels.com',
     'localhost',  # For local development
@@ -157,6 +159,7 @@ TIME_ZONE = 'Asia/Riyadh'  # Saudi Arabia, GMT+3 (DB still stores UTC)
 USE_I18N = True
 
 USE_TZ = True
+
 
 # The WhatsApp bulk-send form submits one field per ticked contact, so the
 # default cap of 1000 fields breaks "Select All" once the contact list grows.

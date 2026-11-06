@@ -1,0 +1,405 @@
+{% extends "base/base.html" %}
+{% load static %}
+{% block start %}
+<h1 class="page-header">
+    Unpaid Certificates (Total: {{ total_unpaid_certificates }})
+</h1>
+<hr class="mb-4">
+
+{% if user.is_superuser %}
+
+<!-- Payment Summary -->
+<div class="row">
+    <!-- Jeddah Summary -->
+    <div class="col-md-6 col-lg-3 col-12">
+        <div class="small-box bg-primary">
+            <div class="inner">
+                <h4>Jeddah</h4>
+                <p>Unpaid No of Certificates: <strong>{{ total_unpaid_jeddah_certificates }}</strong></p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-tools"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Riyadh Summary -->
+    <div class="col-md-6 col-lg-3 col-12">
+        <div class="small-box bg-success">
+            <div class="inner">
+                <h4>Riyadh</h4>
+                <p>Unpaid No of Certificates: <strong>{{ total_unpaid_riyadh_certificates }}</strong></p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-tools"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- NEOM Summary -->
+    <div class="col-md-6 col-lg-3 col-12">
+        <div class="small-box bg-danger">
+            <div class="inner">
+                <h4>NEOM</h4>
+                <p>Unpaid No of Certificates: <strong>{{ total_unpaid_neom_certificates }}</strong></p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-tools"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Damman Summary -->
+    <div class="col-md-6 col-lg-3 col-12">
+        <div class="small-box bg-warning">
+            <div class="inner">
+                <h4>Damman</h4>
+                <p>Unpaid No of Certificates: <strong>{{ total_unpaid_damman_certificates }}</strong></p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-tools"></i>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Payment Summary -->
+{% endif %}
+
+
+<!-- Start Display Data -->
+<div class="card border-lime bg-lime bg-opacity-25 mb-5" style="width: 100%;">
+    <div class="card-header border-lime bg-lime bg-opacity-25 fw-bold small text-body">
+        <a style="font-size: 20px;">
+            UNPAID CERTIFICATES RECORDS
+        </a>
+    </div>
+    <div id="bootstrapTable" class="mb-1">
+        <div class="card">
+            <div class="card-body">
+                <div class="mb-3">
+                    <form method="GET" action="" class="d-flex mb-3" role="search">
+                        <input class="form-control me-2 w-25" type="search" name="searching_query" placeholder="Enter Certificate No..." aria-label="Search" value="{{ searching_query|default:'' }}">
+                        <button class="btn btn-primary" type="submit">Search</button>
+                        <a href="{% url 'unpaid_certificates' %}" class="btn btn-success"><i class="fa fa-refresh" aria-hidden="true"></i> Refresh</a>
+                    </form>
+                </div>
+                <table class="table text-nowrap w-100" id="myCertificateTable" data-toggle="table" data-height="auto">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>S.No</th>
+                            <th class="text-primary">Name</th>
+                            <th class="text-success">City</th>
+                            <th>LH Serial No</th>
+                            <th>Certificate No</th>
+                            <th>Sticker No</th>
+                            <th>Eq Serial No</th>
+                            <th>Equipment Type</th>
+                            <th>Company Name</th>
+                            <th>Inspection Date</th>
+                            <th>Expiry Date</th>
+                            <th>Remaining Months</th>
+                            <th>Plate No</th>
+                            <th>Manufacturer</th>
+                            <th>Inspected By</th>
+                            <th>Status</th>
+                            <th>Requested By</th>
+                            <th>Prepared By</th>
+                            <th>Wasted Serial</th>
+                            <th>Invoice No</th>
+                            <th>Total Amount</th>
+                            <th>Paid Amount</th>
+                            <th>Cash/Bank</th>
+                            <th>Client Representative Name</th>
+                            <th>Client Representative Number</th>
+                            <th>Email</th>
+                            <th>Remarks</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cert in certificates %}
+                        <tr>
+                            <td>
+                                <div class="dropdown">
+                                    <button class="btn btn-primary dropdown-toggle" type="button" id="dropdownMenuButton{{ forloop.counter }}" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Actions
+                                    </button>
+                                    <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton{{ forloop.counter }}">
+                                        <li>
+                                            <a class="dropdown-item" href="#" 
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#updateCertificateModal{{ cert.uid }}">
+                                            <i class="fa fa-edit" style="color: green"></i> Edit
+                                            </a>
+                                        </li>
+                                        {% if user.is_superuser %}
+                                        <li>
+                                            <a class="dropdown-item" href="{% url 'generate_certificate_pdf' cert.uid %}" target="_blank">
+                                                <i class="fa fa-print" style="color: blue"></i> Print Certificate
+                                            </a>
+                                        </li>
+                                        {% endif %}
+                                    </ul>
+                                </div>
+                            </td>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ cert.user.first_name }}_{{ cert.user.last_name }}</td>
+                            <td>{{ cert.city }}</td>
+                            <td>{{ cert.lh_serial_no }}</td>
+                            <td>{{ cert.cert_no }}</td>
+                            <td>{{ cert.sticker_no }}</td>
+                            <td>{{ cert.eq_serial_no }}</td>
+                            <td>{{ cert.equipment_type }}</td>
+                            <td>{{ cert.company_name }}</td>
+                            <td>{{ cert.inspection_date }}</td>
+                            <td>{{ cert.expiry_date }}</td>
+                            <td>{{ cert.remaining_months }}</td>
+                            <td>{{ cert.plate_no }}</td>
+                            <td>{{ cert.manufacturer }}</td>
+                            <td>{{ cert.inspected_by }}</td>
+                            <td>{{ cert.status }}</td>
+                            <td>{{ cert.requested_by }}</td>
+                            <td>{{ cert.prepared_by }}</td>
+                            <td>{{ cert.wasted_serial }}</td>
+                            <td>{{ cert.invoice_no }}</td>
+                            <td>{{ cert.total_amount }}</td>
+                            <td>{{ cert.amount }}</td>
+                            <td>{{ cert.cash_bank }}</td>
+                            <td>{{ cert.client_rep_name }}</td>
+                            <td>{{ cert.client_rep_number }}</td>
+                            <td>{{ cert.email }}</td>
+                            <td>{{ cert.remarks }}</td>
+                        </tr>
+
+                        <!-- Edit Certificate Modal -->
+                        <div class="modal fade" id="updateCertificateModal{{ cert.uid }}" tabindex="-1" aria-labelledby="updateCertificateModalLabel{{ cert.uid }}" aria-hidden="true">
+                            <div class="modal-dialog modal-xl">
+                                <div class="modal-content">
+                                    <form action="{% url 'update_unpaid_certificate' cert.uid %}" method="post" class="was-validated">
+                                        {% csrf_token %}
+                                        <div class="modal-header bg-warning bg-opacity-25">
+                                            <h5 class="modal-title">Update Certificate</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body row g-3 px-3">
+                                            <div class="col-md-4">
+                                                <label>LH Serial No</label>
+                                                <input type="text" name="lh_serial_no" value="{{ cert.lh_serial_no }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Certificate No</label>
+                                                <input type="text" name="cert_no" value="{{ cert.cert_no }}" class="form-control" required>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Sticker No</label>
+                                                <input type="text" name="sticker_no" value="{{ cert.sticker_no }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Eq Serial No</label>
+                                                <input type="text" name="eq_serial_no" value="{{ cert.eq_serial_no }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Equipment Type</label>
+                                                <input type="text" name="equipment_type" value="{{ cert.equipment_type }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Company Name</label>
+                                                <input type="text" name="company_name" value="{{ cert.company_name }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Inspection Date</label>
+                                                <input type="date" name="inspection_date" value="{{ cert.inspection_date }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Expiry Date</label>
+                                                <input type="date" name="expiry_date" value="{{ cert.expiry_date }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Remaining Months</label>
+                                                <input type="text" name="remaining_months" id="edit_remaining_months_{{ cert.uid }}" value="{{ cert.remaining_months }}" class="form-control" readonly>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Plate No</label>
+                                                <input type="text" name="plate_no" value="{{ cert.plate_no }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Manufacturer</label>
+                                                <input type="text" name="manufacturer" value="{{ cert.manufacturer }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Inspected By</label>
+                                                <input type="text" name="inspected_by" value="{{ cert.inspected_by }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Requested By</label>
+                                                <input type="text" name="requested_by" value="{{ cert.requested_by }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Prepared By</label>
+                                                <input type="text" name="prepared_by" value="{{ cert.prepared_by }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Wasted Serial</label>
+                                                <input type="text" name="wasted_serial" value="{{ cert.wasted_serial }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Invoice No</label>
+                                                <input type="text" name="invoice_no" value="{{ cert.invoice_no }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Total Amount</label>
+                                                <input type="text" name="total_amount" value="{{ cert.total_amount }}" class="form-control" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\\..*)\\./g, '$1');" required>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Paid Amount</label>
+                                                <input type="text" name="amount" value="{{ cert.amount }}" class="form-control" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\\..*)\\./g, '$1');" required>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Cash/Bank</label>
+                                                <input type="text" name="cash_bank" value="{{ cert.cash_bank }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Client Rep Name</label>
+                                                <input type="text" name="client_rep_name" value="{{ cert.client_rep_name }}" 
+                                                    class="form-control" 
+                                                    pattern="^[A-Za-z][A-Za-z\s\-_]{0,}[A-Za-z]$"
+                                                    title="Please enter a valid name containing letters, spaces, hyphens, or underscores. Must start and end with a letter. Cannot be N/A."
+                                                    required>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Client Rep Number (e.g., +9665XXXXXXXX)</label>
+                                                <input type="text" name="client_rep_number" value="{{ cert.client_rep_number }}" class="form-control" required>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Email</label>
+                                                <input type="email" name="email" value="{{ cert.email }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Remarks</label>
+                                                <input type="text" name="remarks" value="{{ cert.remarks }}" class="form-control">
+                                            </div>
+                                            <div class="col-12">
+                                                <h5 class="fw-bold mt-4 mb-2">Inspection Summary</h5>
+                                                <div class="table-responsive">
+                                                    <div class="table border border-dark">
+                                                        <div class="table-header row bg-light text-center fw-bold">
+                                                            <div class="col-6 border-end py-2">Description</div>
+                                                            <div class="col-3 border-end py-2">Result</div>
+                                                            <div class="col-3 py-2">Comments</div>
+                                                        </div>
+                                            
+                                                        <!-- Row 1 -->
+                                                        <div class="row text-center align-items-center py-2">
+                                                            <div class="col-6 border-end">
+                                                                <input type="text" name="summary_description_1" 
+                                                                    class="form-control-plaintext w-100" readonly
+                                                                    value="Was the Examination carried out within an interval as recommended?">
+                                                            </div>
+                                                            <div class="col-3 border-end">
+                                                                <select name="summary_result_1" class="form-select">
+                                                                    <option value="No" {% if cert.summary_result_1 == "No" %}selected{% endif %}>No</option>
+                                                                    <option value="Yes" {% if cert.summary_result_1 == "Yes" %}selected{% endif %}>Yes</option>
+                                                                    <option value="PASSED" {% if cert.summary_result_1 == "PASSED" %}selected{% endif %}>PASSED</option>
+                                                                    <option value="FAILED" {% if cert.summary_result_1 == "FAILED" %}selected{% endif %}>FAILED</option>
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-3">
+                                                                <input type="text" name="summary_comments_1" class="form-control w-100" value="{{ cert.summary_comments_1 }}">
+                                                            </div>
+                                                        </div>
+
+                                                        <!-- Row 2 -->
+                                                        <div class="row text-center align-items-center py-2">
+                                                            <div class="col-6 border-end">
+                                                                <input type="text" name="summary_description_2" 
+                                                                    class="form-control-plaintext w-100" readonly
+                                                                    value="Overall inspection result:">
+                                                            </div>
+                                                            <div class="col-3 border-end">
+                                                                <select name="summary_result_2" class="form-select">
+                                                                    <option value="No" {% if cert.summary_result_2 == "No" %}selected{% endif %}>No</option>
+                                                                    <option value="Yes" {% if cert.summary_result_2 == "Yes" %}selected{% endif %}>Yes</option>
+                                                                    <option value="PASSED" {% if cert.summary_result_2 == "PASSED" %}selected{% endif %}>PASSED</option>
+                                                                    <option value="FAILED" {% if cert.summary_result_2 == "FAILED" %}selected{% endif %}>FAILED</option>
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-3">
+                                                                <input type="text" name="summary_comments_2" class="form-control w-100" value="{{ cert.summary_comments_2 }}">
+                                                            </div>
+                                                        </div>
+
+                                                        <!-- Row 3 -->
+                                                        <div class="row text-center align-items-center py-2">
+                                                            <div class="col-6 border-end">
+                                                                <input type="text" name="summary_description_3" 
+                                                                    class="form-control-plaintext w-100" readonly
+                                                                    value="Identification of any part found to have defective which is or could become danger to person and a description of the defect.">
+                                                            </div>
+                                                            <div class="col-3 border-end">
+                                                                <select name="summary_result_3" class="form-select">
+                                                                    <option value="No" {% if cert.summary_result_3 == "No" %}selected{% endif %}>No</option>
+                                                                    <option value="Yes" {% if cert.summary_result_3 == "Yes" %}selected{% endif %}>Yes</option>
+                                                                    <option value="PASSED" {% if cert.summary_result_3 == "PASSED" %}selected{% endif %}>PASSED</option>
+                                                                    <option value="FAILED" {% if cert.summary_result_3 == "FAILED" %}selected{% endif %}>FAILED</option>
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-3">
+                                                                <input type="text" name="summary_comments_3" class="form-control w-100" value="{{ cert.summary_comments_3 }}">
+                                                            </div>
+                                                        </div>
+
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="submit" class="btn btn-warning">Update Certificate</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        {% endfor %}
+                        <tr>
+                            <td colspan="27" class="text-center">-</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Disabled and active states pagination -->
+                {% include "base/pagination.html" with page_obj=certificates %}
+                <!-- End Disabled and active states pagination -->
+            </div>
+        </div>
+    </div>
+</div>
+<!-- End Display Data -->
+
+{% comment %} For Each Edit Modal {% endcomment %}
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const inspectionInput{{ cert.uid }} = document.querySelector('#updateCertificateModal{{ cert.uid }} input[name="inspection_date"]');
+        const expiryInput{{ cert.uid }} = document.querySelector('#updateCertificateModal{{ cert.uid }} input[name="expiry_date"]');
+        const remainingInput{{ cert.uid }} = document.querySelector('#edit_remaining_months_{{ cert.uid }}');
+    
+        function updateRemainingMonths{{ cert.uid }}() {
+            const inspectionDate = new Date(inspectionInput{{ cert.uid }}.value);
+            const expiryDate = new Date(expiryInput{{ cert.uid }}.value);
+    
+            if (!isNaN(inspectionDate) && !isNaN(expiryDate)) {
+                const months = (expiryDate.getFullYear() - inspectionDate.getFullYear()) * 12 +
+                               (expiryDate.getMonth() - inspectionDate.getMonth());
+                remainingInput{{ cert.uid }}.value = months >= 0 ? months : 0;
+            }
+        }
+    
+        inspectionInput{{ cert.uid }}.addEventListener("change", updateRemainingMonths{{ cert.uid }});
+        expiryInput{{ cert.uid }}.addEventListener("change", updateRemainingMonths{{ cert.uid }});
+    });
+</script>
+
+
+
+{% endblock %}
+<!-- BEGIN #Body_of_this_page -->

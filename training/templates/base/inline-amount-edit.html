@@ -1,0 +1,200 @@
+{% comment %}
+Click-to-edit for the Total/Paid Amount cells on the Paid & Unpaid tables.
+
+The hooks live on a <span> INSIDE the cell, not on the <td>: these tables use
+the bootstrap-table plugin, which rebuilds every row at runtime and drops
+custom classes/attributes from <td> elements. Cell *content* survives, so the
+span does too.
+
+    <td class="amount-cell">
+      <span class="editable-amount" data-url="..." data-field="amount|total_amount">0.00</span>
+    </td>
+
+Only rendered when the viewer has permission (can_edit_amounts) — the server
+re-checks on every save regardless.
+{% endcomment %}
+<style>
+    .editable-amount {
+        cursor: text;
+        display: inline-block;
+        min-width: 62px;
+        padding: 2px 6px;
+        border-radius: 6px;
+        border: 1px dashed #cbd5e1;
+        transition: background .15s ease, border-color .15s ease;
+    }
+    .editable-amount:hover {
+        background: #eff6ff;
+        border-color: #2563eb;
+        border-style: solid;
+    }
+    .editable-amount::after {
+        content: '\f044'; /* pencil */
+        font-family: 'Font Awesome 6 Free';
+        font-weight: 900;
+        font-size: 9px;
+        color: #94a3b8;
+        margin-left: 6px;
+        opacity: 0;
+        transition: opacity .15s ease;
+    }
+    .editable-amount:hover::after { opacity: 1; }
+
+    .editable-amount input.amount-input {
+        width: 84px;
+        border: 1px solid #2563eb;
+        border-radius: 5px;
+        padding: 1px 5px;
+        font-size: 13px;
+        font-family: inherit;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, .14);
+        background: #fff;
+    }
+
+    .editable-amount.saving { background: #fffbeb; border-color: #f59e0b; border-style: solid; }
+    .editable-amount.saved  { background: #f0fdf4; border-color: #22c55e; border-style: solid; }
+    .editable-amount.failed { background: #fef2f2; border-color: #ef4444; border-style: solid; }
+
+    .amount-toast {
+        position: fixed;
+        right: 18px;
+        bottom: 18px;
+        z-index: 100000;
+        max-width: 340px;
+        padding: 11px 15px;
+        border-radius: 10px;
+        font-size: 13.5px;
+        font-weight: 500;
+        color: #fff;
+        box-shadow: 0 8px 28px rgba(0, 0, 0, .22);
+        opacity: 0;
+        transform: translateY(8px);
+        transition: opacity .2s ease, transform .2s ease;
+    }
+    .amount-toast.show { opacity: 1; transform: translateY(0); }
+    .amount-toast.ok   { background: #16a34a; }
+    .amount-toast.err  { background: #dc2626; }
+</style>
+
+<script>
+(function () {
+    function csrfToken() {
+        const input = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (input) return input.value;
+        const m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+        return m ? m[1] : '';
+    }
+
+    let toastEl = null, toastTimer = null;
+    function toast(message, ok) {
+        if (!toastEl) {
+            toastEl = document.createElement('div');
+            document.body.appendChild(toastEl);
+        }
+        toastEl.className = 'amount-toast ' + (ok ? 'ok' : 'err');
+        toastEl.textContent = message;
+        requestAnimationFrame(function () { toastEl.classList.add('show'); });
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { toastEl.classList.remove('show'); }, ok ? 2200 : 5000);
+    }
+
+    function flash(el, cls) {
+        el.classList.remove('saving', 'saved', 'failed');
+        if (!cls) return;
+        el.classList.add(cls);
+        if (cls !== 'saving') {
+            setTimeout(function () { el.classList.remove(cls); }, 1600);
+        }
+    }
+
+    function format(v) {
+        const n = parseFloat(String(v).replace(/,/g, ''));
+        return isNaN(n) ? '0.00' : n.toFixed(2);
+    }
+
+    function beginEdit(el) {
+        if (el.querySelector('input')) return;   // already editing
+        const original = format(el.textContent.trim());
+
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.step = '0.01';
+        input.min = '0';
+        input.className = 'amount-input';
+        input.value = original;
+
+        el.textContent = '';
+        el.appendChild(input);
+        input.focus();
+        input.select();
+
+        let done = false;
+        function finish(save) {
+            if (done) return;
+            done = true;
+            const next = format(input.value);
+            el.textContent = save ? next : original;
+            if (save && next !== original) commit(el, next, original);
+        }
+
+        input.addEventListener('blur', function () { finish(true); });
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter')  { e.preventDefault(); input.blur(); }
+            if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+        });
+        // don't let a click inside the input bubble back into beginEdit
+        input.addEventListener('click', function (e) { e.stopPropagation(); });
+    }
+
+    function commit(el, value, original) {
+        const url   = el.dataset.url;
+        const field = el.dataset.field;
+        if (!url || !field) return;
+
+        flash(el, 'saving');
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken(),
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ field: field, value: value })
+        })
+        .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, data: d }; }); })
+        .then(function (r) {
+            if (r.ok && r.data.status === 'success') {
+                el.textContent = r.data.value;
+                // keep the sibling amount in sync with what the server stored
+                const row = el.closest('tr');
+                if (row) {
+                    const otherField = field === 'amount' ? 'total_amount' : 'amount';
+                    const other = row.querySelector('.editable-amount[data-field="' + otherField + '"]');
+                    if (other && !other.querySelector('input')) {
+                        other.textContent = field === 'amount' ? r.data.total_amount : r.data.amount;
+                    }
+                }
+                flash(el, 'saved');
+                toast('Saved.', true);
+            } else {
+                el.textContent = original;
+                flash(el, 'failed');
+                toast((r.data && r.data.message) || 'Could not save that value.', false);
+            }
+        })
+        .catch(function () {
+            el.textContent = original;
+            flash(el, 'failed');
+            toast('Network error — the value was not saved.', false);
+        });
+    }
+
+    // Delegated: works no matter how many times bootstrap-table rebuilds rows.
+    // Registered unconditionally — the cells may not exist yet at this point.
+    document.addEventListener('click', function (e) {
+        const el = e.target.closest('.editable-amount');
+        if (el) beginEdit(el);
+    });
+})();
+</script>

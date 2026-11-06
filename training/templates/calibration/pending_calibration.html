@@ -1,0 +1,333 @@
+{% extends "base/base.html" %}
+{% load static %}
+{% block start %}
+<h1 class="page-header">
+    Pending Calibration
+</h1>
+<hr class="mb-4">
+
+
+<!-- Start Display Data -->
+<div class="card border-lime bg-lime bg-opacity-25 mb-5" style="width: 100%;">
+    <div class="card-header border-lime bg-lime bg-opacity-25 fw-bold small text-body">
+        <a style="font-size: 20px;">PENDING Calibration RECORDS</a>
+    </div>
+    <div id="bootstrapTable" class="mb-1">
+        <div class="card">
+            <div class="card-body">
+                <div class="mb-3">
+                    <form method="GET" action="" class="row g-2 align-items-center">
+                        <div class="col-md-4 col-12">
+                            <input class="form-control" type="search" name="searching_query" placeholder="Search By Certificate No or Company Name" aria-label="Search" value="{{ request.GET.searching_query|default:'' }}">
+                        </div>
+                        <div class="col-auto">
+                            <select name="city" class="form-select" id="yourCity">
+                                <option value="" {% if not request.GET.city %}selected{% endif %}>All Cities</option>
+                                <option value="NEOM" {% if request.GET.city == 'NEOM' %}selected{% endif %}>NEOM</option>
+                                <option value="Jeddah" {% if request.GET.city == 'Jeddah' %}selected{% endif %}>Jeddah</option>
+                                <option value="Riyadh" {% if request.GET.city == 'Riyadh' %}selected{% endif %}>Riyadh</option>
+                                <option value="Dammam" {% if request.GET.city == 'Dammam' %}selected{% endif %}>Dammam</option>
+                            </select>
+                        </div>
+                        <div class="col-auto">
+                            <button class="btn btn-primary" type="submit">
+                                <i class="fa fa-search me-1"></i> Search
+                            </button>
+                            <a href="{% url 'pending_calibration' %}" class="btn btn-outline-secondary">
+                                <i class="fa fa-refresh me-1"></i> Reset
+                            </a>
+                        </div>
+                    </form>
+                </div>
+                <table class="table text-nowrap w-100" id="myCalibrationTable" data-toggle="table" data-height="auto">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>S.No</th>
+                            <th class="text-primary">Name</th>
+                            <th class="text-success">City</th>
+                            <th>LH Serial No</th>
+                            <th>Certificate No</th>
+                            <th>Sticker No</th>
+                            <th>Equipement Name</th>
+                            <th>Company Name</th>
+                            <th>Received on</th>
+                            <th>Technician</th>
+                            <th>Date of Calibration</th>
+                            <th>Next Date of Cal</th>
+                            <th>Validity</th>
+                            <th>Status</th>
+                            <th>Requested By</th>
+                            <th>Prepared By</th>
+                            <th>Wasted Serial No</th>
+                            <th>Invoice No</th>
+                            <th>Total Amount</th>
+                            <th>Paid Amount</th>
+                            <th>Cash/Bank</th>
+                            <th>Client Representative Name</th>
+                            <th>Client Representative Number</th>
+                            <th>Email</th>
+                            <th>Remarks</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for calibration in calibrations %}
+                        <tr>
+                            {% comment %} <td>
+                                <div class="dropdown">
+                                    <button class="btn btn-primary dropdown-toggle" type="button" id="dropdownMenuButton{{ forloop.counter }}" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Actions
+                                    </button>
+                                    <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton{{ forloop.counter }}">
+                                        <li>
+                                            <a class="dropdown-item " href="#" 
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#viewCalibrationModal{{ calibration.uid }}">
+                                            <i class="fa fa-street-view" aria-hidden="true"></i> View
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </td> {% endcomment %}
+                            <td>
+                                <div class="d-flex gap-2">
+                                    <!-- Approve Button -->
+                                    {% comment %} <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#approveModal{{ calibration.uid }}">
+                                        <i class="fa fa-check"></i>
+                                    </button> {% endcomment %}
+                                    <!-- Reject Button -->
+                                    {% comment %} <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#rejectModal{{ calibration.uid }}">
+                                        <i class="fa fa-times"></i>
+                                    </button> {% endcomment %}
+                                    <!-- Approve Button -->
+                                    <form action="{% url 'approve_reject_calibration' calibration.uid %}" method="post" style="display:inline;">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                        <input type="hidden" name="action" value="approve">
+                                        <button type="submit" class="btn btn-success btn-sm">
+                                            <i class="fa fa-check"></i>
+                                        </button>
+                                    </form>
+
+                                    <!-- Reject Button -->
+                                    <form action="{% url 'approve_reject_calibration' calibration.uid %}" method="post" style="display:inline;">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                        <input type="hidden" name="action" value="reject">
+                                        <button type="submit" class="btn btn-danger btn-sm">
+                                            <i class="fa fa-times"></i>
+                                        </button>
+                                    </form>
+                                    <!-- View Button -->
+                                    <button type="button" class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#viewCalibrationModal{{ calibration.uid }}">
+                                        <i class="fa fa-eye"></i>
+                                    </button>
+                                </div>
+                            </td>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ calibration.user.first_name }}_{{ calibration.user.last_name }}</td>
+                            <td>{{ calibration.city }}</td>
+                            <td>{{ calibration.lh_serial_no }}</td>
+                            <td>{{ calibration.cert_no }}</td>
+                            <td>{{ calibration.sticker_no }}</td>
+                            <td>{{ calibration.equipment_name }}</td>
+                            <td>{{ calibration.company_name }}</td>
+                            <td>{{ calibration.received_on }}</td>
+                            <td>{{ calibration.technician }}</td>
+                            <td>{{ calibration.date_of_calibration }}</td>
+                            <td>{{ calibration.expiry_date }}</td>
+                            <td>{{ calibration.validity }}</td>
+                            <td>{{ calibration.status }}</td>
+                            <td>{{ calibration.requested_by }}</td>
+                            <td>{{ calibration.prepared_by }}</td>
+                            <td>{{ calibration.wasted_serial }}</td>
+                            <td>{{ calibration.invoice_no }}</td>
+                            <td>{{ calibration.total_amount }}</td>
+                            <td>{{ calibration.amount }}</td>
+                            <td>{{ calibration.cash_bank }}</td>
+                            <td>{{ calibration.client_rep_name }}</td>
+                            <td>{{ calibration.client_rep_number }}</td>
+                            <td>{{ calibration.email }}</td>
+                            <td>{{ calibration.remarks }}</td>
+                        </tr>
+
+                        <!-- Approve/Reject Calibration Modal -->
+                        <div class="modal fade" id="viewCalibrationModal{{ calibration.uid }}" tabindex="-1" aria-labelledby="viewCalibrationModalLabel{{ calibration.uid }}" aria-hidden="true">
+                            <div class="modal-dialog modal-xl">
+                                <div class="modal-content">
+                                    <form action="{% url 'approve_reject_calibration' calibration.uid %}" method="post" class="was-validated">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                        <div class="modal-header bg-warning bg-opacity-25">
+                                            <h5 class="modal-title">Approve/Reject Calibration</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+
+                                        <div class="modal-body row g-3 px-3">
+                                            <div class="col-md-4">
+                                                <label>SR No</label>
+                                                <input type="text" name="sr_no" value="{{ calibration.sr_no }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>LH Serial No</label>
+                                                <input type="text" name="lh_serial_no" value="{{ calibration.lh_serial_no }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Certificate No</label>
+                                                <input type="text" name="cert_no" value="{{ calibration.cert_no }}" class="form-control" required>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Sticker No</label>
+                                                <input type="text" name="sticker_no" value="{{ calibration.sticker_no }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Equipment Name</label>
+                                                <input type="text" name="equipment_name" value="{{ calibration.equipment_name }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Company Name</label>
+                                                <input type="text" name="company_name" value="{{ calibration.company_name }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Received On</label>
+                                                <input type="date" name="received_on" value="{{ calibration.received_on }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Technician</label>
+                                                <input type="text" name="technician" value="{{ calibration.technician }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Date of Calibration</label>
+                                                <input type="date" name="date_of_calibration" value="{{ calibration.date_of_calibration }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Next Date of Calibration</label>
+                                                <input type="date" name="expiry_date" value="{{ calibration.expiry_date }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Validity</label>
+                                                <input type="text" name="validity" value="{{ calibration.validity }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Requested By</label>
+                                                <input type="text" name="requested_by" value="{{ calibration.requested_by }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Prepared By</label>
+                                                <input type="text" name="prepared_by" value="{{ calibration.prepared_by }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Wasted Serial</label>
+                                                <input type="text" name="wasted_serial" value="{{ calibration.wasted_serial }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Invoice No</label>
+                                                <input type="text" name="invoice_no" value="{{ calibration.invoice_no }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Total Amount</label>
+                                                <input type="text" name="total_amount" value="{{ calibration.total_amount }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Paid Amount</label>
+                                                <input type="text" name="amount" value="{{ calibration.amount }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Cash/Bank</label>
+                                                <input type="text" name="cash_bank" value="{{ calibration.cash_bank }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Client Rep Name</label>
+                                                <input type="text" name="client_rep_name" value="{{ calibration.client_rep_name }}" 
+                                                    class="form-control" 
+                                                    pattern="^[A-Za-z][A-Za-z\s\-_]{0,}[A-Za-z]$"
+                                                    title="Please enter a valid name containing letters, spaces, hyphens, or underscores. Must start and end with a letter. Cannot be N/A."
+                                                    required>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Client Rep Number (e.g., +9665XXXXXXXX)</label>
+                                                <input type="text" name="client_rep_number" value="{{ calibration.client_rep_number }}" class="form-control" required>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Email</label>
+                                                <input type="email" name="email" value="{{ calibration.email }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Remarks</label>
+                                                <input type="text" name="remarks" value="{{ calibration.remarks }}" class="form-control">
+                                            </div>
+                                        </div>
+
+                                        <div class="modal-footer">
+                                            <button type="submit" name="action" value="approve" class="btn btn-warning">Approve</button>
+                                            <button type="submit" name="action" value="reject" class="btn btn-danger">Reject</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Approve Calibration Modal -->
+                        <div class="modal fade" id="approveModal{{ calibration.uid }}" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog">
+                            <div class="modal-content">
+                                <form action="{% url 'approve_reject_calibration' calibration.uid %}" method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                <div class="modal-header bg-success text-white">
+                                    <h5 class="modal-title">Approve Calibration</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p>Are you sure you want to Approve <strong>{{ calibration.cert_no }}</strong>?</p>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="submit" name="action" value="approve" class="btn btn-success">Approve</button>
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                </div>
+                                </form>
+                            </div>
+                            </div>
+                        </div>
+
+                        <!-- Reject Calibration Modal -->
+                        <div class="modal fade" id="rejectModal{{ calibration.uid }}" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog">
+                            <div class="modal-content">
+                                <form action="{% url 'approve_reject_calibration' calibration.uid %}" method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                <div class="modal-header bg-danger text-white">
+                                    <h5 class="modal-title">Reject Calibration</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p>Are you sure you want to Reject <strong>{{ calibration.cert_no }}</strong>?</p>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="submit" name="action" value="reject" class="btn btn-danger">Reject</button>
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                </div>
+                                </form>
+                            </div>
+                            </div>
+                        </div>
+
+                        {% endfor %}
+                        <tr>
+                            <td colspan="25" class="text-center">-</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Disabled and active states pagination -->
+                {% include "base/pagination.html" with page_obj=calibrations %}
+                <!-- End Disabled and active states pagination -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- End Display Data -->
+{% endblock %}
+<!-- BEGIN #Body_of_this_page -->

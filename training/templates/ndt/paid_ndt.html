@@ -1,0 +1,176 @@
+{% extends "base/base.html" %}
+{% load static %}
+{% block start %}
+<h1 class="page-header">
+    Paid NDT (Total: {{ total_paid_ndt }})
+</h1>
+<hr class="mb-4">
+
+{% if user.is_superuser %}
+
+<!-- Payment Summary -->
+<div class="row">
+    <!-- Jeddah Summary -->
+    <div class="col-md-6 col-lg-3 col-12">
+        <div class="small-box bg-primary">
+            <div class="inner">
+                <h4>Jeddah</h4>
+                <p>Paid No: <strong>{{ total_paid_jeddah_ndts }}</strong> Amount: <strong>{{ total_paid_jeddah_amount|floatformat:1 }}</strong></p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-tools"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Riyadh Summary -->
+    <div class="col-md-6 col-lg-3 col-12">
+        <div class="small-box bg-success">
+            <div class="inner">
+                <h4>Riyadh</h4>
+                <p>Paid No: <strong>{{ total_paid_riyadh_ndts }}</strong> Amount: <strong>{{ total_paid_riyadh_amount|floatformat:1 }}</strong></p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-tools"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- NEOM Summary -->
+    <div class="col-md-6 col-lg-3 col-12">
+        <div class="small-box bg-danger">
+            <div class="inner">
+                <h4>NEOM</h4>
+                <p>Paid No: <strong>{{ total_paid_neom_ndts }}</strong> Amount: <strong>{{ total_paid_neom_amount|floatformat:1 }}</strong></p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-tools"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Damman Summary -->
+    <div class="col-md-6 col-lg-3 col-12">
+        <div class="small-box bg-warning">
+            <div class="inner">
+                <h4>Damman</h4>
+                <p>Paid No: <strong>{{ total_paid_damman_ndts }}</strong> Amount: <strong>{{ total_paid_damman_amount|floatformat:1 }}</strong></p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-tools"></i>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Payment Summary -->
+{% endif %}
+
+
+<!-- Start Display Data -->
+<div class="card border-lime bg-lime bg-opacity-25 mb-5" style="width: 100%;">
+    <div class="card-header border-lime bg-lime bg-opacity-25 fw-bold small text-body">
+        <a style="font-size: 20px;">ALL PAID NDT RECORDS</a>
+    </div>
+    <div id="bootstrapTable" class="mb-1">
+        <div class="card">
+            <div class="card-body">
+                <div class="mb-3">
+                    <form method="GET" action="" class="d-flex mb-3" role="search">
+                        <input class="form-control me-2 w-25" type="search" name="searching_query" placeholder="Enter Report No..." aria-label="Search" value="{{ searching_query|default:'' }}">
+                        <button class="btn btn-primary" type="submit">Search</button>
+                        <a href="{% url 'paid_ndt' %}" class="btn btn-success"><i class="fa fa-refresh" aria-hidden="true"></i> Refresh</a>
+                    </form>
+                </div>
+                <table class="table text-nowrap w-100" id="myNdtTable">
+                    <thead>
+                        <tr>
+                            <th>S.No</th>
+                            <th class="text-primary">Name</th>
+                            <th class="text-success">City</th>
+                            <th>LH Serial No</th>
+                            <th>Report No</th>
+                            <th>ID / Serial No</th>
+                            <th>Material</th>
+                            <th>Structure Description</th>
+                            <th>Inspection Type</th>
+                            <th>Inspection Date</th>
+                            <th>Expiry Date</th>
+                            <th>Remaining Months</th>
+                            <th>Company Name</th>
+                            <th>Joint Type</th>
+                            <th>Inspected By</th>
+                            <th>Status</th>
+                            <th>Requested By</th>   
+                            <th>Prepared By</th>
+                            <th>Wasted Serial No</th>
+                            <th>Approved By</th>
+                            <th>Received By</th>
+                            <th>Invoice No</th>
+                            <th>Total Amount</th>
+                            <th>Paid Amount</th>
+                            <th>Cash/Bank</th>
+                            <th>Client Representative Name</th>
+                            <th>Client Representative Number</th>
+                            <th>Email</th>
+                            <th>Remarks</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ndt in ndts %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ ndt.user.first_name }}_{{ ndt.user.last_name }}</td>
+                            <td>{{ ndt.city }}</td>
+                            <td>{{ ndt.lh_serial_no }}</td>
+                            <td>{{ ndt.report_no }}</td>
+                            <td>{{ ndt.id_serial_no }}</td>
+                            <td>{{ ndt.material }}</td>
+                            <td>{{ ndt.structure_description }}</td>
+                            <td>{{ ndt.inspection_type }}</td>
+                            <td>{{ ndt.inspection_date }}</td>
+                            <td>{{ ndt.expiry_date }}</td>
+                            <td>{{ ndt.remaining_months }}</td>
+                            <td>{{ ndt.company_name }}</td>
+                            <td>{{ ndt.joint_type }}</td>
+                            <td>{{ ndt.inspected_by }}</td>
+                            <td>{{ ndt.status }}</td>
+                            <td>{{ ndt.requested_by }}</td>
+                            <td>{{ ndt.prepared_by }}</td>
+                            <td>{{ ndt.wasted_serial }}</td>
+                            <td>{{ ndt.approved_by }}</td>
+                            <td>{{ ndt.received_by }}</td>
+                            <td>{{ ndt.invoice_no }}</td>
+                            {% if can_edit_amounts %}
+                            <td class="amount-cell"><span class="editable-amount" data-url="{% url 'update_ndt_field' ndt.uid %}" data-field="total_amount">{{ ndt.total_amount }}</span></td>
+                            <td class="amount-cell"><span class="editable-amount" data-url="{% url 'update_ndt_field' ndt.uid %}" data-field="amount">{{ ndt.amount }}</span></td>
+                            {% else %}
+                            <td>{{ ndt.total_amount }}</td>
+                            <td>{{ ndt.amount }}</td>
+                            {% endif %}
+                            <td>{{ ndt.cash_bank }}</td>
+                            <td>{{ ndt.client_rep_name }}</td>
+                            <td>{{ ndt.client_rep_number }}</td>
+                            <td>{{ ndt.email }}</td>
+                            <td>{{ ndt.remarks }}</td>
+                        </tr>
+
+                        {% endfor %}
+                        <tr>
+                            <td colspan="30" class="text-center">-</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Disabled and active states pagination -->
+                {% include "base/pagination.html" with page_obj=ndts %}
+                <!-- End Disabled and active states pagination -->
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{% if can_edit_amounts %}{% include 'base/inline-amount-edit.html' %}{% endif %}
+
+{% endblock %}
+<!-- BEGIN #Body_of_this_page -->

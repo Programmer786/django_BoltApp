@@ -1,0 +1,346 @@
+{% extends "base/base.html" %}
+{% load static %}
+{% block start %}
+<h1 class="page-header">
+    Unpaid NDT (Total: {{ total_unpaid_ndt }})
+</h1>
+<hr class="mb-4">
+
+{% if user.is_superuser %}
+
+<!-- Payment Summary -->
+<div class="row">
+    <!-- Jeddah Summary -->
+    <div class="col-md-6 col-lg-3 col-12">
+        <div class="small-box bg-primary">
+            <div class="inner">
+                <h4>Jeddah</h4>
+                <p>Unpaid No of NDT: <strong>{{ total_unpaid_jeddah_ndt }}</strong></p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-tools"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Riyadh Summary -->
+    <div class="col-md-6 col-lg-3 col-12">
+        <div class="small-box bg-success">
+            <div class="inner">
+                <h4>Riyadh</h4>
+                <p>Unpaid No of NDT: <strong>{{ total_unpaid_riyadh_ndt }}</strong></p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-tools"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- NEOM Summary -->
+    <div class="col-md-6 col-lg-3 col-12">
+        <div class="small-box bg-danger">
+            <div class="inner">
+                <h4>NEOM</h4>
+                <p>Unpaid No of NDT: <strong>{{ total_unpaid_neom_ndt }}</strong></p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-tools"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Damman Summary -->
+    <div class="col-md-6 col-lg-3 col-12">
+        <div class="small-box bg-warning">
+            <div class="inner">
+                <h4>Damman</h4>
+                <p>Unpaid No of NDT: <strong>{{ total_unpaid_damman_ndt }}</strong></p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-tools"></i>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Payment Summary -->
+{% endif %}
+
+
+<!-- Start Display Data -->
+<div class="card border-lime bg-lime bg-opacity-25 mb-5" style="width: 100%;">
+    <div class="card-header border-lime bg-lime bg-opacity-25 fw-bold small text-body">
+        <a style="font-size: 20px;">ALL UNPAID NDT RECORDS</a>
+    </div>
+    <div id="bootstrapTable" class="mb-1">
+        <div class="card">
+            <div class="card-body">
+                <div class="mb-3">
+                    <form method="GET" action="" class="d-flex mb-3" role="search">
+                        <input class="form-control me-2 w-25" type="search" name="searching_query" placeholder="Enter Report No..." aria-label="Search" value="{{ searching_query|default:'' }}">
+                        <button class="btn btn-primary" type="submit">Search</button>
+                        <a href="{% url 'unpaid_ndt' %}" class="btn btn-success"><i class="fa fa-refresh" aria-hidden="true"></i> Refresh</a>
+                    </form>
+                </div>
+                <table class="table text-nowrap w-100" id="myNdtTable" data-toggle="table" data-height="auto">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>S.No</th>
+                            <th class="text-primary">Name</th>
+                            <th class="text-success">City</th>
+                            <th>LH Serial No</th>
+                            <th>Report No</th>
+                            <th>ID / Serial No</th>
+                            <th>Material</th>
+                            <th>Structure Description</th>
+                            <th>Inspection Type</th>
+                            <th>Inspection Date</th>
+                            <th>Expiry Date</th>
+                            <th>Remaining Months</th>
+                            <th>Company Name</th>
+                            <th>Joint Type</th>
+                            <th>Inspected By</th>
+                            <th>Status</th>
+                            <th>Requested By</th>   
+                            <th>Prepared By</th>
+                            <th>Wasted Serial No</th>
+                            <th>Approved By</th>
+                            <th>Received By</th>
+                            <th>Invoice No</th>
+                            <th>Total Amount</th>
+                            <th>Paid Amount</th>
+                            <th>Cash/Bank</th>
+                            <th>Client Representative Name</th>
+                            <th>Client Representative Number</th>
+                            <th>Email</th>
+                            <th>Remarks</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ndt in ndts %}
+                        <tr>
+                            <td>
+                                <div class="dropdown">
+                                    <button class="btn btn-primary dropdown-toggle" type="button" id="dropdownMenuButton{{ forloop.counter }}" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Actions
+                                    </button>
+                                    <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton{{ forloop.counter }}">
+                                        <li>
+                                            <a class="dropdown-item" href="#" 
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#updateNdtModal{{ ndt.uid }}">
+                                            <i class="fa fa-edit" style="color: green"></i> Edit
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </td>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ ndt.user.first_name }}_{{ ndt.user.last_name }}</td>
+                            <td>{{ ndt.city }}</td>
+                            <td>{{ ndt.lh_serial_no }}</td>
+                            <td>{{ ndt.report_no }}</td>
+                            <td>{{ ndt.id_serial_no }}</td>
+                            <td>{{ ndt.material }}</td>
+                            <td>{{ ndt.structure_description }}</td>
+                            <td>{{ ndt.inspection_type }}</td>
+                            <td>{{ ndt.inspection_date }}</td>
+                            <td>{{ ndt.expiry_date }}</td>
+                            <td>{{ ndt.remaining_months }}</td>
+                            <td>{{ ndt.company_name }}</td>
+                            <td>{{ ndt.joint_type }}</td>
+                            <td>{{ ndt.inspected_by }}</td>
+                            <td>{{ ndt.status }}</td>
+                            <td>{{ ndt.requested_by }}</td>
+                            <td>{{ ndt.prepared_by }}</td>
+                            <td>{{ ndt.wasted_serial }}</td>
+                            <td>{{ ndt.approved_by }}</td>
+                            <td>{{ ndt.received_by }}</td>
+                            <td>{{ ndt.invoice_no }}</td>
+                            {% if can_edit_amounts %}
+                            <td class="editable-amount" data-url="{% url 'update_ndt_field' ndt.uid %}" data-field="total_amount">{{ ndt.total_amount }}</td>
+                            <td class="editable-amount" data-url="{% url 'update_ndt_field' ndt.uid %}" data-field="amount">{{ ndt.amount }}</td>
+                            {% else %}
+                            <td>{{ ndt.total_amount }}</td>
+                            <td>{{ ndt.amount }}</td>
+                            {% endif %}
+                            <td>{{ ndt.cash_bank }}</td>
+                            <td>{{ ndt.client_rep_name }}</td>
+                            <td>{{ ndt.client_rep_number }}</td>
+                            <td>{{ ndt.email }}</td>
+                            <td>{{ ndt.remarks }}</td>
+                        </tr>
+
+                        <!-- Edit NDT Modal -->
+                        <div class="modal fade" id="updateNdtModal{{ ndt.uid }}" tabindex="-1" aria-labelledby="updateNdtModalLabel{{ ndt.uid }}" aria-hidden="true">
+                            <div class="modal-dialog modal-xl">
+                                <div class="modal-content">
+                                    <form action="{% url 'update_unpaid_ndt' ndt.uid %}" method="post" class="was-validated">
+                                        {% csrf_token %}
+                                        <div class="modal-header bg-warning bg-opacity-25">
+                                            <h5 class="modal-title">Update NDT Report</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body row g-3 px-3">
+                                            <div class="col-md-4">
+                                                <label>SR No</label>
+                                                <input type="text" name="sr_no" value="{{ ndt.sr_no }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>LH Serial No</label>
+                                                <input type="text" name="lh_serial_no" value="{{ ndt.lh_serial_no }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Report No</label>
+                                                <input type="text" name="report_no" value="{{ ndt.report_no }}" class="form-control" required>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>ID / Serial No</label>
+                                                <input type="text" name="id_serial_no" value="{{ ndt.id_serial_no }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Material</label>
+                                                <input type="text" name="material" value="{{ ndt.material }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Structure Description</label>
+                                                <input type="text" name="structure_description" value="{{ ndt.structure_description }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Inspection Type</label>
+                                                <input type="text" name="inspection_type" value="{{ ndt.inspection_type }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Inspection Date</label>
+                                                <input type="date" name="inspection_date" value="{{ ndt.inspection_date }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Expiry Date</label>
+                                                <input type="date" name="expiry_date" value="{{ ndt.expiry_date }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Remaining Months</label>
+                                                <input type="text" name="remaining_months" value="{{ ndt.remaining_months }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Company Name</label>
+                                                <input type="text" name="company_name" value="{{ ndt.company_name }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Joint Type</label>
+                                                <input type="text" name="joint_type" value="{{ ndt.joint_type }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Inspected By</label>
+                                                <input type="text" name="inspected_by" value="{{ ndt.inspected_by }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Requested By</label>
+                                                <input type="text" name="requested_by" value="{{ ndt.requested_by }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Prepared By</label>
+                                                <input type="text" name="prepared_by" value="{{ ndt.prepared_by }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Wasted Serial</label>
+                                                <input type="text" name="wasted_serial" value="{{ ndt.wasted_serial }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Approved By</label>
+                                                <input type="text" name="approved_by" value="{{ ndt.approved_by }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Received By</label>
+                                                <input type="text" name="received_by" value="{{ ndt.received_by }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Invoice No</label>
+                                                <input type="text" name="invoice_no" value="{{ ndt.invoice_no }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Total Amount</label>
+                                                <input type="text" name="total_amount" value="{{ ndt.total_amount }}" class="form-control" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\\..*)\\./g, '$1');" required>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Paid Amount</label>
+                                                <input type="text" name="amount" value="{{ ndt.amount }}" class="form-control" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\\..*)\\./g, '$1');" required>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Cash/Bank</label>
+                                                <input type="text" name="cash_bank" value="{{ ndt.cash_bank }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Client Rep Name</label>
+                                                <input type="text" name="client_rep_name" value="{{ ndt.client_rep_name }}" 
+                                                    class="form-control" 
+                                                    pattern="^[A-Za-z][A-Za-z\s\-_]{0,}[A-Za-z]$"
+                                                    title="Please enter a valid name containing letters, spaces, hyphens, or underscores. Must start and end with a letter. Cannot be N/A."
+                                                    required>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Client Rep Number (e.g., +9665XXXXXXXX)</label>
+                                                <input type="text" name="client_rep_number" value="{{ ndt.client_rep_number }}" class="form-control" required>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Email</label>
+                                                <input type="email" name="email" value="{{ ndt.email }}" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Remarks</label>
+                                                <input type="text" name="remarks" value="{{ ndt.remarks }}" class="form-control">
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="submit" class="btn btn-warning">Update NDT</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>  
+
+                        {% endfor %}
+                        <tr>
+                            <td colspan="31" class="text-center">-</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Disabled and active states pagination -->
+                {% include "base/pagination.html" with page_obj=ndts %}
+                <!-- End Disabled and active states pagination -->
+            </div>
+        </div>
+    </div>
+</div>
+<!-- End Display Data -->
+
+{% comment %} For Each Edit Modal {% endcomment %}
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const inspectionInput{{ cert.uid }} = document.querySelector('#updateCertificateModal{{ cert.uid }} input[name="inspection_date"]');
+        const expiryInput{{ cert.uid }} = document.querySelector('#updateCertificateModal{{ cert.uid }} input[name="expiry_date"]');
+        const remainingInput{{ cert.uid }} = document.querySelector('#edit_remaining_months_{{ cert.uid }}');
+    
+        function updateRemainingMonths{{ cert.uid }}() {
+            const inspectionDate = new Date(inspectionInput{{ cert.uid }}.value);
+            const expiryDate = new Date(expiryInput{{ cert.uid }}.value);
+    
+            if (!isNaN(inspectionDate) && !isNaN(expiryDate)) {
+                const months = (expiryDate.getFullYear() - inspectionDate.getFullYear()) * 12 +
+                               (expiryDate.getMonth() - inspectionDate.getMonth());
+                remainingInput{{ cert.uid }}.value = months >= 0 ? months : 0;
+            }
+        }
+    
+        inspectionInput{{ cert.uid }}.addEventListener("change", updateRemainingMonths{{ cert.uid }});
+        expiryInput{{ cert.uid }}.addEventListener("change", updateRemainingMonths{{ cert.uid }});
+    });
+</script>
+
+
+
+{% if can_edit_amounts %}{% include 'base/inline-amount-edit.html' %}{% endif %}
+
+{% endblock %}
+<!-- BEGIN #Body_of_this_page -->

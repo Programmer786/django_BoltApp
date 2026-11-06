@@ -1,0 +1,191 @@
+{% comment %}
+Click-to-edit for the Total/Paid Amount cells on the Paid & Unpaid tables.
+
+Mark a cell with:
+    <td class="editable-amount" data-url="..." data-field="amount|total_amount">0.00</td>
+
+Only rendered as editable when the viewer has permission (see the
+can_edit_amounts context flag) — the server re-checks on every save.
+{% endcomment %}
+<style>
+    td.editable-amount {
+        cursor: text;
+        position: relative;
+        min-width: 96px;
+        border-radius: 6px;
+        transition: background .15s ease, box-shadow .15s ease;
+    }
+    td.editable-amount:hover {
+        background: #eff6ff;
+        box-shadow: inset 0 0 0 1px #bfdbfe;
+    }
+    td.editable-amount::after {
+        content: '\f044'; /* pencil */
+        font-family: 'Font Awesome 6 Free';
+        font-weight: 900;
+        font-size: 10px;
+        color: #94a3b8;
+        margin-left: 6px;
+        opacity: 0;
+        transition: opacity .15s ease;
+    }
+    td.editable-amount:hover::after { opacity: 1; }
+
+    td.editable-amount input.amount-input {
+        width: 100%;
+        border: 1px solid #2563eb;
+        border-radius: 6px;
+        padding: 3px 7px;
+        font-size: 13.5px;
+        font-family: inherit;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, .14);
+        background: #fff;
+    }
+
+    td.editable-amount.saving  { background: #fffbeb; box-shadow: inset 0 0 0 1px #fde68a; }
+    td.editable-amount.saved   { background: #f0fdf4; box-shadow: inset 0 0 0 1px #86efac; }
+    td.editable-amount.failed  { background: #fef2f2; box-shadow: inset 0 0 0 1px #fca5a5; }
+
+    .amount-toast {
+        position: fixed;
+        right: 18px;
+        bottom: 18px;
+        z-index: 100000;
+        max-width: 340px;
+        padding: 11px 15px;
+        border-radius: 10px;
+        font-size: 13.5px;
+        font-weight: 500;
+        color: #fff;
+        box-shadow: 0 8px 28px rgba(0, 0, 0, .22);
+        opacity: 0;
+        transform: translateY(8px);
+        transition: opacity .2s ease, transform .2s ease;
+    }
+    .amount-toast.show { opacity: 1; transform: translateY(0); }
+    .amount-toast.ok   { background: #16a34a; }
+    .amount-toast.err  { background: #dc2626; }
+</style>
+
+<script>
+(function () {
+    const cells = document.querySelectorAll('td.editable-amount');
+    if (!cells.length) return;
+
+    function csrfToken() {
+        const input = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (input) return input.value;
+        const m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+        return m ? m[1] : '';
+    }
+
+    let toastEl = null, toastTimer = null;
+    function toast(message, ok) {
+        if (!toastEl) {
+            toastEl = document.createElement('div');
+            document.body.appendChild(toastEl);
+        }
+        toastEl.className = 'amount-toast ' + (ok ? 'ok' : 'err');
+        toastEl.textContent = message;
+        requestAnimationFrame(function () { toastEl.classList.add('show'); });
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { toastEl.classList.remove('show'); }, ok ? 2200 : 5000);
+    }
+
+    function flash(cell, cls) {
+        cell.classList.remove('saving', 'saved', 'failed');
+        if (!cls) return;
+        cell.classList.add(cls);
+        if (cls !== 'saving') {
+            setTimeout(function () { cell.classList.remove(cls); }, 1600);
+        }
+    }
+
+    function format(v) {
+        const n = parseFloat(v);
+        return isNaN(n) ? '0.00' : n.toFixed(2);
+    }
+
+    function beginEdit(cell) {
+        if (cell.querySelector('input')) return;   // already editing
+        const original = format(cell.textContent.trim());
+
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.step = '0.01';
+        input.min = '0';
+        input.className = 'amount-input';
+        input.value = original;
+
+        cell.textContent = '';
+        cell.appendChild(input);
+        input.focus();
+        input.select();
+
+        let done = false;
+
+        function finish(save) {
+            if (done) return;
+            done = true;
+            const next = format(input.value);
+            cell.textContent = save ? next : original;
+            if (save && next !== original) commit(cell, next, original);
+        }
+
+        input.addEventListener('blur', function () { finish(true); });
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter')  { e.preventDefault(); input.blur(); }
+            if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+        });
+    }
+
+    function commit(cell, value, original) {
+        const url   = cell.dataset.url;
+        const field = cell.dataset.field;
+        if (!url || !field) return;
+
+        flash(cell, 'saving');
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken(),
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ field: field, value: value })
+        })
+        .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, data: d }; }); })
+        .then(function (r) {
+            if (r.ok && r.data.status === 'success') {
+                cell.textContent = r.data.value;
+                // Keep the sibling amount cell in sync if the server adjusted it
+                const row = cell.closest('tr');
+                if (row) {
+                    const other = row.querySelector('td.editable-amount[data-field="' +
+                        (field === 'amount' ? 'total_amount' : 'amount') + '"]');
+                    if (other && !other.querySelector('input')) {
+                        other.textContent = field === 'amount' ? r.data.total_amount : r.data.amount;
+                    }
+                }
+                flash(cell, 'saved');
+                toast('Saved.', true);
+            } else {
+                cell.textContent = original;
+                flash(cell, 'failed');
+                toast((r.data && r.data.message) || 'Could not save that value.', false);
+            }
+        })
+        .catch(function () {
+            cell.textContent = original;
+            flash(cell, 'failed');
+            toast('Network error — the value was not saved.', false);
+        });
+    }
+
+    document.addEventListener('click', function (e) {
+        const cell = e.target.closest('td.editable-amount');
+        if (cell) beginEdit(cell);
+    });
+})();
+</script>
