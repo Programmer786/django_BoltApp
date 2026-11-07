@@ -52,7 +52,8 @@ services:
       BOLT_API_URL: http://bolt-web:8000/wa-bot/api
       WA_BOT_KEY: ${WA_BOT_KEY}
     volumes:
-      - bolt_wa_session:/data/session
+      # v2: fresh session (the first one was left half-written by an out-of-memory kill)
+      - bolt_wa_session_v2:/data/session
     shm_size: 512m
     # WhatsApp Web's first sync after a QR scan is heavy; 600m/0.5 CPU stalled it.
     mem_limit: 1200m
@@ -81,7 +82,7 @@ services:
 
 volumes:
   bolt_media:
-  bolt_wa_session:
+  bolt_wa_session_v2:
   bolt_ollama_models:
 
 networks:

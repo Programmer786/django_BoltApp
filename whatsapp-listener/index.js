@@ -122,11 +122,29 @@ function armReadyWatchdog() {
   }, READY_TIMEOUT_MS);
 }
 
+// Start-up watchdog: a half-written saved login (e.g. after an out-of-memory
+// kill mid-sync) can leave WhatsApp Web loading forever with no QR and no
+// login event. Count it as a failed start; after MAX_INIT_FAILURES the dead
+// login is set aside and a fresh QR is shown.
+const STARTUP_TIMEOUT_MS = Number(process.env.STARTUP_TIMEOUT_MS || 180000);
+const startupTimer = setTimeout(() => {
+  const n = readFailures() + 1;
+  log(`no QR code or login ${STARTUP_TIMEOUT_MS / 1000}s after start (${n} in a row) - restarting.`);
+  writeFailures(n);
+  if (n >= 2) {  // two stuck starts in a row: the saved login is the problem
+    quarantineDeadSession('stuck loading twice in a row');
+    writeFailures(0);
+  }
+  process.exit(1);
+}, STARTUP_TIMEOUT_MS);
+
 client.on('qr', (qr) => {
+  clearTimeout(startupTimer);
   log('QR code received - scan it on the WhatsApp Verification page.');
   setState('qr', { qr });
 });
 client.on('authenticated', () => {
+  clearTimeout(startupTimer);
   log('Authenticated.');
   setState('starting', { qr: '' });
   armReadyWatchdog();
