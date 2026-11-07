@@ -101,8 +101,9 @@ const client = new Client({
     executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium',
     args: [
       '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
+      // No JS heap cap: WhatsApp Web needs well over 256 MB while it syncs
+      // after a QR scan, and a cap makes the login stall silently.
       '--disable-gpu', '--no-first-run', '--disable-extensions',
-      '--renderer-process-limit=1', '--js-flags=--max-old-space-size=256',
     ],
   },
 });

@@ -60,7 +60,7 @@ def chat_reply(message, brand):
             json={
                 'model': OLLAMA_MODEL,
                 'stream': False,
-                'keep_alive': '60m',
+                'keep_alive': '10m',
                 'options': {'temperature': 0.3, 'num_predict': 120, 'num_ctx': 1024},
                 'messages': [
                     {'role': 'system', 'content': SYSTEM_PROMPT.format(brand=brand)},

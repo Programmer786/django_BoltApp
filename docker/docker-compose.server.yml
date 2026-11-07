@@ -53,9 +53,10 @@ services:
       WA_BOT_KEY: ${WA_BOT_KEY}
     volumes:
       - bolt_wa_session:/data/session
-    shm_size: 256m
-    mem_limit: 600m
-    cpus: 0.5
+    shm_size: 512m
+    # WhatsApp Web's first sync after a QR scan is heavy; 600m/0.5 CPU stalled it.
+    mem_limit: 1200m
+    cpus: 1.0
     networks:
       - shared_network
 
@@ -69,7 +70,8 @@ services:
     environment:
       OLLAMA_NUM_PARALLEL: "1"
       OLLAMA_MAX_LOADED_MODELS: "1"
-      OLLAMA_KEEP_ALIVE: "60m"
+      # Unload the model when idle so its RAM is free for the listener.
+      OLLAMA_KEEP_ALIVE: "10m"
     volumes:
       - bolt_ollama_models:/root/.ollama
     mem_limit: 900m
