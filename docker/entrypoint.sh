@@ -38,6 +38,11 @@ if [ -n "$LIVE_APP_DIR" ] && [ -d "$LIVE_APP_DIR/media" ]; then
     echo "Media files synced from $LIVE_APP_DIR/media."
 fi
 
+if [ "${COMPARE_ON_START:-1}" = "1" ] && [ -f "$LIVE_DB" ]; then
+    # Report only - a failure here must never stop the app from starting.
+    python docker/compare_dbs.py "$LIVE_DB" || echo "Comparison could not run."
+fi
+
 exec gunicorn cms_bolt.wsgi:application \
     --bind 0.0.0.0:8000 \
     --workers "${GUNICORN_WORKERS:-2}" \
