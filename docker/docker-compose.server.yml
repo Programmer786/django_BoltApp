@@ -5,9 +5,8 @@
 # to import a copy of its data. The original app keeps running untouched.
 services:
   web:
-    build:
-      context: https://github.com/Programmer786/django_BoltApp.git#${GIT_BRANCH:-docker-deploy}
-    image: bolt_docker:latest
+    # Built by .github/workflows/docker-image.yml (Docker Manager can't build).
+    image: ghcr.io/programmer786/django_boltapp:latest
     container_name: bolt_docker_web
     restart: unless-stopped
     ports:
