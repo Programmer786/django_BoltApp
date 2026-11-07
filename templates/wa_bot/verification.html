@@ -48,6 +48,20 @@
   <span id="statePill" class="state-pill state-{{ live_state }}"><span class="dot"></span><span id="stateText">{{ live_state|title }}</span></span>
 </div>
 
+{% if live_sync %}
+<div class="alert {% if live_sync.ok %}alert-light border{% else %}alert-warning{% endif %} d-flex align-items-center gap-2 py-2 small">
+  <i class="fas fa-sync-alt {% if live_sync.ok %}text-success{% else %}text-warning{% endif %}"></i>
+  {% if live_sync.ok %}
+    <span>Data synced from the live app <strong>{{ live_sync.at|timesince }} ago</strong>
+    {% if live_sync.total_changes %}— {{ live_sync.total_changes }} change{{ live_sync.total_changes|pluralize }} copied
+      ({% for table, c in live_sync.changes.items %}{{ table }} +{{ c.inserted }} ~{{ c.updated }} −{{ c.deleted }}{% if not forloop.last %}, {% endif %}{% endfor %}){% else %}— already up to date{% endif %}.
+    Checks every 30 seconds, syncs at most every 2 minutes.</span>
+  {% else %}
+    <span>Live data sync failed {{ live_sync.at|timesince }} ago: {{ live_sync.error }}. It will retry automatically.</span>
+  {% endif %}
+</div>
+{% endif %}
+
 <div class="row">
   <!-- Connection -->
   <div class="col-lg-5">

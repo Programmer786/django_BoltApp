@@ -1,8 +1,9 @@
 import hmac
 import json
 import os
-from datetime import timedelta
+from datetime import datetime, timedelta
 
+from django.conf import settings as django_settings
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
@@ -27,6 +28,18 @@ def _live_state(state):
     if state.last_seen is None or timezone.now() - state.last_seen > STALE_AFTER:
         return 'offline'
     return state.state
+
+
+def _live_sync_status():
+    """Last result written by docker/sync_live.py (Docker copy only), or None."""
+    path = os.getenv('SYNC_STATUS_FILE', os.path.join(str(django_settings.MEDIA_ROOT), '.bolt_sync.json'))
+    try:
+        with open(path) as f:
+            data = json.load(f)
+        data['at'] = datetime.fromisoformat(data['at'])
+        return data
+    except (OSError, ValueError, KeyError):
+        return None
 
 
 # ---------------------------------------------------------------- admin pages
@@ -57,6 +70,7 @@ def verification_page(request):
         'unique_people': BotConversation.objects.values('phone').distinct().count(),
     }
     return render(request, 'wa_bot/verification.html', {
+        'live_sync': _live_sync_status(),
         'title': 'WhatsApp Verification',
         'sidebar_active': 'whatsapp_verification',
         'settings_obj': settings,

@@ -61,6 +61,35 @@ services:
     networks:
       - shared_network
 
+  sync:
+    # Keeps the copy in step with the live db.sqlite3 (docker/sync_live.py):
+    # checks every 30s, syncs only changed rows, at most once per 2 minutes.
+    image: ghcr.io/programmer786/django_boltapp:latest
+    container_name: bolt_live_sync
+    restart: unless-stopped
+    depends_on:
+      - web
+    entrypoint: ["python", "docker/sync_live.py"]
+    environment:
+      DB_ENGINE: mysql
+      DB_NAME: bolt_docker
+      DB_USER: bolt_docker
+      DB_PASSWORD: ${BOLT_DB_PASSWORD}
+      DB_HOST: shared_mysql
+      DB_PORT: "3306"
+      SECRET_KEY: ${SECRET_KEY}
+      DEBUG: "False"
+      LIVE_APP_DIR: /live
+      SYNC_POLL_SECONDS: "30"
+      SYNC_MIN_INTERVAL: "120"
+    volumes:
+      - bolt_media:/app/media
+      - /var/www/django_project:/live:ro
+    mem_limit: 700m
+    cpus: 0.4
+    networks:
+      - shared_network
+
   ollama:
     image: ollama/ollama:latest
     container_name: bolt_ollama
