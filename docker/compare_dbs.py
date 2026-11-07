@@ -129,6 +129,12 @@ for model in sorted(apps.get_models(include_auto_created=True), key=lambda m: m.
                            f'{len(crow[names.index(cleaned_here[0].attname)])} chars) - expected')
         elif not diffs:
             identical += 1
+        elif (after_import(first(lrow, names, CREATED_FIELDS))
+              and after_import(first(crow, names, CREATED_FIELDS))):
+            # Both databases added a new row after the copy and each gave it
+            # the same next ID - two different new records, not a mismatch.
+            live_new += 1
+            copy_new += 1
         elif after_import(first(lrow, names, CHANGED_FIELDS)):
             live_edit += 1
         elif after_import(first(crow, names, CHANGED_FIELDS)):
