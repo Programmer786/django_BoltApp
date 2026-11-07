@@ -63,7 +63,7 @@ services:
 
   sync:
     # Keeps the copy in step with the live db.sqlite3 (docker/sync_live.py):
-    # checks every 30s, syncs only changed rows, at most once per 2 minutes.
+    # checks every 60s, syncs only changed rows, at most once per 10 minutes.
     image: ghcr.io/programmer786/django_boltapp:latest
     container_name: bolt_live_sync
     restart: unless-stopped
@@ -80,8 +80,8 @@ services:
       SECRET_KEY: ${SECRET_KEY}
       DEBUG: "False"
       LIVE_APP_DIR: /live
-      SYNC_POLL_SECONDS: "30"
-      SYNC_MIN_INTERVAL: "120"
+      SYNC_POLL_SECONDS: "60"
+      SYNC_MIN_INTERVAL: "600"
     volumes:
       - bolt_media:/app/media
       - /var/www/django_project:/live:ro

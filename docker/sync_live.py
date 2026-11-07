@@ -176,7 +176,8 @@ def sync_once():
             '; '.join(f'{k} +{v["inserted"]} ~{v["updated"]} -{v["deleted"]}' for k, v in changes.items()))
     else:
         log(f'checked, copy already up to date ({secs}s; {checked} table(s) diffed, {skipped} unchanged)')
-    write_status(ok=True, seconds=secs, changes=changes, total_changes=total)
+    write_status(ok=True, seconds=secs, changes=changes, total_changes=total,
+                 poll_seconds=POLL, min_interval=MIN_INTERVAL)
     return changes
 
 
@@ -204,7 +205,7 @@ def main():
         except Exception as e:  # never die: report and retry next round
             log('sync failed:', e)
             traceback.print_exc()
-            write_status(ok=False, error=str(e)[:500])
+            write_status(ok=False, error=str(e)[:500], poll_seconds=POLL, min_interval=MIN_INTERVAL)
             last_sync = time.monotonic()
         time.sleep(POLL)
 

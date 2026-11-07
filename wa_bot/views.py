@@ -37,6 +37,7 @@ def _live_sync_status():
         with open(path) as f:
             data = json.load(f)
         data['at'] = datetime.fromisoformat(data['at'])
+        data['interval_minutes'] = max(1, round(data.get('min_interval', 120) / 60))
         return data
     except (OSError, ValueError, KeyError):
         return None

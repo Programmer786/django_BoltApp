@@ -55,7 +55,7 @@
     <span>Data synced from the live app <strong>{{ live_sync.at|timesince }} ago</strong>
     {% if live_sync.total_changes %}— {{ live_sync.total_changes }} change{{ live_sync.total_changes|pluralize }} copied
       ({% for table, c in live_sync.changes.items %}{{ table }} +{{ c.inserted }} ~{{ c.updated }} −{{ c.deleted }}{% if not forloop.last %}, {% endif %}{% endfor %}){% else %}— already up to date{% endif %}.
-    Checks every 30 seconds, syncs at most every 2 minutes.</span>
+    New changes are copied at most every {{ live_sync.interval_minutes }} minute{{ live_sync.interval_minutes|pluralize }}.</span>
   {% else %}
     <span>Live data sync failed {{ live_sync.at|timesince }} ago: {{ live_sync.error }}. It will retry automatically.</span>
   {% endif %}
