@@ -35,6 +35,7 @@ urlpatterns = [
 
     path('', include(('frontend.urls', 'frontend'), namespace='frontend')),
     path('', include('whatsapp.urls')),
+    path('', include('wa_bot.urls')),
 ]
 
 if settings.DEBUG:

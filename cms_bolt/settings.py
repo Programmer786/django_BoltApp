@@ -70,6 +70,7 @@ INSTALLED_APPS = [
     'calibration',
     'frontend',
     'whatsapp',
+    'wa_bot',
 ]
 
 MIDDLEWARE = [

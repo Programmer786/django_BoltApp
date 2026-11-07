@@ -30,3 +30,12 @@ jobs:
           tags: |
             ghcr.io/programmer786/django_boltapp:latest
             ghcr.io/programmer786/django_boltapp:${{ github.sha }}
+
+      # WhatsApp Web listener for the verification bot.
+      - uses: docker/build-push-action@v6
+        with:
+          context: whatsapp-listener
+          push: true
+          tags: |
+            ghcr.io/programmer786/bolt_wa_listener:latest
+            ghcr.io/programmer786/bolt_wa_listener:${{ github.sha }}

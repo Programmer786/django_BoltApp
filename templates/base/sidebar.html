@@ -412,6 +412,12 @@
                     </div>
                 </div>
             </div>
+            <div class="menu-item {% if sidebar_active == 'whatsapp_verification' %}active{% endif %}">
+                <a href="{% url 'wa_bot_page' %}" class="menu-link">
+                    <span class="menu-icon"><i class="fas fa-user-check" style="color:#25D366;"></i></span>
+                    <span class="menu-text">WhatsApp Verification</span>
+                </a>
+            </div>
             {% endif %}
 
 <!--            <div class="menu-divider"></div>-->

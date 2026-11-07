@@ -1,8 +1,12 @@
-# Docker copy of Bolt, deployed through Hostinger Docker Manager.
-# Secrets come from the project's environment (set in Docker Manager), never this file.
+# Docker copy of Bolt + WhatsApp verification bot, deployed through Hostinger
+# Docker Manager. Secrets come from the project's environment (set in Docker
+# Manager), never this file.
 #
-# The original app's folder is mounted READ-ONLY (:ro) and is only read once
-# to import a copy of its data. The original app keeps running untouched.
+# The original app's folder is mounted READ-ONLY (:ro) and only read to import
+# a copy of its data. The original app keeps running untouched.
+#
+# The server has 1 CPU / 4 GB RAM shared with the live app, so every service
+# here has hard memory/CPU limits and can never starve the live app.
 services:
   web:
     # Built by .github/workflows/docker-image.yml (Docker Manager can't build).
@@ -24,14 +28,59 @@ services:
       SERVE_MEDIA: "1"
       LIVE_APP_DIR: /live
       GUNICORN_WORKERS: "2"
+      WA_BOT_KEY: ${WA_BOT_KEY}
+      OLLAMA_URL: http://bolt_ollama:11434
+      OLLAMA_MODEL: qwen2.5:0.5b
+      EXTRA_ALLOWED_HOSTS: bolt-web
     volumes:
       - bolt_media:/app/media
-      - ${LIVE_APP_HOST_DIR:-/var/www/django_project}:/live:ro
+      - /var/www/django_project:/live:ro
+    mem_limit: 1000m
+    networks:
+      shared_network:
+        # Hostnames with "_" are rejected by Django; the listener uses this alias.
+        aliases:
+          - bolt-web
+
+  wa_listener:
+    image: ghcr.io/programmer786/bolt_wa_listener:latest
+    container_name: bolt_wa_listener
+    restart: unless-stopped
+    depends_on:
+      - web
+    environment:
+      BOLT_API_URL: http://bolt-web:8000/wa-bot/api
+      WA_BOT_KEY: ${WA_BOT_KEY}
+    volumes:
+      - bolt_wa_session:/data/session
+    shm_size: 256m
+    mem_limit: 600m
+    cpus: 0.5
+    networks:
+      - shared_network
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: bolt_ollama
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "-c"]
+    # Start the server, download the small free model once (kept in the volume).
+    command: ["ollama serve & sleep 5 && ollama pull qwen2.5:0.5b; wait"]
+    environment:
+      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_KEEP_ALIVE: "60m"
+    volumes:
+      - bolt_ollama_models:/root/.ollama
+    mem_limit: 900m
+    cpus: 0.6
     networks:
       - shared_network
 
 volumes:
   bolt_media:
+  bolt_wa_session:
+  bolt_ollama_models:
 
 networks:
   shared_network:

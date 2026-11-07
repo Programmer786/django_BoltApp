@@ -11,25 +11,38 @@ python docker/bootstrap.py ensure-db
 python manage.py migrate --noinput
 
 LIVE_DB="$LIVE_APP_DIR/db.sqlite3"
+# Bump IMPORT_VERSION when the import method changes: the copy is then
+# re-imported once from a fresh snapshot. The marker lives in the media volume.
+IMPORT_VERSION=3
+MARKER=/app/media/.bolt_import
+DONE_VERSION=$(cut -d' ' -f1 "$MARKER" 2>/dev/null || echo none)
+
+NEED_IMPORT=no
 if [ "$(python docker/bootstrap.py is-empty)" = "yes" ]; then
+    NEED_IMPORT=yes
+elif [ "$DONE_VERSION" != "$IMPORT_VERSION" ]; then
+    echo "Import method changed ($DONE_VERSION -> $IMPORT_VERSION) - re-importing the copy."
+    NEED_IMPORT=yes
+fi
+
+if [ "$NEED_IMPORT" = "yes" ]; then
     if [ -n "$LIVE_APP_DIR" ] && [ -f "$LIVE_DB" ]; then
-        echo "MySQL database is empty - importing a copy of $LIVE_DB"
+        echo "Importing a copy of $LIVE_DB"
+        IMPORT_TIME=$(date -u +%Y-%m-%dT%H:%M:%S)
         python docker/bootstrap.py snapshot "$LIVE_DB" /tmp/live.sqlite3
         # Bring the snapshot up to this code's schema (only the /tmp copy changes).
         DB_ENGINE=sqlite SQLITE_PATH=/tmp/live.sqlite3 python manage.py migrate --noinput
         DB_ENGINE=sqlite SQLITE_PATH=/tmp/live.sqlite3 python docker/fit_lengths.py
-        DB_ENGINE=sqlite SQLITE_PATH=/tmp/live.sqlite3 python manage.py dumpdata \
-            --natural-foreign --natural-primary \
-            -e contenttypes -e auth.permission -e sessions \
-            -o /tmp/live.json
-        python manage.py loaddata /tmp/live.json
-        rm -f /tmp/live.sqlite3 /tmp/live.json
-        echo "Import finished."
+        # Table-by-table exact copy (same IDs, full timestamps, whitespace kept).
+        python docker/copy_db.py /tmp/live.sqlite3
+        rm -f /tmp/live.sqlite3
+        echo "$IMPORT_VERSION $IMPORT_TIME" > "$MARKER"
+        echo "Import finished (snapshot taken $IMPORT_TIME UTC)."
     else
         echo "WARNING: no live database found at '$LIVE_DB' - starting with an empty database."
     fi
 else
-    echo "MySQL database already has data - skipping import."
+    echo "Copy already imported (version $DONE_VERSION) - skipping import."
 fi
 
 if [ -n "$LIVE_APP_DIR" ] && [ -d "$LIVE_APP_DIR/media" ]; then

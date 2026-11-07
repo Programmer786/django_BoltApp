@@ -2,16 +2,23 @@
 Compare the Docker copy (MySQL, the default DB) with the live SQLite database,
 record by record and field by field, and print a report.
 
-Usage: python docker/compare_dbs.py /path/to/live/db.sqlite3
+Usage: python docker/compare_dbs.py /path/to/live/db.sqlite3 [import-marker]
 
-The live file is never opened for writing: a read-only snapshot is taken to
-/tmp first (bootstrap.snapshot) and only that copy is used.
+The live file is never opened for writing: a read-only snapshot is taken to a
+temp file first (bootstrap.snapshot) and only that copy is used.
+
+Every difference is classified:
+  * changed in LIVE after the copy was taken   -> expected (normal app use)
+  * changed in the COPY after it was taken     -> expected (e.g. test logins)
+  * anything else                               -> REAL MISMATCH
 """
 import os
 import sys
+import tempfile
 from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'cms_bolt.settings')
 
 import django  # noqa: E402
@@ -20,15 +27,24 @@ django.setup()
 
 from django.apps import apps  # noqa: E402
 from django.core.management import call_command  # noqa: E402
-from django.db import connections  # noqa: E402
+from django.db import connections, models  # noqa: E402
+
+from bootstrap import snapshot  # noqa: E402
 
 LIVE_SRC = sys.argv[1]
-SNAP = '/tmp/compare_live.sqlite3' if os.name != 'nt' else os.path.join(os.environ.get('TEMP', '.'), 'compare_live.sqlite3')
-SKIP = {'contenttypes.ContentType', 'auth.Permission', 'sessions.Session'}
+MARKER = sys.argv[2] if len(sys.argv) > 2 else '/app/media/.bolt_import'
+SNAP = os.path.join(tempfile.gettempdir(), 'compare_live.sqlite3')
+SKIP = {'sessions.Session'}
+SKIP_APPS = {'wa_bot'}  # bot tables exist only in the copy
+CREATED_FIELDS = ('created_at', 'timestamp', 'date_joined', 'sent_at', 'action_time')
+CHANGED_FIELDS = ('updated_at', 'last_login')
 MAX_SHOWN = 5
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from bootstrap import snapshot  # noqa: E402
+try:
+    with open(MARKER) as f:
+        import_time = datetime.fromisoformat(f.read().split()[1]).replace(tzinfo=timezone.utc)
+except (OSError, IndexError, ValueError):
+    import_time = None
 
 snapshot(LIVE_SRC, SNAP)
 taken_at = datetime.now(timezone.utc)
@@ -37,102 +53,124 @@ cfg = dict(connections.settings['default'])
 cfg.update(ENGINE='django.db.backends.sqlite3', NAME=SNAP, USER='', PASSWORD='', HOST='', PORT='',
            OPTIONS={}, CONN_MAX_AGE=0)
 connections.settings['live'] = cfg
-# Same schema as the copy (only the /tmp snapshot is migrated; no data changes).
+# Same schema as the copy (only the temp snapshot is migrated; no data changes).
 call_command('migrate', database='live', verbosity=0, interactive=False)
 
 
-def norm(v):
-    if isinstance(v, datetime):
-        return v.astimezone(timezone.utc).replace(tzinfo=None) if v.tzinfo else v
-    return v
+def after_import(value):
+    return bool(import_time and value and value > import_time)
 
 
-def rows(model, alias):
-    fields = [f.attname for f in model._meta.concrete_fields]
-    data = {}
-    for r in model._base_manager.using(alias).values_list(*fields):
-        data[r[0] if fields[0] == model._meta.pk.attname else r[fields.index(model._meta.pk.attname)]] = r
-    return fields, data
+def load(model, alias):
+    fields = model._meta.concrete_fields
+    names = [f.attname for f in fields]
+    pk_i = names.index(model._meta.pk.attname)
+    data = {r[pk_i]: r for r in model._base_manager.using(alias).values_list(*names)}
+    return fields, names, data
 
 
-def ts(model, row, fields, name):
-    return row[fields.index(name)] if name in fields else None
+def same_value(field, a, b):
+    if a == b:
+        return True
+    # "No file" is stored as NULL in SQLite and '' after an export/import.
+    if isinstance(field, models.FileField) and not a and not b:
+        return True
+    return False
 
 
-# When the copy was imported: the newest created/updated time inside the copy.
-copy_cutoff = None
-for m in apps.get_models():
-    for name in ('created_at', 'updated_at', 'timestamp'):
-        if name in [f.attname for f in m._meta.concrete_fields]:
-            v = m._base_manager.using('default').order_by(f'-{name}').values_list(name, flat=True).first()
-            if v and (copy_cutoff is None or v > copy_cutoff):
-                copy_cutoff = v
+def whitespace_cleanup(field, a, b):
+    """fit_lengths collapsed whitespace in an over-long value during import."""
+    return (isinstance(a, str) and isinstance(b, str) and getattr(field, 'max_length', None)
+            and len(a) > field.max_length and ' '.join(a.split()) == b)
 
-print('=' * 78)
-print('DATABASE COMPARISON  live SQLite  vs  Docker copy (MySQL)')
-print(f'Live snapshot taken: {taken_at:%Y-%m-%d %H:%M:%S} UTC')
-print(f'Newest timestamp in copy: {copy_cutoff:%Y-%m-%d %H:%M:%S} UTC' if copy_cutoff else '')
-print('=' * 78)
-print(f'{"table":42} {"live":>8} {"copy":>8} {"same":>8}  differences')
 
-total_unexplained = 0
+def first(row, names, candidates):
+    for n in candidates:
+        if n in names and row[names.index(n)]:
+            return row[names.index(n)]
+    return None
+
+
+print('=' * 86)
+print('DATABASE COMPARISON   live SQLite (/var/www/django_project)   vs   Docker copy (MySQL)')
+print(f'Copy imported from a snapshot taken: {import_time:%Y-%m-%d %H:%M:%S} UTC' if import_time
+      else 'Copy import time unknown (no marker) - cannot separate later changes')
+print(f'Live database read now:              {taken_at:%Y-%m-%d %H:%M:%S} UTC')
+print('=' * 86)
+print(f'{"table":34} {"live":>7} {"copy":>7} {"identical":>9}  notes')
+
+real_total = 0
 details = []
-for model in sorted(apps.get_models(), key=lambda m: m._meta.label):
+for model in sorted(apps.get_models(include_auto_created=True), key=lambda m: m._meta.label):
     label = model._meta.label
-    if label in SKIP:
+    if label in SKIP or model._meta.app_label in SKIP_APPS:
         continue
-    fields, live = rows(model, 'live')
-    _, copy = rows(model, 'default')
-    same = 0
-    new_after, edited_after, only_copy, mismatched = [], [], [], []
+    fields, names, live = load(model, 'live')
+    _, _, copy = load(model, 'default')
+
+    identical = cleaned = 0
+    live_new = live_edit = copy_new = copy_edit = 0
+    real = []
     for pk, lrow in live.items():
         crow = copy.get(pk)
         if crow is None:
-            when = ts(model, lrow, fields, 'created_at') or ts(model, lrow, fields, 'timestamp')
-            new_after.append((pk, when))
+            if after_import(first(lrow, names, CREATED_FIELDS)):
+                live_new += 1
+            else:
+                real.append((pk, 'in live but missing from copy', None))
             continue
-        diffs = [f for f, a, b in zip(fields, lrow, crow) if norm(a) != norm(b)]
-        if not diffs:
-            same += 1
-            continue
-        upd = ts(model, lrow, fields, 'updated_at')
-        if upd and copy_cutoff and upd > copy_cutoff:
-            edited_after.append((pk, upd, diffs))
+        diffs = [f for f, a, b in zip(fields, lrow, crow) if not same_value(f, a, b)]
+        cleaned_here = [f for f in diffs
+                        if whitespace_cleanup(f, lrow[names.index(f.attname)], crow[names.index(f.attname)])]
+        if cleaned_here and len(cleaned_here) == len(diffs):
+            cleaned += 1
+            details.append(f'  {label} #{pk} .{cleaned_here[0].attname}: extra whitespace removed on import '
+                           f'({len(lrow[names.index(cleaned_here[0].attname)])} -> '
+                           f'{len(crow[names.index(cleaned_here[0].attname)])} chars) - expected')
+        elif not diffs:
+            identical += 1
+        elif after_import(first(lrow, names, CHANGED_FIELDS)):
+            live_edit += 1
+        elif after_import(first(crow, names, CHANGED_FIELDS)):
+            copy_edit += 1
         else:
-            mismatched.append((pk, diffs, lrow, crow))
-    only_copy = [pk for pk in copy if pk not in live]
+            real.append((pk, 'different', [(f.attname, lrow[names.index(f.attname)], crow[names.index(f.attname)]) for f in diffs]))
+    for pk, crow in copy.items():
+        if pk not in live:
+            if after_import(first(crow, names, CREATED_FIELDS)):
+                copy_new += 1
+            else:
+                real.append((pk, 'in copy but not in live (deleted in live after the copy?)', None))
 
-    # Records added after the copy are expected only if they really are newer.
-    unexplained_new = [x for x in new_after if not (x[1] and copy_cutoff and x[1] > copy_cutoff)]
     notes = []
-    if new_after:
-        notes.append(f'{len(new_after)} added in live after copy')
-    if edited_after:
-        notes.append(f'{len(edited_after)} edited in live after copy')
-    if mismatched:
-        notes.append(f'{len(mismatched)} DIFFERENT')
-    if only_copy:
-        notes.append(f'{len(only_copy)} ONLY IN COPY')
-    if unexplained_new:
-        notes.append(f'{len(unexplained_new)} MISSING FROM COPY')
-    total_unexplained += len(mismatched) + len(only_copy) + len(unexplained_new)
-    print(f'{label:42} {len(live):>8} {len(copy):>8} {same:>8}  {"; ".join(notes) or "identical"}')
+    if cleaned:
+        notes.append(f'{cleaned} whitespace-cleaned on import (expected)')
+    if live_new:
+        notes.append(f'{live_new} new in live since copy')
+    if live_edit:
+        notes.append(f'{live_edit} edited in live since copy')
+    if copy_new:
+        notes.append(f'{copy_new} new in copy since import')
+    if copy_edit:
+        notes.append(f'{copy_edit} edited in copy since import')
+    if real:
+        notes.append(f'{len(real)} REAL MISMATCH')
+    real_total += len(real)
+    print(f'{label:34} {len(live):>7} {len(copy):>7} {identical:>9}  {"; ".join(notes) or "all identical"}')
 
-    for pk, diffs, lrow, crow in mismatched[:MAX_SHOWN]:
-        for f in diffs:
-            a, b = lrow[fields.index(f)], crow[fields.index(f)]
-            details.append(f'  {label} {pk} .{f}: live={str(a)[:60]!r} ({len(str(a))} chars)  copy={str(b)[:60]!r} ({len(str(b))} chars)')
-    for pk in only_copy[:MAX_SHOWN]:
-        details.append(f'  {label} {pk}: only in copy (deleted in live after copy?)')
-    for pk, when in unexplained_new[:MAX_SHOWN]:
-        details.append(f'  {label} {pk}: in live but not in copy (created {when})')
+    for pk, kind, diffs in real[:MAX_SHOWN]:
+        if not diffs:
+            details.append(f'  {label} #{pk}: {kind}')
+        for name, a, b in diffs or []:
+            details.append(f'  {label} #{pk} .{name}: live={str(a)[:50]!r}  copy={str(b)[:50]!r}')
 
-print('-' * 78)
+print('-' * 86)
 if details:
     print('Details (first few per table):')
     print('\n'.join(details))
-print(f'RESULT: {"all records from copy time are identical" if total_unexplained == 0 else f"{total_unexplained} unexpected difference(s) - see details"}')
-print('=' * 78)
+print('RESULT: ' + ('every record that existed when the copy was taken is IDENTICAL (field by field).'
+                    if real_total == 0 else f'{real_total} REAL MISMATCH(ES) - see above.'))
+print('=' * 86)
 connections['live'].close()
 try:
     os.remove(SNAP)

@@ -1,0 +1,281 @@
+{% extends "base/base.html" %}
+{% load static %}
+{% block start %}
+
+<style>
+  :root { --wa: #25D366; --wa-dark: #128C7E; --wa-light: #dcf8c6; }
+  .wa-header {
+    background: linear-gradient(135deg, var(--wa-dark) 0%, var(--wa) 100%);
+    border-radius: 16px; color: #fff; padding: 24px 28px; margin-bottom: 24px;
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+  }
+  .wa-header h1 { margin: 0; font-size: 1.5rem; font-weight: 700; }
+  .wa-header p { margin: 4px 0 0; opacity: .88; font-size: .93rem; }
+  .card-wa { border: none; border-radius: 16px; box-shadow: 0 2px 16px rgba(0,0,0,.06); margin-bottom: 24px; }
+  .card-wa .card-header {
+    background: #fff; border-bottom: 1px solid #f0f0f0; border-radius: 16px 16px 0 0 !important;
+    padding: 16px 22px; font-weight: 600; display: flex; align-items: center; gap: 10px;
+  }
+  .state-pill { border-radius: 50px; padding: 6px 16px; font-weight: 700; font-size: .85rem; display: inline-flex; align-items: center; gap: 8px; }
+  .state-pill .dot { width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
+  .state-ready { background: #e7f9ee; color: #138a43; }
+  .state-qr { background: #fff6e0; color: #a86b00; }
+  .state-starting { background: #eaf1ff; color: #2f5fbf; }
+  .state-offline, .state-disconnected { background: #fdecec; color: #c0392b; }
+  #qrBox { background: #fff; border-radius: 14px; padding: 14px; display: inline-block; box-shadow: 0 2px 12px rgba(0,0,0,.1); }
+  .stat { background: #fff; border-radius: 14px; padding: 16px 18px; box-shadow: 0 2px 12px rgba(0,0,0,.05); height: 100%; }
+  .stat .n { font-size: 1.6rem; font-weight: 700; line-height: 1.1; }
+  .stat .l { color: #6c757d; font-size: .82rem; }
+  .wa-bubble {
+    background: var(--wa-light); border-radius: 12px 12px 12px 2px; padding: 12px 14px;
+    white-space: pre-wrap; font-size: .9rem; min-height: 60px; font-family: inherit;
+  }
+  .res-badge { border-radius: 50px; padding: 3px 11px; font-size: .74rem; font-weight: 600; white-space: nowrap; }
+  .res-found { background: #e7f9ee; color: #138a43; }
+  .res-not_found { background: #fdecec; color: #c0392b; }
+  .res-chat { background: #eaf1ff; color: #2f5fbf; }
+  .res-rate_limited, .res-disabled { background: #f1f1f1; color: #555; }
+  .conv-msg { max-width: 260px; white-space: pre-wrap; word-break: break-word; }
+  .conv-reply { max-width: 340px; white-space: pre-wrap; word-break: break-word; font-size: .82rem; color: #555; }
+  textarea.form-control { font-size: .88rem; }
+</style>
+
+<div class="wa-header">
+  <div>
+    <h1><i class="fab fa-whatsapp me-2"></i>WhatsApp Verification</h1>
+    <p>Customers send a card, certificate, sticker or report number on WhatsApp and get the verified details back automatically.</p>
+  </div>
+  <span id="statePill" class="state-pill state-{{ live_state }}"><span class="dot"></span><span id="stateText">{{ live_state|title }}</span></span>
+</div>
+
+<div class="row">
+  <!-- Connection -->
+  <div class="col-lg-5">
+    <div class="card card-wa">
+      <div class="card-header"><i class="fas fa-link text-success"></i> WhatsApp connection</div>
+      <div class="card-body text-center">
+        <div id="panelReady" style="display:none">
+          <i class="fab fa-whatsapp" style="font-size:3rem;color:var(--wa)"></i>
+          <h5 class="mt-2 mb-1">Connected</h5>
+          <p class="text-muted mb-3">Bot number: <strong id="botPhone">{{ bot_state.phone|default:"—" }}</strong></p>
+          <form method="post" action="{% url 'wa_bot_relink' %}" onsubmit="return confirm('Log out this WhatsApp number? A new QR code will appear so you can link a different number.')">
+            {% csrf_token %}
+            <button class="btn btn-outline-danger btn-sm rounded-pill"><i class="fas fa-sign-out-alt me-1"></i> Log out / link another number</button>
+          </form>
+        </div>
+        <div id="panelQr" style="display:none">
+          <p class="mb-2"><strong>Scan with WhatsApp</strong> on the phone that will be the bot:</p>
+          <p class="text-muted small mb-3">WhatsApp → Settings → Linked devices → Link a device</p>
+          <div id="qrBox"></div>
+          <p class="text-muted small mt-3 mb-0">The code refreshes by itself every ~20 seconds.</p>
+        </div>
+        <div id="panelWaiting" style="display:none">
+          <div class="spinner-border text-success mb-3" role="status"></div>
+          <p class="mb-1" id="waitingTitle">Starting WhatsApp…</p>
+          <p class="text-muted small mb-0" id="waitingHint">This can take up to a minute.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+      <div class="col-6"><div class="stat"><div class="n">{{ stats.today_total }}</div><div class="l">Messages today</div></div></div>
+      <div class="col-6"><div class="stat"><div class="n text-success">{{ stats.today_found }}</div><div class="l">Verified today</div></div></div>
+      <div class="col-6"><div class="stat"><div class="n text-danger">{{ stats.today_not_found }}</div><div class="l">Not found today</div></div></div>
+      <div class="col-6"><div class="stat"><div class="n">{{ stats.unique_people }}</div><div class="l">People served (all time)</div></div></div>
+    </div>
+
+    <!-- Test box -->
+    <div class="card card-wa">
+      <div class="card-header"><i class="fas fa-vial text-primary"></i> Test a message</div>
+      <div class="card-body">
+        <p class="text-muted small">See exactly what a customer would receive. Nothing is sent or logged.</p>
+        <div class="input-group mb-3">
+          <input type="text" id="testText" class="form-control" placeholder="e.g. 905951 or “hello”">
+          <button class="btn btn-success" id="testBtn" type="button"><i class="fas fa-paper-plane"></i></button>
+        </div>
+        <div class="wa-bubble" id="testReply"><span class="text-muted">The reply will appear here.</span></div>
+        <div class="small text-muted mt-2" id="testMeta"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div class="col-lg-7">
+    <div class="card card-wa">
+      <div class="card-header"><i class="fas fa-sliders-h text-secondary"></i> Bot settings</div>
+      <div class="card-body">
+        <form method="post" action="{% url 'wa_bot_save_settings' %}">
+          {% csrf_token %}
+          <div class="row g-3">
+            <div class="col-md-6">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="enabled" value="1" id="enabled" {% if settings_obj.enabled %}checked{% endif %}>
+                <label class="form-check-label fw-semibold" for="enabled">Bot replies to messages</label>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="use_ai" value="1" id="use_ai" {% if settings_obj.use_ai %}checked{% endif %} {% if not ai_available %}disabled{% endif %}>
+                <label class="form-check-label fw-semibold" for="use_ai">Free AI for general chat</label>
+              </div>
+              <div class="small text-muted">{% if ai_available %}Model: <code>{{ ai_model }}</code> (local, free). Never used for verification answers.{% else %}AI not configured — fixed welcome message is used.{% endif %}</div>
+            </div>
+            <div class="col-md-8">
+              <label class="form-label fw-semibold">Company name shown in replies</label>
+              <input type="text" class="form-control" name="brand" value="{{ settings_obj.brand }}" maxlength="120">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Lookups per person / hour</label>
+              <input type="number" class="form-control" name="max_lookups_per_hour" min="1" max="200" value="{{ settings_obj.max_lookups_per_hour }}">
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">Office contact (phone / email)</label>
+              <input type="text" class="form-control" name="office_contact" value="{{ settings_obj.office_contact }}" maxlength="200" placeholder="e.g. +966 5x xxx xxxx · info@boltinspection.com">
+              <div class="small text-muted">Given to people who ask about prices, bookings, renewals or lost cards.</div>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">Welcome / help message (English)</label>
+              <textarea class="form-control" name="welcome_text" rows="5">{{ settings_obj.welcome_text }}</textarea>
+              <div class="small text-muted">Sent when the message has no number. <code>{brand}</code> is replaced by the company name.</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Not found message</label>
+              <textarea class="form-control" name="not_found_text" rows="5">{{ settings_obj.not_found_text }}</textarea>
+              <div class="small text-muted"><code>{number}</code> is replaced by what they sent.</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Too many lookups message</label>
+              <textarea class="form-control" name="rate_limited_text" rows="5">{{ settings_obj.rate_limited_text }}</textarea>
+            </div>
+          </div>
+          <div class="alert alert-light border mt-3 mb-3 small">
+            <i class="fas fa-shield-alt text-success me-1"></i>
+            Only <strong>exact</strong> numbers of <strong>approved, active</strong> records are answered, Iqama numbers are masked
+            (<code>******4821</code>), and each phone number is limited per hour — so nobody can browse the database through the bot.
+          </div>
+          <button class="btn btn-success rounded-pill px-4"><i class="fas fa-save me-1"></i> Save settings</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Conversation log -->
+<div class="card card-wa">
+  <div class="card-header justify-content-between flex-wrap">
+    <span><i class="fas fa-comments text-success"></i> Conversations <span class="text-muted fw-normal">({{ conversations.paginator.count }})</span></span>
+    <form class="d-flex gap-2" method="get">
+      <input type="text" name="q" class="form-control form-control-sm" placeholder="Phone, number or text" value="{{ q }}">
+      <select name="result" class="form-select form-select-sm" style="width:auto">
+        <option value="">All results</option>
+        {% for value, label in result_choices %}<option value="{{ value }}" {% if result_filter == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      <button class="btn btn-sm btn-outline-success"><i class="fas fa-search"></i></button>
+    </form>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr><th>Time</th><th>From</th><th>Message</th><th>Result</th><th>Reply</th><th class="text-end">ms</th></tr>
+      </thead>
+      <tbody>
+      {% for c in conversations %}
+        <tr>
+          <td class="text-nowrap small">{{ c.created_at|date:"d-m-Y H:i" }}</td>
+          <td class="small"><strong>{{ c.name|default:"—" }}</strong><br><span class="text-muted">+{{ c.phone }}</span></td>
+          <td class="conv-msg small">{{ c.message|truncatechars:160 }}</td>
+          <td>
+            <span class="res-badge res-{{ c.result }}">{{ c.get_result_display }}</span>
+            {% if c.matched_type %}<div class="small text-muted mt-1">{{ c.matched_type }}</div>{% endif %}
+            {% if c.used_ai %}<div class="small text-muted"><i class="fas fa-robot"></i> AI</div>{% endif %}
+          </td>
+          <td class="conv-reply">{{ c.reply|truncatechars:220 }}</td>
+          <td class="text-end small text-muted">{{ c.response_ms }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="text-center text-muted py-5">
+          <i class="fab fa-whatsapp" style="font-size:2rem;opacity:.3"></i><br>No conversations yet.
+        </td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if conversations.paginator.num_pages > 1 %}
+  <div class="card-body d-flex justify-content-between align-items-center">
+    <span class="small text-muted">Page {{ conversations.number }} of {{ conversations.paginator.num_pages }}</span>
+    <div class="btn-group">
+      {% if conversations.has_previous %}<a class="btn btn-sm btn-outline-secondary" href="?q={{ q|urlencode }}&result={{ result_filter }}&page={{ conversations.previous_page_number }}">‹ Prev</a>{% endif %}
+      {% if conversations.has_next %}<a class="btn btn-sm btn-outline-secondary" href="?q={{ q|urlencode }}&result={{ result_filter }}&page={{ conversations.next_page_number }}">Next ›</a>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+(function () {
+  const statusUrl = "{% url 'wa_bot_status' %}";
+  const testUrl = "{% url 'wa_bot_test' %}";
+  const csrf = "{{ csrf_token }}";
+  const labels = { ready: 'Connected', qr: 'Scan QR code', starting: 'Starting', offline: 'Offline', disconnected: 'Disconnected' };
+  let lastQr = null, qr = null;
+
+  function show(id) {
+    ['panelReady', 'panelQr', 'panelWaiting'].forEach(p => document.getElementById(p).style.display = (p === id ? '' : 'none'));
+  }
+
+  function render(s) {
+    const pill = document.getElementById('statePill');
+    pill.className = 'state-pill state-' + s.state;
+    document.getElementById('stateText').textContent = labels[s.state] || s.state;
+    if (s.state === 'ready') {
+      document.getElementById('botPhone').textContent = s.phone ? '+' + s.phone : '—';
+      show('panelReady');
+    } else if (s.state === 'qr' && s.qr) {
+      show('panelQr');
+      if (s.qr !== lastQr) {
+        const box = document.getElementById('qrBox');
+        box.innerHTML = '';
+        qr = new QRCode(box, { text: s.qr, width: 240, height: 240, correctLevel: QRCode.CorrectLevel.L });
+        lastQr = s.qr;
+      }
+    } else {
+      show('panelWaiting');
+      const offline = s.state === 'offline';
+      document.getElementById('waitingTitle').textContent = offline ? 'WhatsApp listener is not running' :
+        (s.pending_command === 'logout' ? 'Logging out…' : 'Starting WhatsApp…');
+      document.getElementById('waitingHint').textContent = offline ?
+        'The listener container has not reported in the last 90 seconds.' : 'This can take up to a minute.';
+    }
+  }
+
+  function poll() {
+    fetch(statusUrl, { credentials: 'same-origin' }).then(r => r.json()).then(render).catch(() => {});
+  }
+  render({ state: '{{ live_state }}', qr: '{% if live_state == "qr" %}{{ bot_state.qr|escapejs }}{% endif %}', phone: '{{ bot_state.phone|escapejs }}' });
+  poll();
+  setInterval(poll, 3000);
+
+  function runTest() {
+    const text = document.getElementById('testText').value.trim();
+    if (!text) return;
+    const out = document.getElementById('testReply');
+    out.innerHTML = '<span class="text-muted">Thinking…</span>';
+    const body = new FormData();
+    body.append('text', text);
+    body.append('csrfmiddlewaretoken', csrf);
+    const t0 = performance.now();
+    fetch(testUrl, { method: 'POST', body, credentials: 'same-origin' })
+      .then(r => r.json())
+      .then(d => {
+        out.textContent = d.reply || '(no reply — bot is disabled)';
+        document.getElementById('testMeta').textContent =
+          'Result: ' + d.result + (d.used_ai ? ' · answered by AI' : '') + ' · ' + Math.round(performance.now() - t0) + ' ms';
+      })
+      .catch(() => { out.textContent = 'Test failed — please try again.'; });
+  }
+  document.getElementById('testBtn').addEventListener('click', runTest);
+  document.getElementById('testText').addEventListener('keydown', e => { if (e.key === 'Enter') runTest(); });
+})();
+</script>
+{% endblock %}
