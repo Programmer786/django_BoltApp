@@ -47,6 +47,10 @@ class Profile(BaseModel):
 
 @receiver(post_save, sender=User)
 def send_email_token(sender, instance, created, **kwargs):
+    # loaddata (raw=True) brings its own Profile rows; creating one here
+    # would collide with them on the user_id unique constraint.
+    if kwargs.get('raw'):
+        return
     try:
         if created:
             email_token = str(uuid.uuid4())

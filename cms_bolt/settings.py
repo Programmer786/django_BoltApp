@@ -39,6 +39,8 @@ ALLOWED_HOSTS = [
     'localhost',  # For local development
     '127.0.0.1',  # For local development
 ]
+# Extra hosts from the environment (comma-separated), e.g. for the Docker copy.
+ALLOWED_HOSTS += [h.strip() for h in os.getenv('EXTRA_ALLOWED_HOSTS', '').split(',') if h.strip()]
 
 LOGIN_URL = 'login'
 
@@ -112,9 +114,26 @@ WSGI_APPLICATION = 'cms_bolt.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': os.getenv('SQLITE_PATH') or BASE_DIR / 'db.sqlite3',
     }
 }
+
+# Docker deployment sets DB_ENGINE=mysql (plus DB_NAME/USER/PASSWORD/HOST/PORT).
+# Without it the SQLite config above is used unchanged.
+if os.getenv('DB_ENGINE', '').lower() == 'mysql':
+    DATABASES['default'] = {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': os.getenv('DB_NAME', 'bolt'),
+        'USER': os.getenv('DB_USER', 'bolt'),
+        'PASSWORD': os.getenv('DB_PASSWORD', ''),
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '3306'),
+        'CONN_MAX_AGE': 60,
+        'OPTIONS': {
+            'charset': 'utf8mb4',
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+        },
+    }
 
 
 # # this is the database for mysqldb

@@ -1,0 +1,39 @@
+# Docker copy of Bolt, deployed through Hostinger Docker Manager.
+# Secrets come from the project's environment (set in Docker Manager), never this file.
+#
+# The original app's folder is mounted READ-ONLY (:ro) and is only read once
+# to import a copy of its data. The original app keeps running untouched.
+services:
+  web:
+    build:
+      context: https://github.com/Programmer786/django_BoltApp.git#${GIT_BRANCH:-docker-deploy}
+    image: bolt_docker:latest
+    container_name: bolt_docker_web
+    restart: unless-stopped
+    ports:
+      - "8010:8000"
+    environment:
+      DB_ENGINE: mysql
+      DB_NAME: bolt_docker
+      DB_USER: bolt_docker
+      DB_PASSWORD: ${BOLT_DB_PASSWORD}
+      DB_HOST: shared_mysql
+      DB_PORT: "3306"
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      SECRET_KEY: ${SECRET_KEY}
+      DEBUG: "False"
+      SERVE_MEDIA: "1"
+      LIVE_APP_DIR: /live
+      GUNICORN_WORKERS: "2"
+    volumes:
+      - bolt_media:/app/media
+      - ${LIVE_APP_HOST_DIR:-/var/www/django_project}:/live:ro
+    networks:
+      - shared_network
+
+volumes:
+  bolt_media:
+
+networks:
+  shared_network:
+    external: true
