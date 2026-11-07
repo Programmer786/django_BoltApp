@@ -36,6 +36,8 @@ jobs:
         with:
           context: whatsapp-listener
           push: true
+          # Same (public) package as the app, different tag: a new package
+          # would be private by default and the server couldn't pull it.
           tags: |
-            ghcr.io/programmer786/bolt_wa_listener:latest
-            ghcr.io/programmer786/bolt_wa_listener:${{ github.sha }}
+            ghcr.io/programmer786/django_boltapp:listener
+            ghcr.io/programmer786/django_boltapp:listener-${{ github.sha }}

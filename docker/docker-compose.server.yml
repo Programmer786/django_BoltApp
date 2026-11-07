@@ -43,7 +43,7 @@ services:
           - bolt-web
 
   wa_listener:
-    image: ghcr.io/programmer786/bolt_wa_listener:latest
+    image: ghcr.io/programmer786/django_boltapp:listener
     container_name: bolt_wa_listener
     restart: unless-stopped
     depends_on:
