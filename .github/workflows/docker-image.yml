@@ -41,3 +41,12 @@ jobs:
           tags: |
             ghcr.io/programmer786/django_boltapp:listener
             ghcr.io/programmer786/django_boltapp:listener-${{ github.sha }}
+
+      # Serves HTTP and HTTPS together on the copy's public port.
+      - uses: docker/build-push-action@v6
+        with:
+          context: docker/proxy
+          push: true
+          tags: |
+            ghcr.io/programmer786/django_boltapp:proxy
+            ghcr.io/programmer786/django_boltapp:proxy-${{ github.sha }}

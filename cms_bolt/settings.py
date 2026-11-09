@@ -41,6 +41,8 @@ ALLOWED_HOSTS = [
 ]
 # Extra hosts from the environment (comma-separated), e.g. for the Docker copy.
 ALLOWED_HOSTS += [h.strip() for h in os.getenv('EXTRA_ALLOWED_HOSTS', '').split(',') if h.strip()]
+# HTTPS addresses in front of the Docker copy, needed for form posts behind its proxy.
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.getenv('CSRF_TRUSTED_ORIGINS', '').split(',') if o.strip()]
 
 LOGIN_URL = 'login'
 

@@ -13,8 +13,6 @@ services:
     image: ghcr.io/programmer786/django_boltapp:latest
     container_name: bolt_docker_web
     restart: unless-stopped
-    ports:
-      - "8010:8000"
     environment:
       DB_ENGINE: mysql
       DB_NAME: bolt_docker
@@ -31,7 +29,8 @@ services:
       WA_BOT_KEY: ${WA_BOT_KEY}
       OLLAMA_URL: http://bolt_ollama:11434
       OLLAMA_MODEL: qwen2.5:0.5b
-      EXTRA_ALLOWED_HOSTS: bolt-web
+      EXTRA_ALLOWED_HOSTS: bolt-web,app.boltlimited.com
+      CSRF_TRUSTED_ORIGINS: https://app.boltlimited.com,https://147.93.90.97:8010
     volumes:
       - bolt_media:/app/media
       - /var/www/django_project:/live:ro
@@ -41,6 +40,22 @@ services:
         # Hostnames with "_" are rejected by Django; the listener uses this alias.
         aliases:
           - bolt-web
+
+  proxy:
+    # Public port 8010: answers both http:// and https:// (docker/proxy).
+    image: ghcr.io/programmer786/django_boltapp:proxy
+    container_name: bolt_proxy
+    restart: unless-stopped
+    depends_on:
+      - web
+    ports:
+      - "8010:8010"
+    volumes:
+      - bolt_proxy_certs:/certs
+    mem_limit: 64m
+    cpus: 0.25
+    networks:
+      - shared_network
 
   wa_listener:
     image: ghcr.io/programmer786/django_boltapp:listener
@@ -111,6 +126,7 @@ services:
 
 volumes:
   bolt_media:
+  bolt_proxy_certs:
   bolt_wa_session_v2:
   bolt_ollama_models:
 
