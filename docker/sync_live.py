@@ -136,6 +136,10 @@ def write_status(**data):
 
 def sync_once():
     started = time.monotonic()
+    # Syncs can be hours apart when the live app is quiet, long enough for MySQL
+    # to drop an idle connection. Django only recycles connections around web
+    # requests, so without this a dead one would fail every retry forever.
+    connections['default'].close()
     snapshot(LIVE_DB, SNAP)
     cfg = dict(connections.settings['default'])
     cfg.update(ENGINE='django.db.backends.sqlite3', NAME=SNAP, USER='', PASSWORD='', HOST='', PORT='',
@@ -164,6 +168,7 @@ def sync_once():
                 cur.execute('SET FOREIGN_KEY_CHECKS=1')
     finally:
         connections['live'].close()
+        connections['default'].close()  # don't sit on an idle connection until the next sync
         try:
             os.remove(SNAP)
         except OSError:
