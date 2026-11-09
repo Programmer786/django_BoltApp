@@ -26,6 +26,7 @@ urlpatterns = [
     path('certificate/unhold/<uuid:uid>/', views.unhold_certificate, name='unhold_certificate'),
 
     path('equipment-types/', equipment_types.equipment_types_page, name='equipment_types'),
+    path('equipment-types/export/', equipment_types.equipment_types_export, name='equipment_types_export'),
     path('equipment-types/add/', equipment_types.equipment_type_add, name='equipment_type_add'),
     path('equipment-types/<int:pk>/edit/', equipment_types.equipment_type_edit, name='equipment_type_edit'),
     path('equipment-types/<int:pk>/delete/', equipment_types.equipment_type_delete, name='equipment_type_delete'),

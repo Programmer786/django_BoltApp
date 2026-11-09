@@ -2,9 +2,12 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
+from openpyxl import Workbook
+from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
+from openpyxl.styles import Font, PatternFill
 
 from base.utils import log_activity
 from whatsapp.views import superuser_required
@@ -80,6 +83,31 @@ def equipment_type_delete(request, pk):
     log_activity(user=request.user, action=f'Deleted equipment type {name}', request=request)
     messages.success(request, f'"{name}" removed from the list. Existing certificates keep their value.')
     return redirect('equipment_types')
+
+
+@superuser_required
+def equipment_types_export(request):
+    """The whole list as an Excel file, whatever is searched on the page."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Equipment Types'
+    ws.append(['#', 'Equipment Type'])
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+        cell.fill = PatternFill('solid', fgColor='DDDDDD')
+    names = EquipmentType.objects.values_list('name', flat=True)
+    for row, name in enumerate(names, start=2):
+        ws.cell(row=row, column=1, value=row - 1)
+        cell = ws.cell(row=row, column=2, value=ILLEGAL_CHARACTERS_RE.sub('', name))
+        cell.data_type = 's'  # a name starting with "=" stays text, not a formula
+    ws.column_dimensions['A'].width = 8
+    ws.column_dimensions['B'].width = 80
+    ws.freeze_panes = 'A2'
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="equipment_types_export.xlsx"'
+    wb.save(response)
+    return response
 
 
 @login_required
