@@ -6,6 +6,7 @@ urlpatterns = [
     path('whatsapp/verification/', views.verification_page, name='wa_bot_page'),
     path('whatsapp/verification/status/', views.status_json, name='wa_bot_status'),
     path('whatsapp/verification/settings/', views.save_settings, name='wa_bot_save_settings'),
+    path('whatsapp/verification/sync/', views.toggle_sync, name='wa_bot_toggle_sync'),
     path('whatsapp/verification/test/', views.test_message, name='wa_bot_test'),
     path('whatsapp/verification/relink/', views.relink, name='wa_bot_relink'),
     # Called by the WhatsApp listener container (shared X-Bot-Key header).

@@ -49,9 +49,13 @@
 </div>
 
 {% if live_sync %}
-<div class="alert {% if live_sync.ok %}alert-light border{% else %}alert-warning{% endif %} d-flex align-items-center gap-2 py-2 small">
-  <i class="fas fa-sync-alt {% if live_sync.ok %}text-success{% else %}text-warning{% endif %}"></i>
-  {% if live_sync.ok %}
+<div class="alert {% if live_sync.ok or not live_sync.enabled %}alert-light border{% else %}alert-warning{% endif %} d-flex align-items-center gap-2 py-2 small">
+  <i class="fas fa-sync-alt {% if not live_sync.enabled %}text-secondary{% elif live_sync.ok %}text-success{% else %}text-warning{% endif %}"></i>
+  {% if not live_sync.enabled %}
+    <span><strong>Live data sync is OFF.</strong> Nothing new is being copied. The last sync was {{ live_sync.at|timesince }} ago.</span>
+  {% elif live_sync.first_sync_pending %}
+    <span><strong>Live data sync is ON.</strong> The first sync is running now, then new changes are copied at most every {{ live_sync.interval_minutes }} minute{{ live_sync.interval_minutes|pluralize }}. Refresh this page in a minute to see the result.</span>
+  {% elif live_sync.ok %}
     <span>Data synced from the live app <strong>{{ live_sync.at|timesince }} ago</strong>
     {% if live_sync.total_changes %}— {{ live_sync.total_changes }} change{{ live_sync.total_changes|pluralize }} copied
       ({% for table, c in live_sync.changes.items %}{{ table }} +{{ c.inserted }} ~{{ c.updated }} −{{ c.deleted }}{% if not forloop.last %}, {% endif %}{% endfor %}){% else %}— already up to date{% endif %}.
@@ -59,6 +63,12 @@
   {% else %}
     <span>Live data sync failed {{ live_sync.at|timesince }} ago: {{ live_sync.error }}. It will retry automatically.</span>
   {% endif %}
+  <form method="post" action="{% url 'wa_bot_toggle_sync' %}" class="ms-auto d-flex align-items-center gap-2 flex-shrink-0">
+    {% csrf_token %}
+    <input type="hidden" name="enabled" value="{% if live_sync.enabled %}0{% else %}1{% endif %}">
+    <span class="badge rounded-pill {% if live_sync.enabled %}bg-success{% else %}bg-secondary{% endif %}">Sync {% if live_sync.enabled %}ON{% else %}OFF{% endif %}</span>
+    <button type="submit" class="btn btn-sm rounded-pill {% if live_sync.enabled %}btn-outline-danger{% else %}btn-success{% endif %}">Turn {% if live_sync.enabled %}OFF{% else %}ON{% endif %}</button>
+  </form>
 </div>
 {% endif %}
 

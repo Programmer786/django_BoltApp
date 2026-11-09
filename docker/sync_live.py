@@ -10,6 +10,10 @@ Update:  take a read-only snapshot of the live file, bring it to this code's
          timestamp). Changed tables (and every small table) are diffed row by
          row and only the differences are written: inserts, updates, deletes.
 
+On/off: the button on the WhatsApp Verification page writes CONTROL_FILE. While
+         it says off, nothing is synced. Turning it on syncs once straight away,
+         then the normal schedule above resumes. No file means on.
+
 The live file is only ever READ (mounted read-only, opened with mode=ro).
 The copy is a mirror: changes made directly in the copy's mirrored tables are
 overwritten. The bot's own tables (wa_bot) and logins (sessions) are skipped.
@@ -46,6 +50,8 @@ LIVE_DB = os.path.join(os.getenv('LIVE_APP_DIR', '/live'), 'db.sqlite3')
 SNAP = os.path.join(tempfile.gettempdir(), 'sync_live.sqlite3')
 MARKER = os.getenv('IMPORT_MARKER', '/app/media/.bolt_import')
 STATUS_FILE = os.getenv('SYNC_STATUS_FILE', '/app/media/.bolt_sync.json')
+CONTROL_FILE = os.getenv('SYNC_CONTROL_FILE', '/app/media/.bolt_sync_control.json')
+CONTROL_POLL = 3  # seconds between looks at the on/off button
 POLL = int(os.getenv('SYNC_POLL_SECONDS', '30'))
 MIN_INTERVAL = int(os.getenv('SYNC_MIN_INTERVAL', '60'))
 ALWAYS_DIFF_BELOW = 5000  # rows: small tables are always diffed in full
@@ -192,27 +198,53 @@ def wait_for_first_import():
         time.sleep(15)
 
 
+def read_control(previous):
+    """(enabled, turned_on_at) from the on/off button. No file means on; a
+    file that can't be read keeps the previous answer."""
+    try:
+        with open(CONTROL_FILE) as f:
+            data = json.load(f)
+        return bool(data.get('enabled', True)), data.get('turned_on_at')
+    except FileNotFoundError:
+        return True, None
+    except (OSError, ValueError):
+        return previous
+
+
 def main():
     if '--once' in sys.argv:
         sync_once()
         return
     wait_for_first_import()
     log(f'watching {LIVE_DB} (every {POLL}s, at most one sync per {MIN_INTERVAL}s)')
-    last_sig, last_sync = None, 0.0
+    last_sig, last_sync, next_check = None, 0.0, 0.0
+    control = read_control((True, None))
+    force = False  # True from the moment the button is turned on until that first sync runs
+    log('sync is', 'ON' if control[0] else 'OFF')
     while True:
-        try:
-            sig = file_signature()
-            if sig and sig != last_sig and time.monotonic() - last_sync >= MIN_INTERVAL:
-                time.sleep(3)  # let an in-progress write finish
-                if file_signature() == sig:
-                    sync_once()
-                    last_sig, last_sync = sig, time.monotonic()
-        except Exception as e:  # never die: report and retry next round
-            log('sync failed:', e)
-            traceback.print_exc()
-            write_status(ok=False, error=str(e)[:500], poll_seconds=POLL, min_interval=MIN_INTERVAL)
-            last_sync = time.monotonic()
-        time.sleep(POLL)
+        previous, control = control, read_control(control)
+        enabled, turned_on_at = control
+        if enabled != previous[0]:
+            log('sync turned', 'ON' if enabled else 'OFF')
+        force = enabled and (force or turned_on_at != previous[1])
+
+        if enabled and (force or time.monotonic() >= next_check):
+            next_check = time.monotonic() + POLL
+            try:
+                sig = file_signature()
+                due = sig != last_sig and time.monotonic() - last_sync >= MIN_INTERVAL
+                if sig and (force or due):
+                    time.sleep(3)  # let an in-progress write finish
+                    if file_signature() == sig:
+                        force = False
+                        sync_once()
+                        last_sig, last_sync = sig, time.monotonic()
+            except Exception as e:  # never die: report and retry next round
+                log('sync failed:', e)
+                traceback.print_exc()
+                write_status(ok=False, error=str(e)[:500], poll_seconds=POLL, min_interval=MIN_INTERVAL)
+                last_sync = time.monotonic()
+        time.sleep(CONTROL_POLL)
 
 
 if __name__ == '__main__':

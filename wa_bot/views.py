@@ -2,6 +2,7 @@ import hmac
 import json
 import os
 from datetime import datetime, timedelta
+from datetime import timezone as dt_timezone
 
 from django.conf import settings as django_settings
 from django.contrib import messages
@@ -30,6 +31,19 @@ def _live_state(state):
     return state.state
 
 
+def _sync_control_path():
+    return os.getenv('SYNC_CONTROL_FILE', os.path.join(str(django_settings.MEDIA_ROOT), '.bolt_sync_control.json'))
+
+
+def _read_sync_control():
+    """The on/off button's saved state; no file means on."""
+    try:
+        with open(_sync_control_path()) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {'enabled': True}
+
+
 def _live_sync_status():
     """Last result written by docker/sync_live.py (Docker copy only), or None."""
     path = os.getenv('SYNC_STATUS_FILE', os.path.join(str(django_settings.MEDIA_ROOT), '.bolt_sync.json'))
@@ -38,6 +52,11 @@ def _live_sync_status():
             data = json.load(f)
         data['at'] = datetime.fromisoformat(data['at'])
         data['interval_minutes'] = max(1, round(data.get('min_interval', 120) / 60))
+        control = _read_sync_control()
+        data['enabled'] = control.get('enabled', True)
+        turned_on_at = control.get('turned_on_at')
+        data['first_sync_pending'] = bool(
+            data['enabled'] and turned_on_at and datetime.fromisoformat(turned_on_at) > data['at'])
         return data
     except (OSError, ValueError, KeyError):
         return None
@@ -118,6 +137,33 @@ def save_settings(request):
     s.save()
     log_activity(user=request.user, action='Updated WhatsApp verification bot settings', request=request)
     messages.success(request, 'Bot settings saved.')
+    return redirect('wa_bot_page')
+
+
+@superuser_required
+@require_POST
+def toggle_sync(request):
+    """The live data sync's on/off button. docker/sync_live.py watches this file."""
+    enabled = request.POST.get('enabled') == '1'
+    control = _read_sync_control()
+    if control.get('enabled', True) == enabled:  # stale page or double click
+        return redirect('wa_bot_page')
+
+    control['enabled'] = enabled
+    if enabled:
+        control['turned_on_at'] = datetime.now(dt_timezone.utc).isoformat()
+    path = _sync_control_path()
+    try:
+        with open(path + '.tmp', 'w') as f:
+            json.dump(control, f)
+        os.replace(path + '.tmp', path)  # the sync program never sees a half-written file
+    except OSError as e:
+        messages.error(request, f'Could not change the live data sync: {e}')
+        return redirect('wa_bot_page')
+
+    log_activity(user=request.user, action=f'Turned live data sync {"ON" if enabled else "OFF"}', request=request)
+    messages.success(request, 'Live data sync is ON. The first sync is starting now.' if enabled
+                     else 'Live data sync is OFF. Nothing new will be copied until you turn it on.')
     return redirect('wa_bot_page')
 
 
