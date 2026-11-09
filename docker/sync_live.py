@@ -57,7 +57,8 @@ MIN_INTERVAL = int(os.getenv('SYNC_MIN_INTERVAL', '60'))
 ALWAYS_DIFF_BELOW = 5000  # rows: small tables are always diffed in full
 BATCH = 500
 
-SKIP_TABLES = {'django_session', 'django_migrations'}
+SKIP_TABLES = {'django_session', 'django_migrations',
+               'certificates_equipmenttype'}  # only in the copy, so never mirrored from live
 SKIP_APPS = {'wa_bot'}
 TIME_FIELDS = ('updated_at', 'timestamp', 'action_time', 'sent_at', 'last_login', 'date_joined', 'created_at')
 

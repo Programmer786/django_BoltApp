@@ -1,0 +1,166 @@
+{# Turns every editable Equipment Type box on the page into a searchable dropdown with "Add new Type". #}
+<script>
+(function () {
+    var OPTIONS_URL = "{% url 'equipment_type_options' %}";
+    var ADD_URL = "{% url 'equipment_type_quick_add' %}";
+    var CSRF_TOKEN = "{{ csrf_token }}";
+    var SELECTOR = 'input[name="equipment_type"]:not([readonly])';
+    var MAX_SHOWN = 100;
+
+    var types = null, loading = null;
+    var input = null, panel = null, original = '', active = -1;
+
+    function norm(s) { return (s || '').trim().replace(/\s+/g, ' ').toUpperCase(); }
+    function find(name) { return (types || []).find(function (t) { return norm(t) === name; }); }
+
+    function load() {
+        if (!loading) {
+            loading = fetch(OPTIONS_URL, {credentials: 'same-origin'})
+                .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+                .then(function (d) { types = d.types; })
+                .catch(function () { loading = null; });
+        }
+        return loading;
+    }
+
+    function addRow(text, onPick, extraClass) {
+        var row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'dropdown-item text-wrap' + (extraClass ? ' ' + extraClass : '');
+        row.textContent = text;
+        row.addEventListener('click', onPick);
+        panel.appendChild(row);
+    }
+
+    function note(text, extraClass) {
+        var row = document.createElement('div');
+        row.className = 'dropdown-item-text small ' + (extraClass || 'text-muted');
+        row.textContent = text;
+        panel.appendChild(row);
+    }
+
+    function render() {
+        if (!panel) return;
+        panel.textContent = '';
+        active = -1;
+        if (types === null) { note(loading ? 'Loading...' : 'Could not load the list.'); return; }
+
+        // Just opened on the saved value: show the whole list, not only that value.
+        var q = input.value === original ? '' : norm(input.value);
+        var matches = q ? types.filter(function (t) { return norm(t).indexOf(q) !== -1; }) : types;
+        matches.slice(0, MAX_SHOWN).forEach(function (t) {
+            addRow(t, function () { choose(t); });
+        });
+        if (!matches.length) note('No match found.');
+        if (matches.length > MAX_SHOWN) note('Showing ' + MAX_SHOWN + ' of ' + matches.length + '. Type to narrow the list.');
+
+        if (!q) {
+            addRow('+ Add new Type', function () {
+                input.value = '';
+                input.placeholder = 'Type the new equipment type';
+                render();
+            }, 'fw-bold text-primary border-top');
+        } else if (!find(q)) {
+            addRow('+ Add new Type: ' + q, function () { addNew(q); }, 'fw-bold text-primary border-top');
+        }
+    }
+
+    function open(el) {
+        if (panel && input === el) return;
+        close();
+        input = el;
+        original = el.value;
+        el.setAttribute('autocomplete', 'off');
+        el.parentNode.style.position = 'relative';
+        panel = document.createElement('div');
+        panel.className = 'dropdown-menu show w-100';
+        panel.style.cssText = 'position:absolute;top:100%;left:0;margin:0;max-height:260px;overflow-y:auto;';
+        // Keep focus in the box while the list is clicked or scrolled.
+        panel.addEventListener('mousedown', function (e) { e.preventDefault(); });
+        el.parentNode.appendChild(panel);
+        render();
+        load().then(render);
+    }
+
+    function close() {
+        if (panel) panel.remove();
+        panel = null;
+    }
+
+    function choose(name) {
+        input.value = name;
+        original = name;
+        input.placeholder = '';
+        close();
+    }
+
+    function addNew(name) {
+        fetch(ADD_URL, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': CSRF_TOKEN},
+            body: 'name=' + encodeURIComponent(name)
+        }).then(function (r) {
+            return r.json().then(function (d) { if (!r.ok) throw new Error(d.error); return d; });
+        }).then(function (d) {
+            if (!find(norm(d.name))) {
+                types.push(d.name);
+                types.sort();
+            }
+            choose(d.name);
+        }).catch(function (e) {
+            note(e.message || 'Could not add this type.', 'text-danger');
+        });
+    }
+
+    // Only list values are saved. Typed text that was never picked or added is undone.
+    function settle() {
+        if (types !== null) {
+            var match = find(norm(input.value));
+            if (match) input.value = match;
+            else if (norm(input.value)) input.value = original;
+        }
+        input.placeholder = '';
+        close();
+    }
+
+    function move(step) {
+        var rows = panel.querySelectorAll('.dropdown-item');
+        if (!rows.length) return;
+        if (active >= 0) rows[active].classList.remove('active');
+        active = (active + step + rows.length) % rows.length;
+        rows[active].classList.add('active');
+        rows[active].scrollIntoView({block: 'nearest'});
+    }
+
+    document.addEventListener('focusin', function (e) {
+        if (e.target.matches(SELECTOR)) open(e.target);
+    });
+    document.addEventListener('click', function (e) {
+        if (e.target.matches(SELECTOR)) open(e.target);
+    });
+    document.addEventListener('input', function (e) {
+        if (e.target === input) render();
+    });
+    document.addEventListener('focusout', function (e) {
+        if (e.target === input && panel) settle();
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.target !== input || !panel) return;
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            move(e.key === 'ArrowDown' ? 1 : -1);
+        } else if (e.key === 'Enter') {
+            e.preventDefault();  // never submit the certificate from this box
+            var row = panel.querySelectorAll('.dropdown-item')[active];
+            if (row) row.click();
+            else if (find(norm(input.value))) choose(find(norm(input.value)));
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();  // close the list, not the certificate's popup
+            input.value = original;
+            close();
+        }
+    }, true);
+})();
+</script>

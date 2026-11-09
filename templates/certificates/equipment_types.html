@@ -1,0 +1,94 @@
+{% extends "base/base.html" %}
+{% block start %}
+<h1 class="page-header">Equipment Type (Total: {{ total_types }})</h1>
+<hr class="mb-4">
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <div class="row g-3">
+            <form method="post" action="{% url 'equipment_type_add' %}" class="col-md-6 d-flex gap-2">
+                {% csrf_token %}
+                <input type="text" name="name" class="form-control" maxlength="200" placeholder="New equipment type" required>
+                <button type="submit" class="btn btn-primary text-nowrap"><i class="fas fa-plus me-1"></i> Add</button>
+            </form>
+            <form method="get" class="col-md-6 d-flex gap-2">
+                <input type="search" name="q" value="{{ q }}" class="form-control" placeholder="Search">
+                <button type="submit" class="btn btn-secondary">Search</button>
+                {% if q %}<a href="{% url 'equipment_types' %}" class="btn btn-light">Clear</a>{% endif %}
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr><th>#</th><th>Equipment Type</th><th class="text-end">Actions</th></tr>
+                </thead>
+                <tbody>
+                    {% for item in types %}
+                    <tr>
+                        <td>{{ types.start_index|add:forloop.counter0 }}</td>
+                        <td>{{ item.name }}</td>
+                        <td class="text-end">
+                            <div class="d-flex gap-2 justify-content-end">
+                                <button type="button" class="btn btn-sm btn-primary js-rename"
+                                        data-name="{{ item.name }}" data-action="{% url 'equipment_type_edit' item.pk %}"
+                                        data-bs-toggle="modal" data-bs-target="#renameModal">
+                                    <i class="fas fa-edit me-1"></i> Edit
+                                </button>
+                                <form method="post" action="{% url 'equipment_type_delete' item.pk %}"
+                                      onsubmit="return confirm('Remove this equipment type from the list? Existing certificates keep their value.');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash me-1"></i> Delete</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" class="text-center text-muted py-4">No equipment types found.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if types.paginator.num_pages > 1 %}
+        <div class="d-flex justify-content-between align-items-center">
+            {% if types.has_previous %}<a class="btn btn-light" href="?page={{ types.previous_page_number }}&q={{ q|urlencode }}">Previous</a>{% else %}<span></span>{% endif %}
+            <span class="text-muted">Page {{ types.number }} of {{ types.paginator.num_pages }}</span>
+            {% if types.has_next %}<a class="btn btn-light" href="?page={{ types.next_page_number }}&q={{ q|urlencode }}">Next</a>{% else %}<span></span>{% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="modal fade" id="renameModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="post" id="renameForm" class="modal-content">
+            {% csrf_token %}
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Equipment Type</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="text" name="name" id="renameName" class="form-control" maxlength="200" required>
+                <div class="form-text">This changes the list only. Existing certificates keep their current value.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('click', function (e) {
+    var button = e.target.closest('.js-rename');
+    if (!button) return;
+    document.getElementById('renameForm').action = button.dataset.action;
+    document.getElementById('renameName').value = button.dataset.name;
+});
+</script>
+{% endblock %}

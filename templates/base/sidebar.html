@@ -386,6 +386,12 @@
                     <span class="menu-text">Log Activity</span>
                 </a>
             </div>
+            <div class="menu-item {% if sidebar_active == 'equipment_types' %}active{% endif %}">
+                <a href="{% url 'equipment_types' %}" class="menu-link">
+                    <span class="menu-icon"><i class="fa fa-tags text-dark"></i></span>
+                    <span class="menu-text">Equipment Type</span>
+                </a>
+            </div>
             {% endif %}
 
             {% if user.is_superuser %}

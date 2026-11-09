@@ -79,3 +79,20 @@ class Certificate(BaseModel):
     def city(self):
         profile = getattr(self.user, 'profile', None) if self.user else None
         return getattr(profile, 'city', None)
+
+
+def normalize_equipment_type(value):
+    return ' '.join((value or '').split()).upper()
+
+
+class EquipmentType(models.Model):
+    """Choices for Certificate.equipment_type, which itself stays plain text."""
+    name = models.CharField(max_length=200, unique=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name

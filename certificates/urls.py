@@ -1,5 +1,5 @@
 from django.urls import path, include
-from certificates import views
+from certificates import equipment_types, views
 
 urlpatterns = [
     path('manage-certificates/', views.manage_certificates, name="manage_certificates"),
@@ -24,6 +24,13 @@ urlpatterns = [
     path('certificate/delete/<uuid:uid>/', views.delete_rejected_certificate, name="delete_rejected_certificate"),
     path('certificate/hold/<uuid:uid>/', views.hold_certificate, name='hold_certificate'),
     path('certificate/unhold/<uuid:uid>/', views.unhold_certificate, name='unhold_certificate'),
+
+    path('equipment-types/', equipment_types.equipment_types_page, name='equipment_types'),
+    path('equipment-types/add/', equipment_types.equipment_type_add, name='equipment_type_add'),
+    path('equipment-types/<int:pk>/edit/', equipment_types.equipment_type_edit, name='equipment_type_edit'),
+    path('equipment-types/<int:pk>/delete/', equipment_types.equipment_type_delete, name='equipment_type_delete'),
+    path('equipment-types/options/', equipment_types.equipment_type_options, name='equipment_type_options'),
+    path('equipment-types/quick-add/', equipment_types.equipment_type_quick_add, name='equipment_type_quick_add'),
 
     path('certificate/update-field/<uuid:uid>/', views.update_certificate_field, name='update_certificate_field'),
 ]

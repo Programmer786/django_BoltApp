@@ -26,7 +26,8 @@ from django.db import connections, transaction  # noqa: E402
 
 SRC = sys.argv[1]
 BATCH = 1000
-SKIP_TABLES = {'django_session', 'django_migrations'}
+SKIP_TABLES = {'django_session', 'django_migrations',
+               'certificates_equipmenttype'}  # only in the copy, so never mirrored from live
 
 cfg = dict(connections.settings['default'])
 cfg.update(ENGINE='django.db.backends.sqlite3', NAME=SRC, USER='', PASSWORD='', HOST='', PORT='',

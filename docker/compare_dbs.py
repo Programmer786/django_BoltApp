@@ -34,7 +34,7 @@ from bootstrap import snapshot  # noqa: E402
 LIVE_SRC = sys.argv[1]
 MARKER = sys.argv[2] if len(sys.argv) > 2 else '/app/media/.bolt_import'
 SNAP = os.path.join(tempfile.gettempdir(), 'compare_live.sqlite3')
-SKIP = {'sessions.Session'}
+SKIP = {'sessions.Session', 'certificates.EquipmentType'}  # only in the copy, so never mirrored from live
 SKIP_APPS = {'wa_bot'}  # bot tables exist only in the copy
 CREATED_FIELDS = ('created_at', 'timestamp', 'date_joined', 'sent_at', 'action_time')
 CHANGED_FIELDS = ('updated_at', 'last_login')
