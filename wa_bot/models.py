@@ -1,4 +1,9 @@
+from datetime import timedelta
+
 from django.db import models
+from django.utils import timezone
+
+KEEP_CONVERSATIONS_DAYS = 3
 
 DEFAULT_WELCOME = (
     "👋 Welcome to *{brand}* verification.\n\n"
@@ -88,3 +93,7 @@ class BotConversation(models.Model):
 
     def __str__(self):
         return f'{self.phone} {self.result} {self.created_at:%Y-%m-%d %H:%M}'
+
+    @classmethod
+    def delete_expired(cls):
+        cls.objects.filter(created_at__lt=timezone.now() - timedelta(days=KEEP_CONVERSATIONS_DAYS)).delete()

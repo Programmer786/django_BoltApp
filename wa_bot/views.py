@@ -19,7 +19,7 @@ from whatsapp.views import superuser_required
 
 from . import ai
 from .engine import build_reply, handle_incoming
-from .models import BotConversation, BotSettings, BotState
+from .models import KEEP_CONVERSATIONS_DAYS, BotConversation, BotSettings, BotState
 
 STALE_AFTER = timedelta(seconds=90)  # listener heartbeats every 30s
 
@@ -66,6 +66,7 @@ def _live_sync_status():
 
 @superuser_required
 def verification_page(request):
+    BotConversation.delete_expired()  # the listener's heartbeat does this too, unless it is stopped
     settings = BotSettings.load()
     state = BotState.load()
     q = request.GET.get('q', '').strip()
@@ -100,6 +101,7 @@ def verification_page(request):
         'ai_model': ai.OLLAMA_MODEL,
         'conversations': page,
         'stats': stats,
+        'keep_days': KEEP_CONVERSATIONS_DAYS,
         'q': q,
         'result_filter': result,
         'result_choices': BotConversation.RESULT_CHOICES,
@@ -238,4 +240,5 @@ def api_status(request):
     command = state.pending_command
     state.pending_command = ''
     state.save()
+    BotConversation.delete_expired()
     return JsonResponse({'command': command})
